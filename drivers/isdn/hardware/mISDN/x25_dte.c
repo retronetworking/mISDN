@@ -137,7 +137,7 @@ static struct FsmNode RFnList[] =
 	{ST_R1,	EV_L2_RESTART,		r_restart_ind},
 	{ST_R1,	EV_L2_RESTART_CNF,	r_restart_cnf_err},
 	{ST_R2,	EV_L3_RESTART_REQ,	r_restart_l3},
-	{ST_R2,	EV_L2_RESTART,		r_restart_ind},
+	{ST_R2,	EV_L2_RESTART,		r_restart_cnf},
 	{ST_R2,	EV_L2_RESTART_CNF,	r_restart_cnf},
 	{ST_R2,	EV_L3_RESTART_TOUT,	r_timeout},
 	{ST_R2,	EV_LL_READY,		r_llready},
