@@ -115,6 +115,9 @@ get_stack4id(int id)
 {
 	hisaxstack_t *cst, *st = hisax_stacklist;
 
+	
+	if (debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "get_stack4id(%x)\n", id);
 	while(st) {
 		if (id == st->id)
 			return(st);
