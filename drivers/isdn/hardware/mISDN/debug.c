@@ -60,7 +60,8 @@ mISDN_getrev(const char *revision)
 	if ((p = strchr(revision, ':'))) {
 		rev = p + 2;
 		p = strchr(rev, '$');
-		*--p = 0;
+		if (p)
+			*--p = 0;
 	} else
 		rev = "???";
 	return rev;
