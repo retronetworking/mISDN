@@ -603,7 +603,7 @@ release_l1(layer1_t *l1) {
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
 	REMOVE_FROM_LISTBASE(l1, ((layer1_t *)isdnl1.ilist));
-	isdnl1.ctrl(inst->st, MGR_UNREGLAYER | REQUEST, inst);
+	isdnl1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(l1);
 }
 

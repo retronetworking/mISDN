@@ -163,9 +163,9 @@ del_layer(devicelayer_t *dl) {
 	int		i;
 
 	if (device_debug & DEBUG_MGR_FUNC) {
-		printk(KERN_DEBUG "del_layer: dl(%p) inst(%p) LM(%x) dev(%p) nexti(%p)\n", 
+		printk(KERN_DEBUG __FUNCTION__": dl(%p) inst(%p) LM(%x) dev(%p) nexti(%p)\n", 
 			dl, inst, inst->pid.layermask, dev, inst->next);
-		printk(KERN_DEBUG "del_layer iaddr %x inst %s\n",
+		printk(KERN_DEBUG __FUNCTION__": iaddr %x inst %s\n",
 			dl->iaddr, inst->name);
 	}
 	if (dl->lm_st && inst->st) {

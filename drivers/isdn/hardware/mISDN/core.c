@@ -201,10 +201,12 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		}
 		return(-EINVAL);
 	    case MGR_UNREGLAYER | REQUEST:
-		return(unregister_instance(arg));
+		return(unregister_instance(data));
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(disconnect_if(data, prim, arg));
+	    case MGR_CONNECT | REQUEST:
+		return(ConnectIF(data, arg));
 	    case MGR_LOADFIRM | REQUEST:
 	    	if (st->mgr && st->mgr->obj && st->mgr->obj->own_ctrl)
 	    		return(st->mgr->obj->own_ctrl(st->mgr, prim, arg));

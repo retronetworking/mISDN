@@ -1947,7 +1947,7 @@ release_l2(layer2_t *l2)
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
 	REMOVE_FROM_LISTBASE(l2, ((layer2_t *)isdnl2.ilist));
-	isdnl2.ctrl(inst->st, MGR_UNREGLAYER | REQUEST, inst);
+	isdnl2.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(l2);
 }
 

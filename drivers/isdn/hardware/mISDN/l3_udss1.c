@@ -2188,7 +2188,7 @@ release_udss1(layer3_t *l3)
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
 	REMOVE_FROM_LISTBASE(l3, ((layer3_t *)u_dss1.ilist));
-	u_dss1.ctrl(inst->st, MGR_UNREGLAYER | REQUEST, inst);
+	u_dss1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(l3);
 }
 
