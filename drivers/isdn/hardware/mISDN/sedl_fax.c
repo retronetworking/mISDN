@@ -97,7 +97,7 @@ const char *Sedlbauer_Types[] =
 #define SEDL_RESET      0x3	/* same as DOS driver */
 
 /* data struct */
-
+// #define SPIN_DEBUG
 typedef struct _sedl_fax {
 	struct _sedl_fax	*prev;
 	struct _sedl_fax	*next;
@@ -581,7 +581,8 @@ add_if(hisaxinstance_t *inst, int channel, hisaxif_t *hif) {
 	    case ISDN_PID_L1_B_TRANS_TTS:
 	    case ISDN_PID_L1_B_64HDLC:
 	    case ISDN_PID_L2_B_TRANS:
-		printk(KERN_DEBUG "speedfax_add_if ch%d p:%x\n", channel, hif->protocol);
+		printk(KERN_DEBUG "speedfax_add_if ch%d p:%x\n", channel,
+			hif->protocol);
 	    	if ((channel<0) || (channel>1))
 	    		return(-EINVAL);
 		hif->fdata = &card->bch[channel];

@@ -163,6 +163,8 @@ del_stack_if(hisaxstack_t *st, hisaxif_t *hif) {
 
 	if (!hif)
 		return(-EINVAL);
+	if (!hif->layermask)
+		return(-EINVAL);
 	lay = layermask2layer(hif->layermask);
 	if (debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "del_stack_if for layer %d proto %x/%x\n",
