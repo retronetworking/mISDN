@@ -738,6 +738,7 @@ int init_hisaxdev (int debug) {
 		udev_obj.DPROTO.protocol[i] = ISDN_PID_ANY;
 		udev_obj.BPROTO.protocol[i] = ISDN_PID_ANY;
 	}
+	udev_obj.own_ctrl = udev_manager;
 	udev_obj.prev = NULL;
 	udev_obj.next = NULL;
 	device_debug = debug;
