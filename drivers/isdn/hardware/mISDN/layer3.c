@@ -165,7 +165,7 @@ newcallref(layer3_t *l3)
 {
 	int max = 127;
 
-	if (test_bit(FLG_CRLEN2, &nl3->Flag))
+	if (test_bit(FLG_CRLEN2, &l3->Flag))
 		max = 32767;
 
 	if (l3->OrigCallRef >= max)
