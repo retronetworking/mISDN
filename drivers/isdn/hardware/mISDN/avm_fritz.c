@@ -999,6 +999,7 @@ fritz_manager(void *data, u_int prim, void *arg) {
 			}
 			fritz.ctrl(inst->up.peer, MGR_DISCONNECT | REQUEST,
 				&inst->up);
+			fritz.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 		}
 		break;
 	    case MGR_RELEASE | INDICATION:

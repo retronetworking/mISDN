@@ -31,8 +31,9 @@ extern int free_hisaxdev(void);
 /* from hisax_stack.c */
 
 extern hisaxstack_t	*hisax_stacklist;
+extern hisaxinstance_t	*hisax_instlist;
 
-extern void		get_stack_profile(iframe_t *);
+extern void		get_stack_info(iframe_t *);
 extern int		get_stack_cnt(void);
 extern hisaxstack_t	*get_stack4id(int);
 extern hisaxstack_t	*new_stack(hisaxstack_t *, hisaxinstance_t *);

@@ -631,9 +631,11 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 				inst->down.fdata = &card->bch[channel];
 				isar_down(&inst->down, MGR_DISCONNECT | REQUEST,
 					0, 0, NULL);
+				
 			}
 			speedfax.ctrl(inst->up.peer, MGR_DISCONNECT | REQUEST,
 				&inst->up);
+			speedfax.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 		}
 		break;
 	    case MGR_RELEASE | INDICATION:

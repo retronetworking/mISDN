@@ -450,6 +450,10 @@ ConnectIF(hisaxinstance_t *owner, hisaxinstance_t *peer)
 int DisConnectIF(hisaxinstance_t *inst, hisaxif_t *hif) {
 	
 	if (hif) {
+		if (hif->next && hif->next->owner) {
+			hif->next->owner->obj->ctrl(hif->next->owner,
+				MGR_DISCONNECT | REQUEST, hif->next);
+		}	
 		if (inst->up.peer) {
 			if (inst->up.peer == hif->owner)
 				inst->up.peer->obj->ctrl(inst->up.peer,

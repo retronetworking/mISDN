@@ -47,6 +47,7 @@ typedef struct _layer2 {
 	int		T200, N200, T203;
 	int		debug;
 	hisaxinstance_t	inst;
+	hisaxif_t	*cloneif;
 	struct sk_buff	*windowar[MAX_WINDOW];
 	struct sk_buff	*down_skb;
 	struct sk_buff_head i_queue;
