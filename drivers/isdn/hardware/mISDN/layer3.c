@@ -11,8 +11,8 @@
  *
  */
 #define __NO_VERSION__
-#include "hisaxl3.h"
 #include "helper.h"
+#include "hisaxl3.h"
 
 const char *l3_revision = "$Revision$";
 
@@ -294,6 +294,7 @@ release_l3_process(l3_process_t *p)
 	if (!p)
 		return;
 	l3 = p->l3;
+	hisax_l3up(p, CC_RELEASE_CR | INDICATION, NULL);
 	REMOVE_FROM_LISTBASE(p, l3->proc);
 	StopAllL3Timer(p);
 	kfree(p);
@@ -532,6 +533,8 @@ init_l3(layer3_t *l3)
 void
 release_l3(layer3_t *l3)
 {
+	printk(KERN_DEBUG "release_l3(%p) proc(%p) global(%p) dummy(%p)\n",
+		l3, l3->proc, l3->global, l3->dummy);
 	while (l3->proc)
 		release_l3_process(l3->proc);
 	if (l3->global) {

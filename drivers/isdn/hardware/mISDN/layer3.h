@@ -7,6 +7,9 @@
 #include <linux/hisaxif.h>
 #include <linux/skbuff.h>
 #include "fsm.h"
+#ifdef MEMDBG
+#include "memdbg.h"
+#endif
 
 #define SBIT(state) (1<<state)
 #define ALL_STATES  0x03ffffff

@@ -15,6 +15,9 @@
 #include "../avmb1/capilli.h"
 #include "asn1.h"
 #include "fsm.h"
+#ifdef MEMDBG
+#include "memdbg.h"
+#endif
 
 // ---------------------------------------------------------------------------
 // common stuff

@@ -8,6 +8,9 @@
 
 #include <linux/hisaxif.h>
 #include "fsm.h"
+#ifdef MEMDBG
+#include "memdbg.h"
+#endif
 
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1

@@ -15,6 +15,9 @@
 #include <asm/io.h>
 #include <linux/ioport.h>
 #include <linux/skbuff.h>
+#ifdef MEMDBG
+#include "memdbg.h"
+#endif
 
 #define MAX_DFRAME_LEN_L1	300
 #define MAX_MON_FRAME		32

@@ -9,6 +9,9 @@
 #include <linux/hisaxif.h>
 #include <linux/skbuff.h>
 #include "fsm.h"
+#ifdef MEMDBG
+#include "memdbg.h"
+#endif
 
 #define MAX_WINDOW	8
 
