@@ -415,7 +415,7 @@ dtmf_from_up(mISDNif_t *hif, struct sk_buff *skb)
 	hh = mISDN_HEAD_P(skb);
 	switch(hh->prim) {
 		case (PH_CONTROL | REQUEST):
-			if (skb->len >= sizeof(int)) {
+			if ((hh->dinfo == 0) && (skb->len >= sizeof(int))) {
 				data = (int *)skb->data;
 				if (dtmf->debug & DEBUG_DTMF_CTRL)
 					printk(KERN_DEBUG "DTMF: PH_CONTROL REQ data %04x\n",
@@ -423,14 +423,14 @@ dtmf_from_up(mISDNif_t *hif, struct sk_buff *skb)
 				if (*data == DTMF_TONE_START) {
 					test_and_set_bit(FLG_DTMF_ACTIV, &dtmf->Flags);
 					dtmf_reset(dtmf);
+					break;
 				} else if (*data == DTMF_TONE_STOP) {
 					test_and_clear_bit(FLG_DTMF_ACTIV, &dtmf->Flags);
 					dtmf_reset(dtmf);
+					break;
 				}
-				break;
-			} else
-				printk(KERN_ERR "dtmf_from_up: skb too shoort %d\n",
-					skb->len);
+			}
+			/* Fall trough in case of not handled function */
 		default:
 			return(dtmf->inst.down.func(&dtmf->inst.down, skb));
 	}
