@@ -177,7 +177,9 @@ find_object(int protocol) {
 
 static mISDNobject_t *
 find_object_module(int protocol) {
+#ifdef CONFIG_KMOD
 	int		err;
+#endif
 	moditem_t	*m = modlist;
 	mISDNobject_t	*obj;
 

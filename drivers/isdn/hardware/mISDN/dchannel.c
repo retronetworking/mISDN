@@ -17,6 +17,7 @@ dchannel_bh(dchannel_t *dch)
 {
 	struct sk_buff	*skb;
 	int		err;
+	mISDN_head_t	*hh;
 
 	if (!dch)
 		return;
@@ -35,9 +36,10 @@ dchannel_bh(dchannel_t *dch)
 #endif
 	if (test_and_clear_bit(D_XMTBUFREADY, &dch->event)) {
 		if ((skb = dch->next_skb)) {
+			hh = mISDN_HEAD_P(skb);
 			dch->next_skb = NULL;
 			skb_trim(skb, 0);
-			if (if_newhead(&dch->inst.up, PH_DATA_CNF, DINFO_SKB, skb))
+			if (if_newhead(&dch->inst.up, PH_DATA_CNF, hh->dinfo, skb))
 				dev_kfree_skb(skb);
 		}
 	}
