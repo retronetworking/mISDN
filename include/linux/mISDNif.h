@@ -241,7 +241,7 @@
 typedef struct _iframe {
 	u_int	addr;
 	u_int	prim;
-	u_int	dinfo;
+	int	dinfo;
 	int	len;
 	union {
 		u_char	b[4];
