@@ -30,10 +30,8 @@ EXPORT_SYMBOL(HiSax_unregister);
 
 static moditem_t modlist[] = {
 	{"hisaxl1", 1, ISDN_PID_L1_TE_S0},
-	{"hisaxl1", 1, ISDN_PID_L1_B_TRANS},
-	{"hisaxl1", 1, ISDN_PID_L1_B_HDLC},
 	{"hisaxl2", 2, ISDN_PID_L2_LAPD},
-	{"hisaxl2", 2, ISDN_PID_L2_LAPB},
+	{"hisaxl2", 2, ISDN_PID_L2_B_X75SLP},
 	{NULL, -1, ISDN_PID_NONE}
 };
 

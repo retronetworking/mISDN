@@ -1992,7 +1992,7 @@ create_l2(hisaxstack_t *st, hisaxif_t *hif) {
 			return(NULL);
 		}
 		break;
-	    case ISDN_PID_L2_LAPB:
+	    case ISDN_PID_L2_B_X75SLP:
 		test_and_set_bit(FLG_LAPB, &nl2->flag);
 		sprintf(nl2->inst.id, "lapb %d", st->id);
 		nl2->window = 7;
@@ -2117,7 +2117,7 @@ del_if(layer2_t *l2, hisaxif_t *hif) {
 static char MName[] = "ISDNL2";
 
 static int L2Protocols[] = {	ISDN_PID_L2_LAPD,
-				ISDN_PID_L2_LAPB
+				ISDN_PID_L2_B_X75SLP
 			};
 #define PROTOCOLCNT	(sizeof(L2Protocols)/sizeof(int))
  
