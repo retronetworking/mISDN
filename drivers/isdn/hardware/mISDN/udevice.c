@@ -1540,7 +1540,7 @@ free_device(mISDNdevice_t *dev)
 static int
 mISDN_open(struct inode *ino, struct file *filep)
 {
-	u_int		minor = MINOR(ino->i_rdev);
+	u_int		minor = iminor(ino);
 	mISDNdevice_t 	*dev = NULL;
 	u_long		flags;
 	int		isnew = 0;

@@ -89,6 +89,8 @@ int plci_l3l4(Plci_t *plci, int pr, struct sk_buff *skb)
 				if (cplci) 
 					cplci_l3l4(cplci, pr, qi);
 			}
+			if (plci->nAppl == 0)
+				contrDelPlci(plci->contr, plci);
 			break;
 	}
 	dev_kfree_skb(skb);
@@ -118,9 +120,6 @@ void plciDetachCplci(Plci_t *plci, Cplci_t *cplci)
 	cplci->plci = 0;
 	plci->cplcis[applId - 1] = 0;
 	plci->nAppl--;
-	if (plci->nAppl == 0) {
-		contrDelPlci(plci->contr, plci);
-	}
 }
 
 #if 0
