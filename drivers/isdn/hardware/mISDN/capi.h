@@ -61,7 +61,9 @@ void free_cplci(void);
 void free_ncci(void);
 void capidebug(int, char *, ...);
 
-#define CAPI_B3_DATA_IND_HEADER_SIZE	22
+/* we implement 64 bit extentions */
+#define CAPI_B3_DATA_IND_HEADER_SIZE	30
+
 #define SuppServiceCF			0x00000010
 #define SuppServiceTP			0x00000002
 #define mISDNSupportedServices		(SuppServiceCF | SuppServiceTP)
