@@ -65,3 +65,5 @@ extern int		unregister_instance(mISDNinstance_t *);
 extern mISDNinstance_t	*get_next_instance(mISDNstack_t *, mISDN_pid_t *);
 extern mISDNobject_t	*get_object(int);
 extern mISDNinstance_t	*get_instance4id(u_int);
+extern int		mISDN_alloc_entity(int *);
+extern int		mISDN_delete_entity(int);

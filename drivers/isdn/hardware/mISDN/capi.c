@@ -97,6 +97,9 @@ capi20_manager(void *data, u_int prim, void *arg) {
 		return(-EINVAL);
 	}
 	switch(prim) {
+	    case MGR_NEWENTITY | CONFIRM:
+		ctrl->entity = (int)arg;
+		break;
 	    case MGR_CONNECT | REQUEST:
 		return(ConnectIF(inst, arg));
 	    case MGR_SETIF | INDICATION:

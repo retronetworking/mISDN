@@ -215,7 +215,7 @@ void applSuppFacilityReq(Appl_t *appl, _cmsg *cmsg)
 		Info = cplciFacSuspendReq(cplci, &facReqParm, &facConfParm);
 		break;
 	case 0x0005: // Resume
-		plci = contrNewPlci(appl->contr);
+		plci = contrNewPlci(appl->contr, MISDN_ID_ANY);
 		if (!plci) {
 			Info = CapiNoPlciAvailable;
 			break;
@@ -277,8 +277,8 @@ static int dummy_L4L3(DummyProcess_t *dpc, __u32 prim, struct sk_buff *skb) {
 	Contr_t *contr = dpc->contr;
 	int	err;
 
-	err = contrL4L3(contr, prim, contr->adrController | DUMMY_CR_FLAG,
-		skb);
+//	err = contrL4L3(contr, prim, contr->adrController | DUMMY_CR_FLAG, skb);
+	err = contrL4L3(contr, prim, MISDN_ID_DUMMY, skb);
 	if (err)
 		dev_kfree_skb(skb);
 	return(err);

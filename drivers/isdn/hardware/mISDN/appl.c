@@ -88,7 +88,7 @@ void applSendMessage(Appl_t *appl, struct sk_buff *skb)
 		cplciSendMessage(cplci, skb);
 		break;
 	case CAPI_CONNECT_REQ:
-		plci = contrNewPlci(appl->contr);
+		plci = contrNewPlci(appl->contr, MISDN_ID_ANY);
 		if (!plci) {
 			contrAnswerMessage(appl->contr, skb, CapiNoPlciAvailable);
 			goto free;
