@@ -10,6 +10,7 @@
  */
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/module.h>
 #include <linux/isdn_compat.h>
 #ifdef NEED_JIFFIES_INCLUDE
 #include <linux/jiffies.h>

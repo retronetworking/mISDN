@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/module.h>
 #include <linux/mISDNif.h>
 #include "layer1.h"
 #include "bchannel.h"

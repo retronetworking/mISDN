@@ -8,6 +8,7 @@
  *
  */
 
+#include <linux/module.h>
 #include <linux/mISDNif.h>
 #include "dss1.h"
 #include "helper.h"

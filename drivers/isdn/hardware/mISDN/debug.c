@@ -6,6 +6,7 @@
  *
  */
 
+#include <linux/module.h>
 #include <linux/mISDNif.h>
 #include <linux/kernel.h>
 #include <linux/string.h>
