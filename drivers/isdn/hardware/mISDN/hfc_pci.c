@@ -46,9 +46,9 @@ extern const char *CardType[];
 
 #ifdef HFC_TENOVIS
 	#ifdef HFC_TENOVIS_LOOP
-		static const char *hfcpci_revision = "$Revision$";
+		static const char *hfcpci_revision = "$Revision$ , Tenovis loop mod.";
 	#else
-		static const char *hfcpci_revision = "$Revision$";
+		static const char *hfcpci_revision = "$Revision$ , Tenovis mod.";
 	#endif
 #else
 	static const char *hfcpci_revision = "$Revision$";
