@@ -211,20 +211,11 @@ insertlayer(hisaxstack_t *st, hisaxlayer_t *layer, int layermask)
 		return(-EINVAL);
 	}
 	item = st->lstack;
-	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "lstack(%p)",
-			st->lstack);
 	if (!item) {
 		st->lstack = layer;
-		if (core_debug & DEBUG_CORE_FUNC)
-			printk("\n");
 	} else {
 		while(item) {
 			if (layermask < get_layermask(item)) {
-				if (core_debug & DEBUG_CORE_FUNC)
-					printk(" item(%p) lm(%x) prev(%p)\n",
-						item, get_layermask(item),
-						item->prev);
 				INSERT_INTO_LIST(layer, item, st->lstack);
 				return(0);
 			} else {
@@ -233,9 +224,6 @@ insertlayer(hisaxstack_t *st, hisaxlayer_t *layer, int layermask)
 			}
 			item = item->next;
 		}
-		if (core_debug & DEBUG_CORE_FUNC)
-			printk(" item(%p) lm(%x)\n",
-				item, get_layermask(item));
 		item->next = layer;
 		layer->prev = item;
 	}

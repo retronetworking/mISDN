@@ -157,7 +157,7 @@ l1up(layer1_t *l1, u_int prim, int dinfo, int len, void *arg) {
 	int		err = -EINVAL;
 	hisaxif_t	*upif = &l1->inst.up;
 
-	if (upif) {
+	if (upif->func) {
 		err = upif->func(upif, prim, dinfo, len, arg);
 		if (err < 0) {
 			printk(KERN_WARNING "HiSax: l1up err %d\n", err);
@@ -511,6 +511,8 @@ l1from_up(hisaxif_t *hif, u_int prim, int dinfo, int len, void *arg) {
 				FsmEvent(&l1->l1m, EV_PH_ACTIVATE, arg);
 			}
 			break;
+		case (MDL_FINDTEI | REQUEST):
+			return(l1up(l1, prim, dinfo, len, arg));
 		default:
 			if (l1->debug)
 				hisaxdebug(l1->inst.st->id, NULL,

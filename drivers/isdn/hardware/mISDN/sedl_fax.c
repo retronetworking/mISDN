@@ -420,7 +420,6 @@ static int SpeedfaxProtocols[] = {	ISDN_PID_L0_TE_S0,
 					ISDN_PID_L1_B_TRANS_TTS,
 					ISDN_PID_L1_B_64HDLC,
 					ISDN_PID_L2_B_TRANS,
-					ISDN_PID_L3_B_TRANS,
 			};
 #define SPEEDFAX_PCNT	(sizeof(SpeedfaxProtocols)/sizeof(int))
 
@@ -590,7 +589,6 @@ add_if(hisaxinstance_t *inst, int channel, hisaxif_t *hif) {
 	    case ISDN_PID_L1_B_TRANS_TTS:
 	    case ISDN_PID_L1_B_64HDLC:
 	    case ISDN_PID_L2_B_TRANS:
-	    case ISDN_PID_L3_B_TRANS:
 		printk(KERN_DEBUG "speedfax_add_if ch%d p:%x\n", channel, hif->protocol);
 	    	if ((channel<0) || (channel>1))
 	    		return(-EINVAL);
@@ -698,10 +696,6 @@ set_stack(hisaxstack_t *st, hisaxinstance_t *inst, int chan, hisax_pid_t *pid) {
 		if (HasProtocol(inst, pid->protocol[2])) {
 			layer |= ISDN_LAYER(2);
 			inst->pid.protocol[2] = pid->protocol[2];
-			if (HasProtocol(inst, pid->protocol[3])) {
-				layer |= ISDN_LAYER(3);
-				inst->pid.protocol[3] = pid->protocol[3];
-			}
 		}
 	}
 	inst->layermask = layer;
@@ -716,6 +710,16 @@ set_stack(hisaxstack_t *st, hisaxinstance_t *inst, int chan, hisax_pid_t *pid) {
 	if ((err = speedfax.ctrl(st, MGR_ADDIF | REQUEST, &inst->up))) {
 		printk(KERN_WARNING "set_stack MGR_ADDIF err(%d)\n", err);
 		return(err);
+	}
+	if  (chan != 2) { /* B-channel */
+		u_int pr;
+
+		if (inst->pid.protocol[2] == ISDN_PID_L2_B_TRANS)
+			pr = DL_ESTABLISH | REQUEST;
+		else
+			pr = PH_ACTIVATE | REQUEST;
+		
+		isar_down(&inst->down, pr, 0, 0, NULL);
 	}
 	return(0);	                                    
 }
@@ -883,6 +887,8 @@ Speedfax_init(void)
 			card->bch[i].inst.layermask = 0;
 			card->bch[i].inst.up.layermask = ISDN_LAYER(1);
 			card->bch[i].inst.up.inst = &card->bch[i].inst;
+			card->bch[i].inst.down.fdata = &card->bch[i];
+			card->bch[i].inst.down.func = dummy_down;
 			card->bch[i].inst.lock = lock_dev;
 			card->bch[i].inst.unlock = unlock_dev;
 			card->bch[i].debug = debug;

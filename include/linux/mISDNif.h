@@ -105,6 +105,7 @@
 #define MDL_ERROR	0x023000
 #define MDL_INFORMATION	0x024000
 #define MDL_STATUS	0x028100
+#define MDL_FINDTEI	0x028200
 
 /* layer 3 */
 #define CC_SETUP		0x030100
@@ -265,7 +266,7 @@ typedef struct _moditem {
 typedef struct _hisax_pid {
 	int	protocol[MAX_LAYER_NR +1];
 	void	*param[MAX_LAYER_NR +1];
-	void	*global;
+	__u16	global;
 } hisax_pid_t;
 
 

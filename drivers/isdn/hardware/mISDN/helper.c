@@ -150,10 +150,12 @@ int bprotocol2pid(void *bp, hisax_pid_t *pid) {
 		p += *p;
 		p++;
 	}
-	if (*p)
-		pid->global = p;
-	else
-		pid->global = NULL;
+	pid->global = 0;
+	if (*p == 2) { // len of 1 word
+		p++;
+		w = (__u16 *)p;
+		pid->global = *w;
+	}
 	return(0);
 }
 

@@ -82,7 +82,7 @@ findtei(teimgr_t *tm, int tei)
 
 	if (tei == 127)
 		return (NULL);
-	if (!tei_l2(tm->l2, MDL_STATUS | REQUEST, tei, sizeof(void), &ptr))
+	if (!tei_l2(tm->l2, MDL_FINDTEI | REQUEST, tei, sizeof(void), &ptr))
 		return(ptr);
 	return (NULL);
 }

@@ -24,11 +24,17 @@ typedef struct _teimgr {
 	struct _layer2	*l2;
 } teimgr_t;
 
+typedef struct _laddr {
+	u_char	A;
+	u_char	B;
+} laddr_t;
+
 typedef struct _layer2 {
 	struct _layer2	*prev;
 	struct _layer2	*next;
 	int		sapi;
 	int		tei;
+	laddr_t		addr;
 	int		maxlen;
 	teimgr_t	*tm;
 	u_int		flag;
