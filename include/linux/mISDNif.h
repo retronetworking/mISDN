@@ -622,7 +622,7 @@ typedef struct _hisaxinstance {
 	void			*data;
 	hisaxif_t		up;
 	hisaxif_t		down;
-	int			(*lock)(void *);
+	void			(*lock)(void *);
 	void			(*unlock)(void *);
 } hisaxinstance_t;
 

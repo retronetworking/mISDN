@@ -9,7 +9,7 @@
  */
  
 #define __NO_VERSION__
-#include "hisax_hw.h"
+#include "hisax_dch.h"
 #include "hisaxl1.h"
 #include "isac.h"
 #include "arcofi.h"

@@ -20,6 +20,13 @@
 #define ARCOFI_RX_END	3
 #define ARCOFI_TIMEOUT	4
 
+struct arcofi_msg {
+	struct arcofi_msg	*next;
+	u_char			receive;
+	u_char			len;
+	u_char			msg[10];
+};
+
 extern int arcofi_fsm(dchannel_t *, int, void *);
 extern void init_arcofi(dchannel_t *);
 extern void clear_arcofi(dchannel_t *);

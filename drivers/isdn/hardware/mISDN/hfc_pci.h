@@ -238,7 +238,6 @@ typedef union {
 	u_char fill[32768]; 
 } fifo_area;
 
-
 #define Write_hfc(a,b,c) (*(((u_char *)a->hw.pci_io)+b) = c) 
 #define Read_hfc(a,b) (*(((u_char *)a->hw.pci_io)+b))
 
