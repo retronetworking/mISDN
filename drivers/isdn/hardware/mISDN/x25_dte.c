@@ -61,6 +61,7 @@ r_r0_restart_l3(struct FsmInst *fi, int event, void *arg)
 	else
 		memset(l3->cause, 0, 2);
 	test_and_set_bit(X25_STATE_ESTABLISH, &l3->state);
+	FsmEvent(&l3->l2l3m, EV_L3_ESTABLISH_REQ, NULL);
 }
 
 static void
