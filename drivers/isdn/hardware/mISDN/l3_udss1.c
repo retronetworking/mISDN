@@ -1991,9 +1991,10 @@ dss1_fromdown(mISDNif_t *hif, struct sk_buff *skb)
 	if (l3->debug & L3_DEB_STATE)
 		l3_debug(l3, "dss1up cr %d", qi->cr);
 	if (qi->crlen == 0) {	/* Dummy Callref */
-		if (qi->type == MT_FACILITY)
+		if (qi->type == MT_FACILITY) {
 			l3dss1_facility(l3->dummy, hh->prim, skb);
-		else if (l3->debug & L3_DEB_WARN)
+			return(0);
+		} else if (l3->debug & L3_DEB_WARN)
 			l3_debug(l3, "dss1up dummy Callref (no facility msg or ie)");
 		dev_kfree_skb(skb);
 		return(0);
