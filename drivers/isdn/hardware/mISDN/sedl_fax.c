@@ -915,15 +915,15 @@ static struct pnp_device_id sedlpnp_ids[] __devinitdata = {
 
 static struct pnp_driver sedlpnp_driver = {
 #else
-static struct isapnp_device_id fcpnp_ids[] __devinitdata = {
+static struct isapnp_device_id sedlpnp_ids[] __devinitdata = {
 	{ ISAPNP_VENDOR('S', 'A', 'G'), ISAPNP_FUNCTION(0x02),
 	  ISAPNP_VENDOR('S', 'A', 'G'), ISAPNP_FUNCTION(0x02), 
 	  (unsigned long) "Speedfax + PnP" },
 	{ }
 };
-MODULE_DEVICE_TABLE(isapnp, fcpnp_ids);
+MODULE_DEVICE_TABLE(isapnp, sedlpnp_ids);
 
-static struct isapnp_driver fcpnp_driver = {
+static struct isapnp_driver sedlpnp_driver = {
 #endif
 	name:     "speedfax pnp",
 	probe:    sedlpnp_probe,
