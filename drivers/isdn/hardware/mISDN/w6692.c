@@ -1067,6 +1067,7 @@ w6692_l2l1B(mISDNif_t *hif, struct sk_buff *skb)
 		ret = 0;
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
 		ret = 0;
+		bch->inst.lock(bch->inst.data, 0);
 		if (hh->dinfo == HW_POTS_ON) {
 			ret = enable_pots(bch);
 		} else if (hh->dinfo == HW_POTS_OFF) {
@@ -1077,6 +1078,7 @@ w6692_l2l1B(mISDNif_t *hif, struct sk_buff *skb)
 			ret = setvolume(bch, 0, skb);
 		} else
 			ret = -EINVAL;
+		bch->inst.unlock(bch->inst.data);
 	} else {
 		printk(KERN_WARNING "%s: unknown prim(%x)\n",
 			__FUNCTION__, hh->prim);
