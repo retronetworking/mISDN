@@ -36,6 +36,10 @@
 #endif
 #include <linux/timer.h>
 
+#ifdef MISDN_MEMDEBUG
+#include "memdbg.h"
+#endif
+
 extern int dsp_options;
 extern int dsp_debug;
 
