@@ -303,8 +303,9 @@ release_layers(mISDNstack_t *st, u_int prim)
 }
 
 int
-do_for_all_layers(mISDNstack_t *st, u_int prim, void *arg)
+do_for_all_layers(void *data, u_int prim, void *arg)
 {
+	mISDNstack_t	*st = data;
 	mISDNinstance_t *inst;
 	mISDNlayer_t    *layer, *nl;
 	int		cnt = 0;
