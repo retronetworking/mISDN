@@ -476,6 +476,7 @@ unregister_instance(hisaxinstance_t *inst) {
 		inst->st = NULL;
 	}
 	REMOVE_FROM_LISTBASE(inst, hisax_instlist);
+	inst->prev = inst->next = NULL;
 	inst->id = 0;
 	inst->obj->refcnt--;
 	return(0);
