@@ -864,6 +864,7 @@ l3dss1_connect(l3_process_t *pc, u_char pr, void *arg)
 		return;
 	}
 	L3DelTimer(&pc->timer);	/* T310 */
+	l3dss1_message(pc, MT_CONNECT_ACKNOWLEDGE);
 	newl3state(pc, 10);
 	pc->para.CONNECT.CHANNEL_ID =
 		l3dss1_get_channel_id(pc, skb);
