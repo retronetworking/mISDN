@@ -1028,6 +1028,7 @@ fritz_manager(void *data, u_int prim, void *arg) {
 		printk(KERN_DEBUG "%s: data(%p) prim(%x) arg(%p)\n",
 			__FUNCTION__, data, prim, arg);
 	if (!data) {
+		MGR_HASPROTOCOL_HANDLER(prim,arg,&fritz)
 		printk(KERN_ERR "%s: no data prim %x arg %p\n",
 			__FUNCTION__, prim, arg);
 		return(-EINVAL);
@@ -1124,6 +1125,7 @@ fritz_manager(void *data, u_int prim, void *arg) {
 					0, 0, NULL, 0);
 		}
 		break;
+	    PRIM_NOT_HANDLED(MGR_CTRLREADY | INDICATION);
 	    default:
 		printk(KERN_WARNING "%s: prim %x not handled\n",
 			__FUNCTION__, prim);
