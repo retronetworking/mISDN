@@ -684,7 +684,6 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 
 	if (!st || !pid)
 		return(-EINVAL);
-#warning KARSTEN: How can i prevent memory swapping AND if currently swapped, restore from swap?
 	if (!(ndsp = vmalloc(sizeof(dsp_t)))) {
 		printk(KERN_ERR "%s: vmalloc dsp_t failed\n", __FUNCTION__);
 		return(-ENOMEM);
@@ -818,7 +817,9 @@ static int dsp_init(void)
 
 	/* fill mISDN object (dsp_obj) */
 	memset(&dsp_obj, 0, sizeof(dsp_obj));
-	SET_MODULE_OWNER(dsp_obj);
+#ifdef MODULE
+	SET_MODULE_OWNER(&dsp_obj);
+#endif
 	dsp_obj.name = DSPName;
 	dsp_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_DSP;
 	dsp_obj.own_ctrl = dsp_manager;
