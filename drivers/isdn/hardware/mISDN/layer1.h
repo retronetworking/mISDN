@@ -20,9 +20,11 @@
 #define D_RX_MON1	5
 #define D_TX_MON0	6
 #define D_TX_MON1	7
+#define D_BLOCKEDATOMIC	8
 
-#define B_RCVBUFREADY 0
-#define B_XMTBUFREADY 1
+#define B_RCVBUFREADY	0
+#define B_XMTBUFREADY	1
+#define B_BLOCKEDATOMIC	2
 
 #define FLG_L1_ACTIVATING	1
 #define FLG_L1_ACTIVATED	2
