@@ -8,6 +8,7 @@
 #include <stdarg.h>
 #include <linux/types.h>
 #include <linux/errno.h>
+#include <linux/isdn_compat.h>
 
 /* primitives for information exchange
  * generell format
