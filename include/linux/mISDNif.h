@@ -233,11 +233,12 @@
 
 /* limits for buffers */
 
-#define MAX_PHONE_DIGIT	31
-#define MAX_DFRAME_LEN	260
-#define MAX_DATA_SIZE	2048
-#define MAX_DATA_MEM	2080
-#define MAX_HEADER_LEN	4
+#define MAX_PHONE_DIGIT		31
+#define MAX_DFRAME_LEN		260
+#define MAX_DATA_SIZE		2048
+#define MAX_DATA_MEM		2080
+#define MAX_HEADER_LEN		4
+#define UPLINK_HEADER_SPACE	22
 
 /* structure for information exchange between layer/entity boundaries */
 

@@ -24,6 +24,18 @@ discard_queue(struct sk_buff_head *q)
 	return(ret);
 }
 
+struct sk_buff *
+alloc_uplink_skb(size_t size)
+{
+	struct sk_buff *skb;
+
+	if (!(skb = alloc_skb(size + UPLINK_HEADER_SPACE, GFP_ATOMIC)))
+		printk(KERN_WARNING __FUNCTION__"(%d): no skb size\n",
+			size);
+	else
+		skb_reserve(skb, UPLINK_HEADER_SPACE);
+	return(skb);
+}
 
 int
 init_dchannel(dchannel_t *dch) {
