@@ -110,7 +110,7 @@ isac_bh(dchannel_t *dch)
 {
 	if (!dch)
 		return;
-	printk(KERN_DEBUG __FUNCTION__": event %x\n", dch->event);
+	printk(KERN_DEBUG "%s: event %x\n", __FUNCTION__, dch->event);
 #if 0
 	if (test_and_clear_bit(D_CLEARBUSY, &dch->event)) {
 		if (dch->debug)

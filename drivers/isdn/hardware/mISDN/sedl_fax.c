@@ -408,6 +408,9 @@ static int cfg_idx;
 
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
+#ifdef MODULE_LICENSE
+MODULE_LICENSE("GPL");
+#endif
 MODULE_PARM(debug, "1i");
 MODULE_PARM(io, MODULE_PARM_T);
 MODULE_PARM(protocol, MODULE_PARM_T);
@@ -590,7 +593,8 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	int		channel = -1;
 	struct sk_buff	*skb;
 
-	printk(KERN_DEBUG __FUNCTION__": data:%p prim:%x arg:%p\n", data, prim, arg);
+	printk(KERN_DEBUG "%s: data:%p prim:%x arg:%p\n",
+		__FUNCTION__, data, prim, arg);
 	if (!data) {
 		printk(KERN_ERR "speedfax_manager no data prim %x arg %p\n",
 			prim, arg);
@@ -663,7 +667,8 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 		break;
 	    case MGR_CONNECT | REQUEST:
 		if (!card) {
-			printk(KERN_WARNING __FUNCTION__": connect request failed\n");
+			printk(KERN_WARNING "%s: connect request failed\n",
+				__FUNCTION__);
 			return(-ENODEV);
 		}
 		return(ConnectIF(inst, arg));
@@ -671,7 +676,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	    case MGR_SETIF | REQUEST:
 	    case MGR_SETIF | INDICATION:
 		if (!card) {
-			printk(KERN_WARNING __FUNCTION__": setif failed\n");
+			printk(KERN_WARNING "%s: setif failed\n", __FUNCTION__);
 			return(-ENODEV);
 		}
 		if (channel==2)
@@ -704,7 +709,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 		}
 	    case MGR_SETSTACK | CONFIRM:
 		if (!card) {
-			printk(KERN_WARNING __FUNCTION__": setstack failed\n");
+			printk(KERN_WARNING "%s: setstack failed\n", __FUNCTION__);
 			return(-ENODEV);
 		}
 		if ((channel!=2) && (inst->pid.global == 2)) {

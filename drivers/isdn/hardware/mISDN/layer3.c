@@ -488,8 +488,8 @@ l3_msg(layer3_t *l3, u_int pr, int dinfo, int len, void *arg)
 			} else {
 				struct sk_buff *skb = arg;
 
-//				printk(KERN_DEBUG __FUNCTION__ "queue skb %p len(%d)\n",
-//					skb, skb->len);
+//				printk(KERN_DEBUG "%s: queue skb %p len(%d)\n",
+//					__FUNCTION__, skb, skb->len);
 				skb_queue_tail(&l3->squeue, skb);
 				FsmEvent(&l3->l3m, EV_ESTABLISH_REQ, NULL); 
 			}
@@ -569,4 +569,3 @@ HiSaxl3Free(void)
 {
 	FsmFree(&l3fsm);
 }
- 

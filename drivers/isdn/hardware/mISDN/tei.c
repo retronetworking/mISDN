@@ -406,7 +406,7 @@ l2_tei(teimgr_t *tm, struct sk_buff *skb)
 	if (!tm || !skb)
 		return(ret);
 	hh = HISAX_HEAD_P(skb);
-	printk(KERN_DEBUG __FUNCTION__ ": prim(%x)\n", hh->prim);
+	printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
 	switch(hh->prim) {
 	    case (MDL_UNITDATA | INDICATION):
 	    	return(tei_ph_data_ind(tm, hh->dinfo, skb));
