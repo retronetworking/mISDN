@@ -92,7 +92,7 @@ isac_new_ph(dchannel_t *dch)
 	}
 	while(upif) {
 		if_link(upif, prim, para, 0, NULL, 0);
-		upif = upif->next;
+		upif = upif->clone;
 	}
 }
 
