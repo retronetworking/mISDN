@@ -69,7 +69,7 @@ l3m_debug(struct FsmInst *fi, char *fmt, ...)
 
 	va_start(log.args, fmt);
 	log.fmt = fmt;
-	log.head = l3->inst.id;
+	log.head = l3->inst.name;
 	l3->inst.obj->ctrl(&l3->inst, MGR_DEBUGDATA | REQUEST, &log);
 	va_end(log.args);
 }
@@ -81,7 +81,7 @@ l3_debug(layer3_t *l3, char *fmt, ...)
 
 	va_start(log.args, fmt);
 	log.fmt = fmt;
-	log.head = l3->inst.id;
+	log.head = l3->inst.name;
 	l3->inst.obj->ctrl(&l3->inst, MGR_DEBUGDATA | REQUEST, &log);
 	va_end(log.args);
 }

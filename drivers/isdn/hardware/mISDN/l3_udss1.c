@@ -2252,6 +2252,7 @@ create_udss1(hisaxstack_t *st, hisaxif_t *hif) {
 		nl3->dummy->l3 = nl3;
 		L3InitTimer(nl3->dummy, &nl3->dummy->timer);
 	}
+	sprintf(nl3->inst.name, "DSS1 %d", st->id);
 	nl3->inst.pid.protocol[lay] = hif->protocol;
 	nl3->inst.obj = &u_dss1;
 	nl3->inst.layermask = hif->layermask;

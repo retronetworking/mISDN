@@ -20,6 +20,7 @@ int contrConstr(Contr_t *contr, hisaxstack_t *st, hisaxif_t *hif, hisaxobject_t 
 
 	memset(contr, 0, sizeof(Contr_t));
 	contr->adrController = st->id;
+	sprintf(contr->inst.name, "CAPI %d", st->id);
 	contr->inst.obj = ocapi;
 	APPEND_TO_LIST(contr, ocapi->ilist);
 	while(cst) {

@@ -45,7 +45,7 @@ debugprint(hisaxinstance_t *inst, char *fmt, ...)
 	logdata_t log;
 
 	va_start(log.args, fmt);
-	log.head = inst->id;
+	log.head = inst->name;
 	log.fmt = fmt;
 	inst->obj->ctrl(inst, MGR_DEBUGDATA | REQUEST, &log);
 	va_end(log.args);

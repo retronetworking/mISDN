@@ -1219,7 +1219,7 @@ Fritz_init(void)
 		card->dch.inst.up.inst = &card->dch.inst;
 		card->dch.inst.down.inst = &card->dch.inst;
 		card->dch.inst.down.func = dummy_down;
-		sprintf(card->dch.inst.id, "Fritz%d", fritz_cnt+1);
+		sprintf(card->dch.inst.name, "Fritz%d", fritz_cnt+1);
 		set_dchannel_pid(&pid, protocol[fritz_cnt],
 			layermask[fritz_cnt]);
 		init_dchannel(&card->dch);
@@ -1235,7 +1235,8 @@ Fritz_init(void)
 			card->bch[i].inst.lock = lock_dev;
 			card->bch[i].inst.unlock = unlock_dev;
 			card->bch[i].debug = debug;
-			sprintf(card->bch[i].inst.id, "%s B%d", card->dch.inst.id, i+1);
+			sprintf(card->bch[i].inst.name, "%s B%d",
+				card->dch.inst.name, i+1);
 			init_bchannel(&card->bch[i]);
 		}
 		printk(KERN_DEBUG "fritz card %p dch %p bch1 %p bch2 %p\n",

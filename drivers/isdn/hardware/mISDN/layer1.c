@@ -147,7 +147,7 @@ l1m_debug(struct FsmInst *fi, char *fmt, ...)
 
 	va_start(log.args, fmt);
 	log.fmt = fmt;
-	log.head = l1->inst.id;
+	log.head = l1->inst.name;
 	l1->inst.obj->ctrl(&l1->inst, MGR_DEBUGDATA | REQUEST, &log);
 	va_end(log.args);
 }
@@ -620,7 +620,7 @@ create_l1(hisaxstack_t *st, hisaxif_t *hif) {
 	nl1->inst.pid.protocol[lay] = hif->protocol;
 	switch(hif->protocol) {
 	    case ISDN_PID_L1_TE_S0:
-	    	sprintf(nl1->inst.id, "l1TES0 %d", st->id);
+	    	sprintf(nl1->inst.name, "l1TES0 %d", st->id);
 		nl1->l1m.fsm = &l1fsm_s;
 		nl1->l1m.state = ST_L1_F3;
 		nl1->Flags = 0;
