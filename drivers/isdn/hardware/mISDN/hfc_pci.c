@@ -2232,7 +2232,7 @@ release_card(hfc_pci_t *hc) {
 	free_bchannel(&hc->bch[1]);
 	free_bchannel(&hc->bch[0]);
 	free_dchannel(&hc->dch);
-	HFC_obj.ctrl(card->dch.inst.up.peer, MGR_DISCONNECT | REQUEST, &card->dch.inst.up);
+	HFC_obj.ctrl(hc->dch.inst.up.peer, MGR_DISCONNECT | REQUEST, &hc->dch.inst.up);
 	HFC_obj.ctrl(&hc->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
 	REMOVE_FROM_LISTBASE(hc, ((hfc_pci_t *)HFC_obj.ilist));
 	unlock_dev(hc);
