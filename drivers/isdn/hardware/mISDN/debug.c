@@ -7,7 +7,10 @@
  */
 
 #define __NO_VERSION__
-#include "hisax.h"
+#include <linux/hisaxif.h>
+#include <linux/kernel.h>
+#include <linux/string.h>
+#include "debug.h"
 
 #define HISAX_STATUS_BUFSIZE 4096
 

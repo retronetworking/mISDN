@@ -1,8 +1,9 @@
-/*
+/* $Id$
+ * 
+ * This file is (c) under GNU PUBLIC LICENSE
  *
  */
 
-#include <linux/errno.h>
 #include <linux/malloc.h>
 #include <linux/string.h>
 #include <linux/hisaxif.h>

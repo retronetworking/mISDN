@@ -27,14 +27,16 @@
  */
 
 #include <linux/config.h>
-#include "hisax.h"
-#include "isac.h"
-#include "isar.h"
-#include "isdnl1.h"
-#include "debug.h"
+#include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/kernel_stat.h>
-#include <linux/interrupt.h>
+#include <linux/delay.h>
+#include "hisax_hw.h"
+#include "isac.h"
+#include "isar.h"
+#include "hisaxl1.h"
+#include "helper.h"
+#include "debug.h"
 
 extern const char *CardType[];
 
@@ -763,8 +765,8 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	return(0);
 }
 
-__initfunc(int
-Speedfax_init(void))
+int
+Speedfax_init(void)
 {
 	int err,i;
 	sedl_fax *card;

@@ -10,17 +10,17 @@
  */
 
 #define __NO_VERSION__
-#include "hisax.h"
+#include "hisax_hw.h"
 #include "isac.h"
 #include "arcofi.h"
-#include "isdnl1.h"
+#include "hisaxl1.h"
+#include "helper.h"
 #include "debug.h"
-#include <linux/interrupt.h>
 
 #define DBUSY_TIMER_VALUE 80
 #define ARCOFI_USE 1
 
-static char *ISACVer[] HISAX_INITDATA =
+static char *ISACVer[] =
 {"2086/2186 V1.1", "2085 B1", "2085 B2",
  "2085 V2.3"};
 

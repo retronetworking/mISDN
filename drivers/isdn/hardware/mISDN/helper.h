@@ -5,10 +5,10 @@
  * This file is (c) under GNU PUBLIC LICENSE
  *
  */
+#include <linux/kernel.h>
 #include <linux/skbuff.h>
       
 extern int discard_queue(struct sk_buff_head *);
-
 #define APPEND_TO_LIST(item,base) \
 	item->prev = base; \
 	while (item->prev && item->prev->next) \

@@ -8,9 +8,8 @@
  *
  */
 #define __NO_VERSION__
-#include "hisax.h"
-#include "debug.h"
 #include "hisaxl2.h"
+#include "debug.h"
 #include <linux/random.h>
 
 const char *tei_revision = "$Revision$";
@@ -382,7 +381,7 @@ tei_debug(struct FsmInst *fi, char *fmt, ...)
 	va_end(log.args);
 }
 
-static struct FsmNode TeiFnList[] HISAX_INITDATA =
+static struct FsmNode TeiFnList[] =
 {
 	{ST_TEI_NOP, EV_IDREQ, tei_id_request},
 	{ST_TEI_NOP, EV_ASSIGN, tei_id_test_dup},

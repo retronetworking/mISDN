@@ -7,7 +7,9 @@
  */
 
 #define __NO_VERSION__
-#include "hisax.h"
+#include <linux/hisaxif.h>
+#include "helper.h"
+#include "hisax_hw.h"
 
 int
 discard_queue(struct sk_buff_head *q)
@@ -79,12 +81,12 @@ free_dchannel(dchannel_t *dch) {
 
 int
 init_bchannel(bchannel_t *bch) {
-	if (!(bch->rx_buf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
+	if (!(bch->rx_buf = kmalloc(MAX_DATA_MEM, GFP_ATOMIC))) {
 		printk(KERN_WARNING
 			"HiSax: No memory for bchannel rx_buf\n");
 		return (-ENOMEM);
 	}
-	if (!(bch->tx_buf = kmalloc(HSCX_BUFMAX, GFP_ATOMIC))) {
+	if (!(bch->tx_buf = kmalloc(MAX_DATA_MEM, GFP_ATOMIC))) {
 		printk(KERN_WARNING
 			"HiSax: No memory for bchannel tx_buf\n");
 		kfree(bch->rx_buf);
@@ -122,4 +124,3 @@ free_bchannel(bchannel_t *bch) {
 	}
 	return(0);
 }
-

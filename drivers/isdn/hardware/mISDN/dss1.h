@@ -20,6 +20,20 @@
 #define T313	4000
 #define T318	4000
 #define T319	4000
+#define N303	1
+
+/* private TIMER events */
+#define CC_T302		0x030201
+#define CC_T303		0x030301
+#define CC_T304		0x030401
+#define CC_T305		0x030501
+#define CC_T308_1	0x030801
+#define CC_T308_2	0x030802
+#define CC_T309         0x030901
+#define CC_T310		0x031001
+#define CC_T313		0x031301
+#define CC_T318		0x031801
+#define CC_T319		0x031901
 
 /*
  * Message-Types
