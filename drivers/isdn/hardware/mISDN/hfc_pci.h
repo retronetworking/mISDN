@@ -153,6 +153,9 @@
 /* bits in HFCD_MST_MODE */
 #define HFCPCI_MASTER	     0x01
 #define HFCPCI_SLAVE         0x00
+#define HFCPCI_F0IO_POSITIV  0x02
+#define HFCPCI_F0_NEGATIV    0x04
+#define HFCPCI_F0_2C4        0x08
 /* remaining bits are for codecs control */
 
 /* bits in HFCD_SCTRL */
