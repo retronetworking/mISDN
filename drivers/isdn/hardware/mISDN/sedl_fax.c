@@ -564,7 +564,7 @@ setup_speedfax(sedl_fax *sf, u_int io_cfg, u_int irq_cfg)
 }
 
 static int
-dummy_down(hisaxif_t *hif,  u_int prim, u_int nr, int dtyp, void *arg) {
+dummy_down(hisaxif_t *hif,  u_int prim, int dinfo, int len, void *arg) {
 	sedl_fax *card;
 
 	if (!hif || !hif->fdata)
@@ -812,11 +812,14 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			printk(KERN_WARNING "speedfax_manager MGR_LOADFIRM no card\n");
 			return(-ENODEV);
 		} else {
-			l3msg_t *firm = arg;
+			struct firm {
+				int	len;
+				void	*data;
+			} *firm = arg;
 			
-			if (!firm)
+			if (!arg)
 				return(-EINVAL);
-			return(isar_load_firmware(&card->bch[0], firm->arg, firm->id));
+			return(isar_load_firmware(&card->bch[0], firm->data, firm->len));
 		}
 	    default:
 		printk(KERN_WARNING "speedfax_manager prim %x not handled\n", prim);

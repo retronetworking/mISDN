@@ -97,7 +97,6 @@ typedef struct _bchannel_t {
 	u_char (*BC_Read_Reg)(void *, int, u_char);
 	void (*BC_Write_Reg)(void *, int, u_char, u_char);
 	struct sk_buff	*next_skb;
-	u_int		next_nr;
 	u_char		*tx_buf;
 	int		tx_idx;
 	int             tx_len;
@@ -187,11 +186,9 @@ typedef struct _dchannel_t {
 	void		(*writeisacfifo) (void *, u_char *, int);
 	char		*dlog;
 	int		debug;
-	u_int		reqnr;
 	u_char		*rx_buf;
 	int		rx_idx;
 	struct sk_buff	*next_skb;
-	u_int		next_nr;
 	u_char		*tx_buf;
 	int		tx_idx;
 	int             tx_len;

@@ -211,5 +211,5 @@ extern int ISARVersion(bchannel_t *bch, char *s);
 extern void isar_int_main(bchannel_t *bch);
 extern int init_isar(bchannel_t *bch);
 extern void free_isar(bchannel_t *bch);
-extern int isar_down(hisaxif_t *, u_int, u_int, int, void *);
+extern int isar_down(hisaxif_t *, u_int, int, int, void *);
 extern int isar_load_firmware(bchannel_t *bch, u_char *buf, int size);
