@@ -476,6 +476,8 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		return(change_stack_para(st, prim, arg));
 	    case MGR_CONNECT | REQUEST:
 		return(ConnectIF(data, arg));
+	    case MGR_EVALSTACK  | REQUEST:
+	    	return(evaluate_stack_pids(data, arg));
 	    case MGR_LOADFIRM | REQUEST:
 	    	if (st->mgr && st->mgr->obj && st->mgr->obj->own_ctrl)
 	    		return(st->mgr->obj->own_ctrl(st->mgr, prim, arg));
@@ -488,20 +490,6 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		break;
 	}
 	return(-EINVAL);
-}
-
-void
-mISDNlock_core(void) {
-#ifdef MODULE
-	MOD_INC_USE_COUNT;
-#endif
-}
-
-void
-mISDNunlock_core(void) {
-#ifdef MODULE
-	MOD_DEC_USE_COUNT;
-#endif
 }
 
 int mISDN_register(mISDNobject_t *obj) {
