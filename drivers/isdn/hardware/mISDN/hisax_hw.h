@@ -226,6 +226,8 @@ int free_dchannel(dchannel_t *);
 int init_bchannel(bchannel_t *);
 int free_bchannel(bchannel_t *);
 
+void set_dchannel_pid(hisax_pid_t *, int, int);
+
 #ifdef __powerpc__
 #include <linux/pci.h>
 static inline int pci_enable_device(struct pci_dev *dev)

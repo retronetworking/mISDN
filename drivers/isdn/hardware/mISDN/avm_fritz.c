@@ -800,6 +800,7 @@ static int fritz_cnt;
 static u_int protocol[MAX_CARDS];
 static u_int io[MAX_CARDS];
 static u_int irq[MAX_CARDS];
+static int layermask[MAX_CARDS];
 static int cfg_idx;
 
 static fritzpnppci	*cardlist = NULL;
@@ -812,6 +813,7 @@ MODULE_PARM(debug, "1i");
 MODULE_PARM(io, MODULE_PARM_T);
 MODULE_PARM(protocol, MODULE_PARM_T);
 MODULE_PARM(irq, MODULE_PARM_T);
+MODULE_PARM(layermask, MODULE_PARM_T);
 #define Fritz_init init_module
 #endif
 
@@ -1218,17 +1220,8 @@ Fritz_init(void)
 		card->dch.inst.down.inst = &card->dch.inst;
 		card->dch.inst.down.func = dummy_down;
 		sprintf(card->dch.inst.id, "Fritz%d", fritz_cnt+1);
-		memset(&pid, 0, sizeof(hisax_pid_t));
-		pid.protocol[0] = ISDN_PID_L0_TE_S0;
-		pid.protocol[1] = ISDN_PID_L1_TE_S0;
-		pid.protocol[2] = ISDN_PID_L2_LAPD;
-		if (protocol[fritz_cnt] == 2) {
-			pid.protocol[3] = ISDN_PID_L3_DSS1USER;
-			pid.protocol[4] = ISDN_PID_L4_CAPI20;
-		} else {
-			pid.protocol[3] = ISDN_PID_NONE;
-			pid.protocol[4] = ISDN_PID_NONE;
-		}
+		set_dchannel_pid(&pid, protocol[fritz_cnt],
+			layermask[fritz_cnt]);
 		init_dchannel(&card->dch);
 		for (i=0; i<2; i++) {
 			card->bch[i].channel = i;

@@ -465,6 +465,7 @@ typedef struct _hisaxobject {
 	struct _hisaxobject	*prev;
 	struct _hisaxobject	*next;
 	char			*name;
+	int			id;
 	int			refcnt;
 	hisax_pid_t		DPROTO;
 	hisax_pid_t		BPROTO;
