@@ -54,11 +54,11 @@ typedef struct _mISDN_thread {
 static mISDN_thread_t	mISDN_thread;
 
 static moditem_t modlist[] = {
-	{"mISDNl1", ISDN_PID_L1_TE_S0},
-	{"mISDNl2", ISDN_PID_L2_LAPD},
-	{"mISDNl2", ISDN_PID_L2_B_X75SLP},
+	{"mISDN_l1", ISDN_PID_L1_TE_S0},
+	{"mISDN_l2", ISDN_PID_L2_LAPD},
+	{"mISDN_l2", ISDN_PID_L2_B_X75SLP},
 	{"l3udss1", ISDN_PID_L3_DSS1USER},
-	{"mISDNdtmf", ISDN_PID_L2_B_TRANSDTMF},
+	{"mISDN_dtmf", ISDN_PID_L2_B_TRANSDTMF},
 	{NULL, ISDN_PID_NONE}
 };
 
