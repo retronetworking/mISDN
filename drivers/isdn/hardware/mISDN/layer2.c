@@ -2094,7 +2094,7 @@ new_l2(hisaxstack_t *st, hisax_pid_t *pid, layer2_t **newl2) {
 	}
 	switch(pid->protocol[2]) {
 	    case ISDN_PID_L2_LAPD_NET:
-	    	sprintf(nl2->inst.name, "lapd %x", st->id);
+	    	sprintf(nl2->inst.name, "lapdn %x", st->id);
 		test_and_set_bit(FLG_LAPD, &nl2->flag);
 		test_and_set_bit(FLG_LAPD_NET, &nl2->flag);
 		test_and_set_bit(FLG_FIXED_TEI, &nl2->flag);
@@ -2112,7 +2112,7 @@ new_l2(hisaxstack_t *st, hisax_pid_t *pid, layer2_t **newl2) {
 		}
 		break;
 	    case ISDN_PID_L2_LAPD:
-	    	sprintf(nl2->inst.name, "lapdn %x", st->id);
+	    	sprintf(nl2->inst.name, "lapd %x", st->id);
 		test_and_set_bit(FLG_LAPD, &nl2->flag);
 		test_and_set_bit(FLG_MOD128, &nl2->flag);
 		test_and_set_bit(FLG_ORIG, &nl2->flag);
