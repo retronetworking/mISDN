@@ -4,7 +4,7 @@
  *
  */
 
-#include <linux/malloc.h>
+#include <linux/slab.h>
 #include <linux/string.h>
 #include <linux/hisaxif.h>
 #include "helper.h"
