@@ -445,7 +445,7 @@ mISDN_alloc_entity(int *entity)
 	spin_lock_irqsave(&entity_lock, flags);
 	*entity = 1;
 	while(*entity < MISDN_MAX_ENTITY) {
-		if (!test_and_set_bit(*entity, entityarray))
+		if (!test_and_set_bit(*entity, (u_long *)&entityarray[0]))
 			break;
 		(*entity)++;
 	}
@@ -462,7 +462,7 @@ mISDN_delete_entity(int entity)
 	int	ret = 0;
 
 	spin_lock_irqsave(&entity_lock, flags);
-	if (!test_and_clear_bit(entity, entityarray)) {
+	if (!test_and_clear_bit(entity, (u_long *)&entityarray[0])) {
 		printk(KERN_WARNING "mISDN: del_entity(%d) but entity not allocated\n", entity);
 		ret = -ENODEV;
 	}
