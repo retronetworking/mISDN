@@ -55,11 +55,11 @@ void plciHandleSetupInd(Plci_t *plci, int pr, Q931_info_t *qi)
 		}
 	}
 	if (plci->nAppl == 0) {
-		struct sk_buff *skb = alloc_l3msg(10, MT_RELEASE_COMPLETE);
+		struct sk_buff *skb = mISDN_alloc_l3msg(10, MT_RELEASE_COMPLETE);
 		u_char cause[4] = {IE_CAUSE,2,0x80,0xd8}; /* incompatible destination */
 
 		if (skb) {
-			AddvarIE(skb,cause);
+			mISDN_AddvarIE(skb,cause);
 			plciL4L3(plci, CC_RELEASE_COMPLETE | REQUEST, skb);
 		}
 		ControllerReleasePlci(plci);

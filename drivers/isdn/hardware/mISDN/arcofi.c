@@ -8,7 +8,6 @@
  *
  */
  
-#define __NO_VERSION__
 #include "dchannel.h"
 #include "layer1.h"
 #include "isac.h"
@@ -58,7 +57,7 @@ arcofi_fsm(dchannel_t *dch, int event, void *data) {
 	isac_chip_t	*isac = dch->hw;
 
 	if (dch->debug & L1_DEB_MONITOR) {
-		debugprint(&dch->inst, "arcofi state %d event %d", isac->arcofi_state, event);
+		mISDN_debugprint(&dch->inst, "arcofi state %d event %d", isac->arcofi_state, event);
 	}
 	if (event == ARCOFI_TIMEOUT) {
 		isac->arcofi_state = ARCOFI_NOP;
@@ -111,7 +110,7 @@ arcofi_fsm(dchannel_t *dch, int event, void *data) {
 			}
 			break;
 		default:
-			debugprint(&dch->inst, "Arcofi unknown state %x", isac->arcofi_state);
+			mISDN_debugprint(&dch->inst, "Arcofi unknown state %x", isac->arcofi_state);
 			return(2);
 	}
 	return(0);

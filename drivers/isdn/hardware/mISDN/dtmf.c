@@ -508,8 +508,8 @@ new_dtmf(mISDNstack_t *st, mISDN_pid_t *pid) {
 	}
 	memset(n_dtmf, 0, sizeof(dtmf_t));
 	memcpy(&n_dtmf->inst.pid, pid, sizeof(mISDN_pid_t));
-	init_mISDNinstance(&n_dtmf->inst, &dtmf_obj, n_dtmf);
-	if (!SetHandledPID(&dtmf_obj, &n_dtmf->inst.pid)) {
+	mISDN_init_instance(&n_dtmf->inst, &dtmf_obj, n_dtmf);
+	if (!mISDN_SetHandledPID(&dtmf_obj, &n_dtmf->inst.pid)) {
 		int_error();
 		kfree(n_dtmf);
 		return(-ENOPROTOOPT);
@@ -582,13 +582,13 @@ dtmf_manager(void *data, u_int prim, void *arg) {
 	    case MGR_CLONELAYER | REQUEST:
 		break;
 	    case MGR_CONNECT | REQUEST:
-		return(ConnectIF(inst, arg));
+		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:
 	    case MGR_SETIF | INDICATION:
-		return(SetIF(inst, arg, prim, dtmf_from_up, dtmf_from_down, dtmf_l));
+		return(mISDN_SetIF(inst, arg, prim, dtmf_from_up, dtmf_from_down, dtmf_l));
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
-		return(DisConnectIF(inst, arg));
+		return(mISDN_DisConnectIF(inst, arg));
 	    case MGR_UNREGLAYER | REQUEST:
 	    case MGR_RELEASE | INDICATION:
 		if (debug & DEBUG_DTMF_MGR)

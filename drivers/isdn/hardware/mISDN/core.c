@@ -37,8 +37,6 @@ MODULE_AUTHOR("Karsten Keil");
 MODULE_LICENSE("GPL");
 #endif
 MODULE_PARM(debug, "1i");
-EXPORT_SYMBOL(mISDN_register);
-EXPORT_SYMBOL(mISDN_unregister);
 #endif
 
 typedef struct _mISDN_thread {
@@ -177,7 +175,7 @@ find_object(int protocol) {
 		if (!err)
 			break;
 		if (err != -ENOPROTOOPT) {
-			if (0 == HasProtocol(obj, protocol))
+			if (0 == mISDN_HasProtocol(obj, protocol))
 				break;
 		}	
 		obj = obj->next;
@@ -271,7 +269,7 @@ get_next_instance(mISDNstack_t *st, mISDN_pid_t *pid)
 	int		layer, proto;
 	mISDNobject_t	*obj;
 
-	layer = get_lowlayer(pid->layermask);
+	layer = mISDN_get_lowlayer(pid->layermask);
 	proto = pid->protocol[layer];
 	next = get_instance(st, layer, proto);
 	if (!next) {
@@ -544,7 +542,7 @@ static int central_manager(void *data, u_int prim, void *arg) {
 	    case MGR_CLRSTPARA | REQUEST:
 		return(change_stack_para(st, prim, arg));
 	    case MGR_CONNECT | REQUEST:
-		return(ConnectIF(data, arg));
+		return(mISDN_ConnectIF(data, arg));
 	    case MGR_EVALSTACK  | REQUEST:
 	    	return(evaluate_stack_pids(data, arg));
 	    case MGR_GLOBALOPT | REQUEST:
@@ -665,3 +663,6 @@ void mISDN_cleanup(void) {
 
 module_init(mISDNInit);
 module_exit(mISDN_cleanup);
+
+EXPORT_SYMBOL(mISDN_register);
+EXPORT_SYMBOL(mISDN_unregister);
