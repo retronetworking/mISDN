@@ -9,7 +9,6 @@
  * of the GNU General Public License, incorporated herein by reference.
  *
  */
-#warning KARSTEN: dein dtmf-modul benutzt eine andere bit-order, wieso geht das?
 
 #include "layer1.h"
 #include "helper.h"
@@ -79,6 +78,7 @@ unsigned char
 	int k, n, i;
 	signed long result[NCOEFF], tresh, treshl;
 	int lowgroup, highgroup;
+	signed long long cos2pik_;
 
 	dsp->dtmf.digits[0] = '\0';
 
@@ -91,15 +91,9 @@ again:
 	buf = dsp->dtmf.buffer;
 	switch(fmt) {
 		case 0: /* alaw */
-		while(size<DSP_DTMF_NPOINTS && len) {
-			buf[size++] = dsp_audio_alaw_to_s32[*data++];
-			len--;
-		}
-		break;
-
 		case 1: /* ulaw */
 		while(size<DSP_DTMF_NPOINTS && len) {
-			buf[size++] = dsp_audio_ulaw_to_s32[*data++];
+			buf[size++] = dsp_audio_law_to_s32[*data++];
 			len--;
 		}
 		break;
@@ -130,8 +124,9 @@ again:
 	for (k = 0; k < NCOEFF; k++) {
 		sk = sk1 = sk2 = 0;
 		buf = dsp->dtmf.buffer;
+		cos2pik_ = cos2pik[k];
 		for (n = 0; n < DSP_DTMF_NPOINTS; n++) {
-			sk = ((cos2pik[k]*sk1)>>15) - sk2 + (*buf++);
+			sk = ((cos2pik_*sk1)>>15) - sk2 + (*buf++);
 			sk2 = sk1;
 			sk1 = sk;
 		}
