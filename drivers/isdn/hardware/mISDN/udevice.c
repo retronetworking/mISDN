@@ -43,9 +43,6 @@ static int  stbuf[1000];
 
 static int device_debug = 0;
 
-static int UD_Protocols[] = {	ISDN_PID_ANY };
-#define PROTOCOLCNT	(sizeof(UD_Protocols)/sizeof(int))
-
 static int from_up_down(hisaxif_t *, u_int, int, int, void *);
 
 static int
@@ -734,15 +731,15 @@ out:
 }
 
 int init_hisaxdev (int debug) {
-	int err;
+	int err,i;
 
 	udev_obj.name = MName;
-	udev_obj.protocols = UD_Protocols;
-	udev_obj.protcnt = PROTOCOLCNT;
-	udev_obj.own_ctrl = udev_manager;
+	for (i=0; i<=MAX_LAYER_NR; i++) {
+		udev_obj.DPROTO.protocol[i] = ISDN_PID_ANY;
+		udev_obj.BPROTO.protocol[i] = ISDN_PID_ANY;
+	}
 	udev_obj.prev = NULL;
 	udev_obj.next = NULL;
-	udev_obj.layermask = -1;
 	device_debug = debug;
 	if (register_chrdev(HISAX_MAJOR, "hisax", &hisax_fops)) {
 		printk(KERN_WARNING "hisax: Could not register devices\n");

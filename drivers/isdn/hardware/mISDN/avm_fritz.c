@@ -871,14 +871,6 @@ MODULE_PARM(irq, MODULE_PARM_T);
 
 static char FritzName[] = "Fritz!PCI";
 
-static int FritzProtocols[] = {	ISDN_PID_L0_TE_S0,
-				ISDN_PID_L1_B_64TRANS,
-				ISDN_PID_L1_B_64HDLC,
-				ISDN_PID_L2_B_TRANS,
-				ISDN_PID_L3_B_TRANS,
-			};
-#define FRITZPCNT	(sizeof(FritzProtocols)/sizeof(int))
- 
 static	struct pci_dev *dev_avm = NULL;
 static	int pci_finished_lookup;
 
@@ -1102,14 +1094,14 @@ set_stack(hisaxstack_t *st, hisaxinstance_t *inst, int chan, hisax_pid_t *pid) {
 		return(-EBUSY);	
 	}
 #endif
-	if (!HasProtocol(inst, pid->protocol[1])) {
+	memset(&inst->pid, 0, sizeof(hisax_pid_t));
+	if (!HasProtocol(inst->obj, pid->protocol[1])) {
 		return(-EPROTONOSUPPORT);
 	} else
 		layer = ISDN_LAYER(1);
-	if (HasProtocol(inst, pid->protocol[2])) {
+	if (HasProtocol(inst->obj, pid->protocol[2])) {
 		layer |= ISDN_LAYER(2);
-		if (HasProtocol(inst, protocol[3]))
-			layer |= ISDN_LAYER(3);
+		inst->pid.protocol[2] = pid->protocol[2];
 	}
 	inst->layermask = layer;
 	inst->pid.protocol[1] = pid->protocol[1];
@@ -1247,9 +1239,10 @@ Fritz_init(void)
 
 	fritz.name = FritzName;
 	fritz.own_ctrl = fritz_manager;
-	fritz.layermask = ISDN_LAYER(0);
-	fritz.protocols = FritzProtocols;
-	fritz.protcnt = FRITZPCNT;
+	fritz.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;
+	fritz.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS |
+				    ISDN_PID_L1_B_64HDLC;
+	fritz.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS;
 	fritz.prev = NULL;
 	fritz.next = NULL;
 	if ((err = HiSax_register(&fritz))) {

@@ -2335,10 +2335,6 @@ del_if(layer3_t *l3, hisaxif_t *hif) {
 
 static char MName[] = "UDSS1";
 
-static int UDSS1Protocols[] = {	ISDN_PID_L3_DSS1USER
-			};
-#define PROTOCOLCNT	(sizeof(UDSS1Protocols)/sizeof(int))
- 
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
 MODULE_PARM(debug, "1i");
@@ -2399,12 +2395,10 @@ int UDSS1Init(void)
 	strcpy(tmp, dss1_revision);
 	printk(KERN_INFO "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
 	u_dss1.name = MName;
-	u_dss1.protocols = UDSS1Protocols;
-	u_dss1.protcnt = PROTOCOLCNT;
+	u_dss1.DPROTO.protocol[3] = ISDN_PID_L3_DSS1USER;
 	u_dss1.own_ctrl = udss1_manager;
 	u_dss1.prev = NULL;
 	u_dss1.next = NULL;
-	u_dss1.layermask = ISDN_LAYER(3);
 	HiSaxl3New();
 	if ((err = HiSax_register(&u_dss1))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
