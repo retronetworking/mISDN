@@ -36,6 +36,18 @@ static moditem_t modlist[] = {
 	{NULL, ISDN_PID_NONE}
 };
 
+hisaxobject_t *
+get_object(int id) {
+	hisaxobject_t *obj = hisax_objects;
+
+	while(obj) {
+		if (obj->id == id)
+			return(obj);
+		obj = obj->next;
+	}
+	return(NULL);
+}
+
 static hisaxobject_t *
 find_object(int protocol) {
 	hisaxobject_t *obj = hisax_objects;

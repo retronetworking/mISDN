@@ -53,3 +53,5 @@ extern void		hisaxunlock_core(void);
 extern int		register_layer(hisaxstack_t *, hisaxinstance_t *);
 extern int		unregister_instance(hisaxinstance_t *);
 extern hisaxinstance_t	*get_next_instance(hisaxstack_t *, hisax_pid_t *);
+extern hisaxobject_t	*get_object(int);
+extern hisaxinstance_t	*get_instance4id(int);
