@@ -54,6 +54,37 @@ typedef struct _layer2 {
 	struct sk_buff_head down_queue;
 } layer2_t;
 
+/* l2 status_info */
+typedef struct _status_info_l2 {
+	int	len;
+	int	typ;
+	int	protocol;
+	int	state;
+	int	sapi;
+	int	tei;
+	laddr_t addr;
+	int	maxlen;
+	u_int	flag;
+	u_int	vs;
+	u_int	va;
+	u_int	vr;
+	int	rc;
+	u_int	window;
+	u_int	sow;
+	int	T200;
+	int	N200;
+	int	T203;
+	int	len_i_queue;
+	int	len_ui_queue;
+	int	len_d_queue;
+	int	debug;
+	int	tei_state;
+	int	tei_ri;
+	int	T202;
+	int	N202;
+	int	tei_debug;
+} status_info_l2_t;
+
 /* from hisax_l2.c */
 extern int tei_l2(layer2_t *l2, u_int prim, int dinfo, int len, void *arg);
 
