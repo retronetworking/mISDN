@@ -487,6 +487,32 @@ W6692_fill_Bfifo(bchannel_t *bch)
 }
 
 static int
+setvolume(bchannel_t *bch, int mic, struct sk_buff *skb)
+{
+	w6692pci	*card = bch->inst.data;
+	u16		*vol = (u16 *)skb->data;
+	u_char		val;
+
+	if ((card->pots == 0) || (bch->protocol != ISDN_PID_L1_B_64TRANS))
+		return(-ENODEV);
+	if (skb->len < 2)
+		return(-EINVAL);
+	if (*vol > 7)
+		return(-EINVAL);
+	val = *vol & 7;
+	val = 7 - val;
+	if (mic) {
+		val <<= 3;
+		card->xaddr &= 0xc7;
+	} else {
+		card->xaddr &= 0xf8;
+	}
+	card->xaddr |= val;
+	WriteW6692(card, W_XADDR, card->xaddr);
+	return(0);
+}
+
+static int
 enable_pots(bchannel_t *bch)
 {
 	w6692_bc	*bhw  = bch->hw;
@@ -1045,6 +1071,10 @@ w6692_l2l1B(mISDNif_t *hif, struct sk_buff *skb)
 			ret = enable_pots(bch);
 		} else if (hh->dinfo == HW_POTS_OFF) {
 			ret = disable_pots(bch);
+		} else if (hh->dinfo == HW_POTS_SETMICVOL) {
+			ret = setvolume(bch, 1, skb);
+		} else if (hh->dinfo == HW_POTS_SETSPKVOL) {
+			ret = setvolume(bch, 0, skb);
 		} else
 			ret = -EINVAL;
 	} else {
