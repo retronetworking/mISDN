@@ -1073,7 +1073,7 @@ set_stack(hisaxstack_t *st, hisaxinstance_t *inst, int chan, hisax_pid_t *pid) {
 		printk(KERN_WARNING "set_stack MGR_ADDIF err(%d)\n", err);
 		return(err);
 	}
-	if  (chan != 2) { /* B-channel */
+	if  ((chan != 2) && (pid->global == 2)) { /* B-channel */
 		u_int pr;
 
 		if (inst->pid.protocol[2] == ISDN_PID_L2_B_TRANS)

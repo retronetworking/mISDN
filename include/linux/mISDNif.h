@@ -273,6 +273,14 @@ typedef struct _hisax_pid {
 	__u16	global;
 } hisax_pid_t;
 
+typedef struct _layer_info {
+	char		name[HISAX_MAX_IDLEN];
+	int		object_id;
+	int		extentions;
+	int		layermask;
+	hisax_pid_t	pid;
+} layer_info_t;
+
 
 /* l3 pointer arrays */
 
