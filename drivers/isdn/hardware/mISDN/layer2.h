@@ -10,7 +10,6 @@
 #include <linux/skbuff.h>
 #include "fsm.h"
 
-#define MAX_DFRAME_LEN	260
 #define MAX_WINDOW	8
 
 typedef struct _teimgr {
