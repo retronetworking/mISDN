@@ -1746,10 +1746,15 @@ hfcD_newstate(dchannel_t *dch)
 					hc->hw.nt_timer = NT_T1_COUNT;
 					Write_hfc(hc, HFCPCI_STATES, 2 | HFCPCI_NT_G2_G3);	/* allow G2 -> G3 transition */
 				}
-				break;
+				return;
 			case (1):
-			case (3):
 			case (4):
+				hc->hw.nt_timer = 0;
+				hc->hw.int_m1 &= ~HFCPCI_INTS_TIMER;
+				Write_hfc(hc, HFCPCI_INT_M1, hc->hw.int_m1);
+				return;
+			case (3):
+				para = INFO4_P8;
 				hc->hw.nt_timer = 0;
 				hc->hw.int_m1 &= ~HFCPCI_INTS_TIMER;
 				Write_hfc(hc, HFCPCI_INT_M1, hc->hw.int_m1);
@@ -1757,7 +1762,6 @@ hfcD_newstate(dchannel_t *dch)
 			default:
 				break;
 		}
-		return;
 	}
 	while(upif) {
 		if_link(upif, prim, para, 0, NULL, 0);
@@ -2255,6 +2259,7 @@ HFC_init(void)
 		if (protocol[HFC_cnt] & 0x10) {
 			card->dch.inst.pid.protocol[0] = ISDN_PID_L0_NT_S0;
 			pid.protocol[0] = ISDN_PID_L0_NT_S0;
+			pid.protocol[2] = ISDN_PID_L2_LAPD_NET;
 			card->hw.nt_mode = 1;
 		} else {
 			card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
