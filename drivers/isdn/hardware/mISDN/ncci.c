@@ -367,16 +367,12 @@ void ncciInitSt(Ncci_t *ncci)
 	printk(KERN_DEBUG "ncciInitSt ch(%d) cplci->contr->binst(%p)\n",
 		cplci->bchannel & 3, cplci->contr->binst);
 	pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
-	if ((cplci->bchannel & 0xf4) == 0x80) {
-		ncci->binst = contrSelChannel(cplci->contr, cplci->bchannel & 3);
-	} else {
-		printk(KERN_WARNING "ncciInitSt channel %x not supported\n",
-			cplci->bchannel);
-	}
+	ncci->binst = contrSelChannel(cplci->contr, cplci->bchannel);
 	if (!ncci->binst) {
 		int_error();
 		return;
-	}		
+	}
+	printk(KERN_DEBUG "ncciInitSt ncci->binst(%p)\n", ncci->binst);
 	memset(&ncci->binst->inst.pid, 0, sizeof(hisax_pid_t));
 	ncci->binst->inst.data = ncci;
 	ncci->binst->inst.pid.layermask = ISDN_LAYER(4);

@@ -25,6 +25,7 @@
 
 #define FLG_L2BLOCK	1
 #define FLG_PTP		2
+#define FLG_EXTCID	3
 
 typedef struct _L3Timer {
 	struct _l3_process	*pc;

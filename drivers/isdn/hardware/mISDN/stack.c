@@ -477,7 +477,8 @@ unregister_instance(hisaxinstance_t *inst) {
 			printk(KERN_WARNING __FUNCTION__": no layer found\n");
 			err = -ENODEV;
 		}
-		inst->st = NULL;
+		if (inst->st && (inst->st->mgr != inst))
+			inst->st = NULL;
 	}
 	REMOVE_FROM_LISTBASE(inst, hisax_instlist);
 	inst->prev = inst->next = NULL;

@@ -186,7 +186,7 @@ DummyProcess_t	*contrNewDummyPc(Contr_t *contr);
 DummyProcess_t	*contrId2DummyPc(Contr_t *contr, __u16 invokeId);
 int		contrL4L3(Contr_t *, u_int, int, struct sk_buff *);
 int		contrL3L4(hisaxif_t *, struct sk_buff *);
-BInst_t		*contrSelChannel(Contr_t *, int);
+BInst_t		*contrSelChannel(Contr_t *, u_int);
 // ---------------------------------------------------------------------------
 // struct Listen
 
@@ -295,7 +295,7 @@ typedef struct _Cplci {
 	u_char	cause[4]; // we may get a cause from l3 DISCONNECT message
 			  // which we'll need send in DISCONNECT_IND caused by
 			  // l3 RELEASE message
-	int	bchannel;
+	u_int	bchannel;
 	struct Bprotocol Bprotocol;
 } Cplci_t;
 
