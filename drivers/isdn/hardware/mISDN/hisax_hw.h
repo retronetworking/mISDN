@@ -160,7 +160,7 @@ struct isac_chip {
 	int mon_rxp;
 	struct arcofi_msg *arcofi_list;
 	struct timer_list arcofitimer;
-	struct wait_queue *arcofi_wait;
+	wait_queue_head_t arcofi_wait;
 	u_char arcofi_bc;
 	u_char arcofi_state;
 	u_char mocr;
