@@ -1955,8 +1955,8 @@ dss1_fromdown(mISDNif_t *hif, struct sk_buff *skb)
 		case (DL_ESTABLISH | INDICATION):
 		case (DL_RELEASE | INDICATION):
 		case (DL_RELEASE | CONFIRM):
-			if (l3_msg(l3, hh->prim, hh->dinfo, 0, skb))
-				dev_kfree_skb(skb);
+			l3_msg(l3, hh->prim, hh->dinfo, 0, NULL);
+			dev_kfree_skb(skb);
 			return(0);
 			break;
 		case (DL_DATA | CONFIRM):
