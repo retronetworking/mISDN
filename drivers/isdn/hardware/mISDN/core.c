@@ -75,9 +75,8 @@ mISDNd(void *data)
 #ifdef CONFIG_SMP
 	lock_kernel();
 #endif
-	daemonize();
+	MAKEDAEMON("mISDNd");
 	sigfillset(&current->blocked);
-	strcpy(current->comm,"mISDNd");
 	hkt->thread = current;
 #ifdef CONFIG_SMP
 	unlock_kernel();
@@ -188,8 +187,8 @@ find_object_module(int protocol) {
 #ifdef CONFIG_KMOD
 			if (debug)
 				printk(KERN_DEBUG
-					"find_object_module %s - trying to load in_irq(%d)\n",
-					m->name, in_interrupt());
+					"find_object_module %s - trying to load\n",
+					m->name);
 			err=request_module(m->name);
 			if (debug)
 				printk(KERN_DEBUG "find_object_module: request_module(%s) returns(%d)\n",
@@ -433,25 +432,25 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		return(-EINVAL);
 	switch(prim) {
 	    case MGR_SETSTACK | REQUEST:
-	    	/* can sleep in case of module reload */
-	    	if (in_interrupt()) {
+		/* can sleep in case of module reload */
+		{
 			struct sk_buff	*skb;
 			mISDN_headext_t	*hhe;
 
 			skb = alloc_skb(sizeof(mISDN_pid_t), GFP_ATOMIC);
 			hhe = mISDN_HEADEXT_P(skb);
-			hhe->prim = prim;
+			hhe->prim = MGR_SETSTACK_NW | REQUEST;
 			hhe->what = MGR_FUNCTION;
 			hhe->data[0] = st;
 			/* FIXME: handling of optional pid parameters */
 			memcpy(skb_put(skb, sizeof(mISDN_pid_t)), arg, sizeof(mISDN_pid_t));
 			hhe->func.ctrl = central_manager;
 			skb_queue_tail(&mISDN_thread.workq, skb);
-	    		wake_up_interruptible(&mISDN_thread.waitq);
-	    		return(0);
-	    	} else
-			return(set_stack(st, arg));
-		break;
+			wake_up_interruptible(&mISDN_thread.waitq);
+			return(0);
+		}
+	    case MGR_SETSTACK_NW | REQUEST:
+		return(set_stack(st, arg));
 	    case MGR_CLEARSTACK | REQUEST:
 		return(clear_stack(st));
 	    case MGR_DELSTACK | REQUEST:

@@ -106,8 +106,7 @@ init_bchannel(bchannel_t *bch) {
 	bch->rx_idx = 0;
 	bch->tx_len = 0;
 	bch->tx_idx = 0;
-	bch->tqueue.data = bch;
-	bch->tqueue.routine = (void *) (void *) bchannel_bh;
+	INIT_WORK(&bch->work, (void *)(void *)bchannel_bh, bch);
 	bch->hw_bh = NULL;
 	if (!bch->dev) {
 		if (bch->inst.obj->ctrl(&bch->dev, MGR_GETDEVICE | REQUEST,
@@ -121,9 +120,13 @@ init_bchannel(bchannel_t *bch) {
 
 int
 free_bchannel(bchannel_t *bch) {
-
-	if (bch->tqueue.sync)
-		printk(KERN_ERR"free_bchannel tqueue.sync\n");
+#ifdef HAS_WORKQUEUE
+	if (bch->work.pending)
+		printk(KERN_ERR "free_bchannel work:(%lx)\n", bch->work.pending);
+#else
+	if (bch->work.sync)
+		printk(KERN_ERR "free_bchannel work:(%lx)\n", bch->work.sync);
+#endif
 	discard_queue(&bch->rqueue);
 	if (bch->blog) {
 		kfree(bch->blog);
