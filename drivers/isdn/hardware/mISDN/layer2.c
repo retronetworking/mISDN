@@ -131,6 +131,12 @@ l2down(layer2_t *l2, u_int prim, int dinfo, int len, void *arg) {
 	return(err);
 }
 
+static int
+l2_chain_down(hisaxif_t *hif, u_int prim, int dinfo, int len, void *arg) {
+	if (!hif || !hif->fdata)
+		return(-EINVAL);
+	return(l2down(hif->fdata, prim, dinfo, len, arg));
+}
 
 static int
 l2down_phd(layer2_t *l2, struct sk_buff *skb) {
@@ -2089,6 +2095,19 @@ l2_manager(void *data, u_int prim, void *arg) {
 			return(-EINVAL);
 		}
 		return(SetIF(inst, arg, prim, l2from_up, l2from_down, l2l));
+		break;
+	    case MGR_ADDIF | REQUEST:
+		if (!l2l) {
+			printk(KERN_WARNING "l2_manager addif l2 no instance\n");
+			return(-EINVAL);
+		}
+		if (arg) {
+			hisaxif_t *hif = arg;
+			if (hif->stat & IF_UP) {
+				hif->fdata = l2l;
+				hif->func = l2_chain_down;
+			}
+		}
 		break;
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
