@@ -69,8 +69,6 @@ typedef struct _dchannel_t {
 extern int init_dchannel(dchannel_t *);
 extern int free_dchannel(dchannel_t *);
 
-void set_dchannel_pid(hisax_pid_t *, int, int);
-
 static inline void
 dchannel_sched_event(dchannel_t *dch, int event)
 {

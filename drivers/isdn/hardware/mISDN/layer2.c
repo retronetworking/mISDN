@@ -2030,8 +2030,6 @@ release_l2(layer2_t *l2)
 	discard_queue(&l2->i_queue);
 	discard_queue(&l2->ui_queue);
 	discard_queue(&l2->down_queue);
-	if (l2->down_skb)
-		dev_kfree_skb(l2->down_skb);
 	ReleaseWin(l2);
 	if (test_bit(FLG_LAPD, &l2->flag))
 		release_tei(l2->tm);
