@@ -480,6 +480,7 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		return(ConnectIF(data, arg));
 	    case MGR_EVALSTACK  | REQUEST:
 	    	return(evaluate_stack_pids(data, arg));
+	    case MGR_GLOBALOPT | REQUEST:
 	    case MGR_LOADFIRM | REQUEST:
 	    	if (st->mgr && st->mgr->obj && st->mgr->obj->own_ctrl)
 	    		return(st->mgr->obj->own_ctrl(st->mgr, prim, arg));
