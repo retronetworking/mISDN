@@ -39,6 +39,7 @@
 #define FLG_HW_INIT		13
 
 typedef struct _dchannel_t {
+	int			channel;
 	mISDNinstance_t		inst;
 	u_long			DFlags;
 	u_int			type;
