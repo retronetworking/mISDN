@@ -2,7 +2,7 @@
  *
  */
 
-#include "capi.h"
+#include "m_capi.h"
 #include "helper.h"
 #include "asn1_enc.h"
 

@@ -2,7 +2,7 @@
  *
  */
 
-#include "capi.h"
+#include "m_capi.h"
 #include "asn1.h"
 
 int capiEncodeWord(__u8 *p, __u16 i)
