@@ -435,7 +435,7 @@ static void hfcpci_clear_fifo_tx(hfc_pci_t *hc, int fifo)
 		debugprint(&hc->bch[fifo].inst, "hfcpci_clear_fifo_tx%d f1(%x) f2(%x) z1(%x) z2(%x) state(%x)",
 				fifo, bzt->f1, bzt->f2, bzt->za[MAX_B_FRAMES].z1, bzt->za[MAX_B_FRAMES].z2, fifo_state);
 	bzt->f2 = MAX_B_FRAMES;
-	bzt->f1 = bzt->f1;	/* init F pointers to remain constant */
+	bzt->f1 = bzt->f2;	/* init F pointers to remain constant */
 	bzt->za[MAX_B_FRAMES].z1 = B_FIFO_SIZE + B_SUB_VAL - 1;
 	bzt->za[MAX_B_FRAMES].z2 = bzt->za[MAX_B_FRAMES].z1 - 1;
 	if (fifo_state)
