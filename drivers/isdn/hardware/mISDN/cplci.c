@@ -422,7 +422,7 @@ static void plci_connect_resp(struct FsmInst *fi, int event, void *arg)
 					plciL4L3(plci, CC_DISCONNECT | REQUEST,
 						sizeof(DISCONNECT_t), &disconnect_req);
 				} else {
-					plciL4L3(plci, CC_RESET | REQUEST, 0, NULL);
+					plciL4L3(plci, CC_RELEASE_COMPLETE | REQUEST, 0, NULL);
 				}
 			}
 		
@@ -763,7 +763,7 @@ static void plci_info_req_overlap(struct FsmInst *fi, int event, void *arg)
 
 	Info = cmsg2info_req(cmsg, &info_req);
 	if (Info == CapiSuccess) {
-		plciL4L3(plci, CC_INFO | REQUEST, sizeof(INFORMATION_t),
+		plciL4L3(plci, CC_INFORMATION | REQUEST, sizeof(INFORMATION_t),
 			&info_req);
 	}
 	
