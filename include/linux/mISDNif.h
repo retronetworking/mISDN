@@ -491,8 +491,6 @@ typedef struct _hisaxif {
 	struct _hisaxif		*prev;
 	struct _hisaxif		*next;
 	int			extentions;
-	int			layer;
-	int			protocol;
 	int			stat;
 	struct _hisaxstack	*st;
 	struct _hisaxinstance	*owner;

@@ -1114,7 +1114,6 @@ Fritz_init(void)
 			card->bch[i].inst.obj = &fritz;
 			card->bch[i].inst.data = card;
 			card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
-			card->bch[i].inst.up.layer = 1;
 			card->bch[i].inst.up.owner = &card->bch[i].inst;
 			card->bch[i].inst.down.owner = &card->bch[i].inst;
 			fritz.ctrl(NULL, MGR_DISCONNECT | REQUEST,

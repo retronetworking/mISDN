@@ -763,7 +763,6 @@ Speedfax_init(void)
 			card->bch[i].inst.obj = &speedfax;
 			card->bch[i].inst.data = card;
 			card->bch[i].inst.pid.layermask = 0;
-			card->bch[i].inst.up.layer = 1;
 			card->bch[i].inst.up.owner = &card->bch[i].inst;
 			card->bch[i].inst.down.owner = &card->bch[i].inst;
 			card->bch[i].inst.down.fdata = &card->bch[i];
