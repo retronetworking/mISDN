@@ -26,11 +26,16 @@ set_dchannel_pid(mISDN_pid_t *pid, int protocol, int layermask)
 		pid->protocol[0] = ISDN_PID_L0_TE_S0;
 	if (layermask & ISDN_LAYER(1))
 		pid->protocol[1] = ISDN_PID_L1_TE_S0;
-	if (layermask & ISDN_LAYER(2))
+	if (layermask & ISDN_LAYER(2)) {
 		pid->protocol[2] = ISDN_PID_L2_LAPD;
+		if (protocol & 0x20)
+			pid->protocol[2] |= ISDN_PID_L2_DF_PTP;
+	}
 	if (layermask & ISDN_LAYER(3)) {
-		if (protocol == 2)
+		if ((protocol & 0xf) == 2)
 			pid->protocol[3] = ISDN_PID_L3_DSS1USER;
+		if (protocol & 0x20)
+			pid->protocol[3] |= ISDN_PID_L3_DF_PTP;
 	}
 	if (layermask & ISDN_LAYER(4))
 		pid->protocol[4] = ISDN_PID_L4_CAPI20;
