@@ -98,8 +98,9 @@ typedef struct _bchannel_t {
 	int Flag;
 	int debug;
 	hisaxinstance_t inst;
-	u_char (*BC_Read_Reg)(void *, int, u_char);
-	void (*BC_Write_Reg)(void *, int, u_char, u_char);
+	hisaxdevice_t	*dev;
+	u_char		(*BC_Read_Reg)(void *, int, u_char);
+	void		(*BC_Write_Reg)(void *, int, u_char, u_char);
 	struct sk_buff	*next_skb;
 	u_char		*tx_buf;
 	int		tx_idx;
