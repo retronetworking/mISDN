@@ -111,7 +111,7 @@ put_tei_msg(teimgr_t *tm, u_char m_id, unsigned int ri, u_char tei)
 	bp[5] = ri & 0xff;
 	bp[6] = m_id;
 	bp[7] = (tei << 1) | 1;
-	skb = create_link_skb(MDL_UNITDATA | REQUEST, DINFO_SKB, 8, bp, 0);
+	skb = create_link_skb(MDL_UNITDATA | REQUEST, 0, 8, bp, 0);
 	if (!skb) {
 		printk(KERN_WARNING "mISDN: No skb for TEI manager\n");
 		return;

@@ -1615,7 +1615,7 @@ isar_down(mISDNif_t *hif, struct sk_buff *skb)
 			bch->inst.unlock(bch->inst.data);
 			skb_trim(skb, 0);
 			return(if_newhead(&bch->inst.up, hh->prim | CONFIRM,
-				DINFO_SKB, skb));
+				hh->dinfo, skb));
 		}
 	} else if ((hh->prim == (PH_ACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_ESTABLISH  | REQUEST))) {

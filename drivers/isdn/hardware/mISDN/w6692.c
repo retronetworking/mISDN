@@ -1118,7 +1118,7 @@ w6692_l1hwD(mISDNif_t *hif, struct sk_buff *skb)
 			W6692_fill_Dfifo(dch->hw);
 			dch->inst.unlock(dch->inst.data);
 			return(if_newhead(&dch->inst.up, PH_DATA_CNF,
-				DINFO_SKB, skb));
+				hh->dinfo, skb));
 		}
 	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
 		dch->inst.lock(dch->inst.data,0);

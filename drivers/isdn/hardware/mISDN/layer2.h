@@ -42,14 +42,16 @@ typedef struct _layer2 {
 	int			rc;
 	u_int			window;
 	u_int			sow;
+	int			entity;
 	struct FsmInst		l2m;
 	struct FsmTimer		t200, t203;
 	int			T200, N200, T203;
 	int			debug;
 	mISDNinstance_t		inst;
 	mISDNif_t		*cloneif;
+	int			next_id;
+	u_int			down_id;
 	struct sk_buff		*windowar[MAX_WINDOW];
-	struct sk_buff		*down_skb;
 	struct sk_buff_head	i_queue;
 	struct sk_buff_head	ui_queue;
 	struct sk_buff_head	down_queue;

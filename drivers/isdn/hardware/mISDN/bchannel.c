@@ -62,7 +62,7 @@ bchannel_bh(bchannel_t *bch)
 				pr = DL_DATA | INDICATION;
 			else
 				pr = PH_DATA | INDICATION;
-			ret = if_newhead(hif, pr, DINFO_SKB, skb);
+			ret = if_newhead(hif, pr, MISDN_ID_ANY, skb);
 			if (ret < 0) {
 				printk(KERN_WARNING "%s: deliver err %d\n",
 					__FUNCTION__, ret);
