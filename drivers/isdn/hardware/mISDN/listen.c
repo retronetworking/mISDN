@@ -149,6 +149,7 @@ void listenConstr(Listen_t *listen, Contr_t *contr, __u16 ApplId)
 
 void listenDestr(Listen_t *listen)
 {
+	printk(KERN_DEBUG "%s\n", __FUNCTION__);
 }
 
 void listenSendMessage(Listen_t *listen, struct sk_buff *skb)

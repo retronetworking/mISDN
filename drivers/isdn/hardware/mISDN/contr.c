@@ -169,6 +169,7 @@ void contrReleaseAppl(Contr_t *contr, __u16 ApplId)
 { 
 	Appl_t *appl;
 
+	printk(KERN_DEBUG "%s %x\n", __FUNCTION__, ApplId);
 	appl = contrId2appl(contr, ApplId);
 	if (!appl) {
 		int_error();
