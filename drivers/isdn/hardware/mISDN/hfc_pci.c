@@ -1551,7 +1551,7 @@ mode_hfcpci(bchannel_t *bch, int bc, int protocol)
 		rx_slot = (bc>>8) & 0xff;
 		tx_slot = (bc>>16) & 0xff;
 		bc = bc & 0xff;
-	} else if (test_bit(HFC_CFG_PCM, &hc->cfg) && (protocol <= 0))
+	} else if (test_bit(HFC_CFG_PCM, &hc->cfg) && (protocol > ISDN_PID_NONE))
 		printk(KERN_WARNING __FUNCTION__
 			": no pcm channel id but HFC_CFG_PCM\n");
 	save_flags(flags);
