@@ -848,7 +848,7 @@ setup_fritz(fritzpnppci *fc, u_int io_cfg, u_int irq_cfg)
 			}
 			if (pci_enable_device(dev_avm))
 				continue;
-			fc->addr = dev_avm->base_address[ 1] & PCI_BASE_ADDRESS_IO_MASK;
+			fc->addr = pci_resource_start_io(dev_avm,1);
 			if (!fc->addr) {
 				printk(KERN_ERR "FritzPCI: No IO-Adr for PCI card found\n");
 				continue;

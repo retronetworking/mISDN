@@ -1387,7 +1387,9 @@ init_device(u_int minor) {
 	if (dev) {
 		memset(dev, 0, sizeof(hisaxdevice_t));
 		dev->minor = minor;
-		dev->io_sema = MUTEX;
+		init_waitqueue_head(&dev->rport.procq);
+		init_waitqueue_head(&dev->wport.procq);
+		init_MUTEX(&dev->io_sema);
 		write_lock_irqsave(&hisax_device_lock, flags);
 		APPEND_TO_LIST(dev, hisax_devicelist);
 		write_unlock_irqrestore(&hisax_device_lock, flags);

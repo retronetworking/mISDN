@@ -617,7 +617,7 @@ typedef struct _hisaxstack {
 } hisaxstack_t;
 
 typedef struct _hisaxport {
-	struct wait_queue	*procq;
+	wait_queue_head_t	procq;
 	spinlock_t		lock;
 	hisaxif_t		pif;
 	int			Flag;

@@ -435,9 +435,9 @@ setup_speedfax(sedl_fax *sf, u_int io_cfg, u_int irq_cfg)
 		while ((dev_sedl = pci_find_device(PCI_VENDOR_ID_TIGERJET,
 				PCI_DEVICE_ID_TIGERJET_100, dev_sedl))) {
 			sf->irq = dev_sedl->irq;
-			sf->cfg = dev_sedl->base_address[ 0] & PCI_BASE_ADDRESS_IO_MASK;
-			pci_read_config_word(dev_sedl, PCI_SUBSYSTEM_VENDOR_ID, &sub_vendor_id);
-			pci_read_config_word(dev_sedl, PCI_SUBSYSTEM_ID, &sub_id);
+			sf->cfg = pci_resource_start_io(dev_sedl, 0);
+			pci_get_sub_vendor(dev_sedl,sub_vendor_id);
+			pci_get_sub_system(dev_sedl,sub_id);
 			printk(KERN_INFO "Sedlbauer: PCI subvendor:%x subid %x\n",
 				sub_vendor_id, sub_id);
 			printk(KERN_INFO "Sedlbauer: PCI base adr %#x\n",
