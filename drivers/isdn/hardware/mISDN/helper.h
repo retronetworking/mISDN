@@ -129,7 +129,7 @@ extern __inline__ int if_link(hisaxif_t *i, u_int prim, int dinfo, int len,
 	else
 		err = i->func(i, skb);
 	if (err)
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 	return(err);
 }
 

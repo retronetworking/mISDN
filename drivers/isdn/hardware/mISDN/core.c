@@ -130,7 +130,7 @@ dummy_if(hisaxif_t *hif, struct sk_buff *skb)
 	if (debug & DEBUG_DUMMY_FUNC)
 		printk(KERN_DEBUG __FUNCTION__": hif(%p) skb(%p) len(%d) prim(%x)\n",
 			hif, skb, skb->len, *((u_int *)skb->data));
-	dev_kfree_skb(skb);
+	dev_kfree_skb_any(skb);
 	return(0);
 }
 

@@ -61,7 +61,7 @@ static int SendMsg(l3_process_t *pc, int state) {
 	if (state != -1)
 		newl3state(pc, state);
 	if ((ret=l3_msg(pc->l3, DL_DATA | REQUEST, DINFO_SKB, 0, skb)))
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 	return(ret);
 }
 
@@ -80,7 +80,7 @@ l3dss1_message(l3_process_t *pc, u_char mt)
 	*p++ = pc->callref ^ 0x80;
 	*p++ = mt;
 	if ((ret=l3_msg(pc->l3, DL_DATA | REQUEST, DINFO_SKB, 0, skb)))
-		dev_kfree_skb(skb);
+		kfree_skb(skb);
 	return(ret);
 }
 
