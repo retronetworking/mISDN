@@ -599,7 +599,7 @@ ISAC_l1hw(mISDNif_t *hif, struct sk_buff *skb)
 			isac_fill_fifo(dch);
 			dch->inst.unlock(dch->inst.data);
 			return(if_newhead(&dch->inst.up, PH_DATA_CNF,
-				DINFO_SKB, skb));
+				hh->dinfo, skb));
 		}
 	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
 		dch->inst.lock(dch->inst.data,0);
