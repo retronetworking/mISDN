@@ -8,6 +8,23 @@
  *
  */
 
+/* privat isac data */
+
+typedef struct isac_chip {
+	u_char			*mon_tx;
+	u_char			*mon_rx;
+	int			mon_txp;
+	int			mon_txc;
+	int			mon_rxp;
+	struct arcofi_msg	*arcofi_list;
+	struct timer_list	arcofitimer;
+	wait_queue_head_t	arcofi_wait;
+	u_char			arcofi_bc;
+	u_char			arcofi_state;
+	u_char			mocr;
+	u_char			adf2;
+} isac_chip_t;
+
 
 /* All Registers original Siemens Spec  */
 
@@ -62,10 +79,12 @@
 #define ISAC_IND_AI10	0xD
 #define ISAC_IND_DID	0xF
 
-extern void ISACVersion(dchannel_t *, char *);
-extern void init_isac(dchannel_t *);
-extern void free_isac(dchannel_t *dch);
 
-extern void isac_interrupt(dchannel_t *, u_char);
-extern void clear_pending_isac_ints(dchannel_t *);
+/* interface for the isac module */
+
+extern int ISAC_init(dchannel_t *);
+extern void ISAC_free(dchannel_t *);
+
+extern void ISAC_interrupt(dchannel_t *, u_char);
+extern void ISAC_clear_pending_ints(dchannel_t *);
 extern int ISAC_l1hw(hisaxif_t *, struct sk_buff *);

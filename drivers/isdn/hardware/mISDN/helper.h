@@ -56,8 +56,32 @@
 	if (item == base) \
 		base = item->next
 
-extern int discard_queue(struct sk_buff_head *);
-extern struct sk_buff *alloc_uplink_skb(size_t);
+static inline int
+discard_queue(struct sk_buff_head *q)
+{
+	struct sk_buff *skb;
+	int ret=0;
+
+	while ((skb = skb_dequeue(q))) {
+		dev_kfree_skb(skb);
+		ret++;
+	}
+	return(ret);
+}
+
+static inline struct sk_buff *
+alloc_uplink_skb(size_t size)
+{
+	struct sk_buff *skb;
+
+	if (!(skb = alloc_skb(size + UPLINK_HEADER_SPACE, GFP_ATOMIC)))
+		printk(KERN_WARNING "%s(%d): no skb size\n", __FUNCTION__,
+			size);
+	else
+		skb_reserve(skb, UPLINK_HEADER_SPACE);
+	return(skb);
+}
+
 extern int get_lowlayer(int);
 extern int get_up_layer(int);
 extern int get_down_layer(int);
