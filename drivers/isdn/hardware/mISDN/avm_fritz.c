@@ -938,7 +938,6 @@ static int init_card(fritzpnppci *fc)
 	if (fc->type == AVM_FRITZ_PNP)
 		shared = 0;
 	lock_dev(fc, 0);
-	reset_avmpcipnp(fc);
 	if (fc->type == AVM_FRITZ_PCIV2) {
 		if (request_irq(fc->irq, avm_fritzv2_interrupt, SA_SHIRQ,
 			"AVM Fritz!PCI", fc)) {
@@ -956,6 +955,7 @@ static int init_card(fritzpnppci *fc)
 			return(-EIO);
 		}
 	}
+	reset_avmpcipnp(fc);
 	while (cnt) {
 		int	ret;
 		mISDN_clear_isac(&fc->dch);
