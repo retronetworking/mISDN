@@ -219,7 +219,7 @@ release_io_hfcpci(hfc_pci_t *hc)
 	del_timer(&hc->hw.timer);
 	kfree(hc->hw.share_start);
 	hc->hw.share_start = NULL;
-	vfree(hc->hw.pci_io);
+	iounmap((void *)hc->hw.pci_io);
 }
 
 
