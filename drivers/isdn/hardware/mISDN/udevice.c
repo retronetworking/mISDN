@@ -150,9 +150,13 @@ new_devstack(hisaxdevice_t *dev, stack_info_t *si)
 
 	memset(&inst, 0, sizeof(hisaxinstance_t));
 	st = get_stack4id(si->id);
-	if ((si->extentions & EXT_STACK_CLONE) && !st) {
-		int_errtxt("ext(%x) st(%x)", si->extentions, si->id);
-		return(-EINVAL);
+	if (si->extentions & EXT_STACK_CLONE) {
+		if (st) {
+			inst.st = st;
+		} else {
+			int_errtxt("ext(%x) st(%x)", si->extentions, si->id);
+			return(-EINVAL);
+		}
 	}
 	err = udev_obj.ctrl(NULL, MGR_NEWSTACK | REQUEST, &inst);
 	if (err) {
