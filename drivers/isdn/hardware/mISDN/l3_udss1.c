@@ -2381,7 +2381,7 @@ udss1_manager(void *data, u_int prim, void *arg) {
 			printk(KERN_DEBUG "release_udss1 id %x\n", l3l->inst.st->id);
 	    	release_udss1(l3l);
 	    	break;
-	    		
+	    PRIM_NOT_HANDLED(MGR_CTRLREADY | INDICATION);
 	    default:
 	    	if (debug & 0x1)
 			printk(KERN_WARNING "udss1 prim %x not handled\n", prim);

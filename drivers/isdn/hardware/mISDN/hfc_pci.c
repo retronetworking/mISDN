@@ -2247,6 +2247,7 @@ HFC_manager(void *data, u_int prim, void *arg) {
 	int		channel = -1;
 
 	if (!data) {
+		MGR_HASPROTOCOL_HANDLER(prim,arg,&HFC_obj)
 		printk(KERN_ERR "%s: no data prim %x arg %p\n",
 			__FUNCTION__, prim, arg);
 		return(-EINVAL);
@@ -2350,6 +2351,8 @@ HFC_manager(void *data, u_int prim, void *arg) {
 					0, 0, NULL, 0);
 		}
 		break;
+	    PRIM_NOT_HANDLED(MGR_CTRLREADY | INDICATION);
+	    PRIM_NOT_HANDLED(MGR_GLOBALOPT | REQUEST);
 	    default:
 		printk(KERN_WARNING "%s: prim %x not handled\n",
 			__FUNCTION__, prim);
