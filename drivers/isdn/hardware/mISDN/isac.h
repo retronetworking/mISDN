@@ -133,4 +133,4 @@ extern void ISAC_free(dchannel_t *);
 
 extern void ISAC_interrupt(dchannel_t *, u_char);
 extern void ISAC_clear_pending_ints(dchannel_t *);
-extern int ISAC_l1hw(hisaxif_t *, struct sk_buff *);
+extern int ISAC_l1hw(mISDNif_t *, struct sk_buff *);

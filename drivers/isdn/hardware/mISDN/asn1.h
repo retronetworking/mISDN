@@ -2,7 +2,7 @@
  *
  */
 
-#include <linux/hisaxif.h>
+#include <linux/mISDNif.h>
 #include "helper.h"
 
 #ifndef __ASN1_H__

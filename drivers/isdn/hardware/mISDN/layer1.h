@@ -6,7 +6,7 @@
  *
  */
 
-#include <linux/hisaxif.h>
+#include <linux/mISDNif.h>
 #include "fsm.h"
 #ifdef MEMDBG
 #include "memdbg.h"

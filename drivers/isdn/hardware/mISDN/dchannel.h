@@ -6,7 +6,7 @@
  *
  */
 
-#include <linux/hisaxif.h>
+#include <linux/mISDNif.h>
 #include <linux/tqueue.h>
 #include <linux/smp.h>
 #include <linux/ptrace.h>
@@ -35,7 +35,7 @@
 #define FLG_HW_INIT		13
 
 typedef struct _dchannel_t {
-	hisaxinstance_t		inst;
+	mISDNinstance_t		inst;
 	u_int			DFlags;
 	u_int			type;
 	u_int			ph_state;

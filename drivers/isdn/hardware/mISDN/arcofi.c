@@ -9,8 +9,8 @@
  */
  
 #define __NO_VERSION__
-#include "hisax_dch.h"
-#include "hisaxl1.h"
+#include "mISDN_dch.h"
+#include "mISDNl1.h"
 #include "isac.h"
 #include "arcofi.h"
 #include "debug.h"

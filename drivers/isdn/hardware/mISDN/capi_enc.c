@@ -2,7 +2,7 @@
  *
  */
 
-#include "hisax_capi.h"
+#include "mISDN_capi.h"
 #include "asn1.h"
 
 int capiEncodeWord(__u8 *p, __u16 i)

@@ -7,10 +7,10 @@
  */
 
 #define __NO_VERSION__
-#include <linux/hisaxif.h>
-#include "hisaxl1.h"
+#include <linux/mISDNif.h>
+#include "mISDNl1.h"
 #include "helper.h"
-#include "hisax_dch.h"
+#include "mISDN_dch.h"
 
 static void
 dchannel_bh(dchannel_t *dch)
@@ -60,12 +60,12 @@ int
 init_dchannel(dchannel_t *dch) {
 	if (!(dch->dlog = kmalloc(MAX_DLOG_SPACE, GFP_ATOMIC))) {
 		printk(KERN_WARNING
-			"HiSax: No memory for dlog\n");
+			"mISDN: No memory for dlog\n");
 		return(-ENOMEM);
 	}
 	if (!(dch->tx_buf = kmalloc(MAX_DFRAME_LEN_L1, GFP_ATOMIC))) {
 		printk(KERN_WARNING
-			"HiSax: No memory for dchannel tx_buf\n");
+			"mISDN: No memory for dchannel tx_buf\n");
 		kfree(dch->dlog);
 		dch->dlog = NULL;
 		return(-ENOMEM);
