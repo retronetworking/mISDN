@@ -945,8 +945,9 @@ static int __init Speedfax_init(void)
 				      ISDN_PID_L1_B_64HDLC |
 				      ISDN_PID_L1_B_T30FAX |
 				      ISDN_PID_L1_B_MODEM_ASYNC;
-	speedfax.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS;
-// 				      ISDN_PID_L2_B_TRANSDTMF;
+	speedfax.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS |
+				      ISDN_PID_L2_B_T30;
+
 	speedfax.prev = NULL;
 	speedfax.next = NULL;
 	

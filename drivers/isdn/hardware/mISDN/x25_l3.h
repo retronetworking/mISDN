@@ -5,8 +5,8 @@
  * This file is (c) under GNU PUBLIC LICENSE
  *
  */
-#ifndef _L3_X23_H
-#define _L3_X23_H
+#ifndef _L3_X25_H
+#define _L3_X25_H
 #include "m_capi.h"
 
 typedef struct _x25_l3		x25_l3_t;

@@ -4,6 +4,9 @@
  *
  */
 
+#ifndef _MISDN_FSM_H
+#define _MISDN_FSM_H
+
 #include <linux/timer.h>
 
 /* Statemachine */
@@ -47,3 +50,5 @@ extern void mISDN_FsmInitTimer(struct FsmInst *, struct FsmTimer *);
 extern int mISDN_FsmAddTimer(struct FsmTimer *, int, int, void *, int);
 extern void mISDN_FsmRestartTimer(struct FsmTimer *, int, int, void *, int);
 extern void mISDN_FsmDelTimer(struct FsmTimer *, int);
+
+#endif
