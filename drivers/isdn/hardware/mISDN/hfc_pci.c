@@ -320,10 +320,10 @@ reset_hfcpci(hfc_pci_t *hc)
 	} else {
 		hc->hw.conn = 0x36;	/* set data flow directions */ 
 		if (test_bit(HFC_CFG_SW_DD_DU, &hc->cfg)) {
-			Write_hfc(hc, HFCPCI_B1_SSL, 0xC0);  modified by Schmidt, Tenovis 
-			Write_hfc(hc, HFCPCI_B2_SSL, 0xC1);  modified by Schmidt, Tenovis
-			Write_hfc(hc, HFCPCI_B1_RSL, 0xC0);  modified by Schmidt, Tenovis
-			Write_hfc(hc, HFCPCI_B2_RSL, 0xC1);  modified by Schmidt, Tenovis
+			Write_hfc(hc, HFCPCI_B1_SSL, 0xC0);
+			Write_hfc(hc, HFCPCI_B2_SSL, 0xC1);
+			Write_hfc(hc, HFCPCI_B1_RSL, 0xC0);
+			Write_hfc(hc, HFCPCI_B2_RSL, 0xC1);
 		} else {
 			Write_hfc(hc, HFCPCI_B1_SSL, 0x80);
 			Write_hfc(hc, HFCPCI_B2_SSL, 0x81);
