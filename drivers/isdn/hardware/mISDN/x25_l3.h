@@ -63,7 +63,7 @@ struct _x25_l3 {
 	int			up_headerlen;
 	int			maxdatalen;
 	x25_B3_cfg_t		B3cfg;
-	u_int			state;
+	u_long			state;
 	u_int			debug;
 	spinlock_t		lock;
 	u_char			cause[2];
@@ -84,7 +84,7 @@ struct _x25_channel {
 	__u32			ncci;
 	u_char			*ncpi_data;
 	u_int			ncpi_len;
-	u_int			state;
+	u_long			state;
 	u_int			debug;
 	spinlock_t		lock;
 	u_int			pr;
