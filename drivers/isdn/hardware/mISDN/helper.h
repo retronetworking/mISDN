@@ -82,11 +82,24 @@ alloc_uplinkD_skb(size_t size)
 	return(skb);
 }
 
-extern void set_dchannel_pid(hisax_pid_t *, int, int);
-extern int get_lowlayer(int);
-extern int get_up_layer(int);
-extern int get_down_layer(int);
-extern int layermask2layer(int);
+extern void	set_dchannel_pid(hisax_pid_t *, int, int);
+extern int	get_lowlayer(int);
+extern int	get_up_layer(int);
+extern int	get_down_layer(int);
+extern int	layermask2layer(int);
+extern int	get_protocol(hisaxstack_t *, int);
+extern int	HasProtocol(hisaxobject_t *, int);
+extern int	SetHandledPID(hisaxobject_t *, hisax_pid_t *);
+extern void	RemoveUsedPID(hisax_pid_t *, hisax_pid_t *);
+
+static inline int HasProtocolP(hisaxobject_t *obj, int *PP)
+{
+	if (!PP) {
+		int_error();
+		return(-EINVAL);
+	}
+	return(HasProtocol(obj, *PP));
+}
 
 extern __inline__ void hisax_sethead(u_int prim, int dinfo, struct sk_buff *skb)
 {

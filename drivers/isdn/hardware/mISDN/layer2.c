@@ -12,7 +12,7 @@
 #include "helper.h"
 #include "debug.h"
 
-const char *l2_revision = "$Revision$";
+static char *l2_revision = "$Revision$";
 
 static void l2m_debug(struct FsmInst *fi, char *fmt, ...);
 
@@ -2356,6 +2356,7 @@ int Isdnl2Init(void)
 {
 	int err;
 
+	printk(KERN_INFO "ISDN L2 driver version %s\n", HiSax_getrev(l2_revision));
 	SET_MODULE_OWNER(&isdnl2);
 	isdnl2.name = MName;
 	isdnl2.DPROTO.protocol[2] = ISDN_PID_L2_LAPD |

@@ -10,7 +10,7 @@
  *
  */
 
-const char *l1_revision = "$Revision$";
+static char *l1_revision = "$Revision$";
 
 #include <linux/config.h>
 #include <linux/module.h>
@@ -764,6 +764,7 @@ int Isdnl1Init(void)
 {
 	int err;
 
+	printk(KERN_INFO "ISDN L1 driver version %s\n", HiSax_getrev(l1_revision));
 	SET_MODULE_OWNER(&isdnl1);
 	isdnl1.name = MName;
 	isdnl1.DPROTO.protocol[1] = ISDN_PID_L1_TE_S0;
