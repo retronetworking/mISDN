@@ -119,7 +119,10 @@ void plciNewCrInd(Plci_t *plci, struct l3_process *l3_pc)
 
 void plciNewCrReq(Plci_t *plci)
 {
-	plciL4L3(plci, CC_NEW_CR | REQUEST, NULL);
+	l3msg_t l3msg;
+	l3msg.id = plci->adrPLCI;
+	l3msg.arg = NULL;
+	plciL4L3(plci, CC_NEW_CR | REQUEST, &l3msg);
 }
 
 int plciL4L3(Plci_t *plci, __u32 prim, void *arg)

@@ -4,7 +4,6 @@
 
 #ifndef __ASN1_H__
 #define __ASN1_H__
-#include <linux/types.h>
 #include "helper.h"
 
 typedef enum {

@@ -29,6 +29,7 @@ void applDestr(Appl_t *appl)
 		if (appl->cplcis[i]) {
 			cplciDestr(appl->cplcis[i]);
 			kfree(appl->cplcis[i]);
+			appl->cplcis[i] = NULL;
 		}
 	}
 }
@@ -178,7 +179,7 @@ void applDelCplci(Appl_t *appl, Cplci_t *cplci)
 	}
 	cplciDestr(cplci);
 	kfree(cplci);
-	appl->cplcis[i-1] = 0;
+	appl->cplcis[i-1] = NULL;
 }
 
 #define CLASS_I4L                   0x00

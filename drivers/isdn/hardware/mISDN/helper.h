@@ -33,4 +33,3 @@
 		base = item->next
 
 extern int discard_queue(struct sk_buff_head *);
-

@@ -781,7 +781,7 @@ l1_manager(void *data, u_int prim, void *arg) {
 	    	break;
 	    		
 	    default:
-		printk(KERN_WARNING "fritz_manager prim %x not handled\n", prim);
+		printk(KERN_WARNING "l1_manager prim %x not handled\n", prim);
 		return(-EINVAL);
 	}
 	return(0);

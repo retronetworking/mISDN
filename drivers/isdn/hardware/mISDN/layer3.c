@@ -256,6 +256,19 @@ l3_process_t
 }
 
 l3_process_t
+*getl3proc4id(layer3_t *l3, int id)
+{
+	l3_process_t *p = l3->proc;
+
+	while (p)
+		if (p->id == id)
+			return (p);
+		else
+			p = p->next;
+	return (NULL);
+}
+
+l3_process_t
 *new_l3_process(layer3_t *l3, int cr, int n303)
 {
 	l3_process_t *p;
@@ -267,7 +280,6 @@ l3_process_t
 	memset(p, 0, sizeof(l3_process_t));
 	p->l3 = l3;
 	p->callref = cr;
-	p->id = l3->id | (cr << 8);
 	p->n303 = n303;
 	L3InitTimer(p, &p->timer);
 	APPEND_TO_LIST(p, l3->proc);
