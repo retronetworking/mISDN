@@ -121,11 +121,11 @@ typedef struct _sedl_fax {
 	bchannel_t		bch[2];
 } sedl_fax;
 
-static void lock_dev(void *data)
+static int lock_dev(void *data, int nowait)
 {
 	register hisax_HWlock_t	*lock = &((sedl_fax *)data)->lock;
 	
-	lock_HW(lock);
+	return(lock_HW(lock, nowait));
 } 
 
 static void unlock_dev(void *data)
@@ -417,7 +417,7 @@ static int init_card(sedl_fax *sf)
 	irq_cnt = kstat_irqs(sf->irq);
 	printk(KERN_INFO "%s: IRQ %d count %d cpu%d\n",
 		sf->dch.inst.name, sf->irq, irq_cnt, smp_processor_id());
-	lock_dev(sf);
+	lock_dev(sf, 0);
 	if (request_irq(sf->irq, irq_func, shared, "speedfax", sf)) {
 		printk(KERN_WARNING "HiSax: couldn't get interrupt %d\n",
 			sf->irq);
@@ -453,7 +453,7 @@ static int init_card(sedl_fax *sf)
 			if (cnt == 1) {
 				return (-EIO);
 			} else {
-				lock_dev(sf);
+				lock_dev(sf, 0);
 				reset_speedfax(sf);
 				cnt--;
 			}
@@ -615,7 +615,7 @@ setup_speedfax(sedl_fax *sf, u_int io_cfg, u_int irq_cfg)
 	sf->bch[0].Write_Reg = &WriteISAR;
 	sf->bch[1].Read_Reg = &ReadISAR;
 	sf->bch[1].Write_Reg = &WriteISAR;
-	lock_dev(sf);
+	lock_dev(sf, 0);
 #ifdef SPIN_DEBUG
 	printk(KERN_ERR "spin_lock_adr=%p now(%p)\n", &sf->lock.spin_adr, sf->lock.spin_adr);
 	printk(KERN_ERR "busy_lock_adr=%p now(%p)\n", &sf->lock.busy_adr, sf->lock.busy_adr);
@@ -642,7 +642,7 @@ release_card(sedl_fax *card) {
 	printk(KERN_INFO "irq_ok(%d) irq_fail(%d)\n",
 		card->lock.irq_ok, card->lock.irq_fail);
 #endif
-	lock_dev(card);
+	lock_dev(card, 0);
 	free_irq(card->irq, card);
 	free_isar(&card->bch[1]);
 	free_isar(&card->bch[0]);
