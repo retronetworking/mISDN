@@ -67,6 +67,7 @@ typedef struct _layer3 {
 	mISDNinstance_t		inst;
 	struct sk_buff_head	squeue;
 	spinlock_t              lock;
+	int			OrigCallRef;
 } layer3_t;
 
 struct stateentry {
@@ -88,7 +89,7 @@ extern l3_process_t	*new_l3_process(layer3_t *, int, int, u_int);
 extern u_char		*findie(u_char *, int, u_char, int);
 extern int		mISDN_l3up(l3_process_t *, u_int, struct sk_buff *);
 extern int		getcallref(u_char * p);
-extern int		newcallref(void);
+extern int		newcallref(layer3_t *);
 extern void		init_l3(layer3_t *);
 extern void		release_l3(layer3_t *);
 extern void		mISDNl3New(void);

@@ -160,16 +160,19 @@ getcallref(u_char * p)
 	return (cr);
 }
 
-static int OrigCallRef = 0;
-
 int
-newcallref(void)
+newcallref(layer3_t *l3)
 {
-	if (OrigCallRef == 127)
-		OrigCallRef = 1;
+	int max = 127;
+
+	if (test_bit(FLG_CRLEN2, &nl3->Flag))
+		max = 32767;
+
+	if (l3->OrigCallRef >= max)
+		l3->OrigCallRef = 1;
 	else
-		OrigCallRef++;
-	return (OrigCallRef);
+		l3->OrigCallRef++;
+	return (l3->OrigCallRef);
 }
 
 void
