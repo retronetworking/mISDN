@@ -399,13 +399,14 @@ void ncciReleaseSt(Ncci_t *ncci)
 {
 	int retval;
 
-	ncciL4L3(ncci, DL_RELEASE | REQUEST, 0, 0, NULL, NULL);
-	retval = ncci->binst->inst.obj->ctrl(ncci->binst->inst.st,
-		MGR_CLEARSTACK | REQUEST, NULL);
-
-	if (retval) {
-		int_error();
-		return;
+	if (ncci->ncci_m.state != ST_NCCI_N_0)
+		ncciL4L3(ncci, DL_RELEASE | REQUEST, 0, 0, NULL, NULL);
+	if (ncci->binst) {
+		retval = ncci->binst->inst.obj->ctrl(ncci->binst->inst.st,
+			MGR_CLEARSTACK | REQUEST, NULL);
+		if (retval)
+			int_error();
+		ncci->binst = NULL;
 	}
 }
 
