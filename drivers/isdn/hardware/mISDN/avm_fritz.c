@@ -623,8 +623,8 @@ HDLC_irq(bchannel_t *bch, u_int stat)
 		hdlc->ctrl.sr.cmd |= HDLC_CMD_XRS;
 		write_ctrl(bch, 1);
 		hdlc->ctrl.sr.cmd &= ~HDLC_CMD_XRS;
-		write_ctrl(bch, 1);
 		HDLC_irq_xpr(bch);
+		return;
 	} else if (stat & HDLC_INT_XPR)
 		HDLC_irq_xpr(bch);
 }

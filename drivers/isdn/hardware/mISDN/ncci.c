@@ -1361,8 +1361,8 @@ ncci_l3l4(Ncci_t *ncci, mISDN_head_t *hh, struct sk_buff *skb)
 static int
 ncciL4L3(Ncci_t *ncci, u_int prim, int dtyp, int len, void *arg, struct sk_buff *skb)
 {
-	capidebug(CAPI_DBG_NCCI_L3, "%s: NCCI %x prim(%x) dtyp(%x) skb(%p)",
-		__FUNCTION__, ncci->addr, prim, dtyp, skb);
+	capidebug(CAPI_DBG_NCCI_L3, "%s: NCCI %x prim(%x) dtyp(%x) len(%d) skb(%p)",
+		__FUNCTION__, ncci->addr, prim, dtyp, len, skb);
 	if (skb)
 		return(if_newhead(&ncci->link->inst.down, prim, dtyp, skb));
 	else
