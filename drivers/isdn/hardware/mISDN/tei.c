@@ -423,7 +423,7 @@ l2_tei(teimgr_t *tm, struct sk_buff *skb)
 		} else
 			FsmEvent(&tm->tei_m, EV_IDREQ, NULL);
 		break;
-	    case (MDL_ERROR | REQUEST):
+	    case (MDL_ERROR | INDICATION):
 	    	if (!test_bit(FLG_FIXED_TEI, &tm->l2->flag))
 			FsmEvent(&tm->tei_m, EV_VERIFY, NULL);
 		break;

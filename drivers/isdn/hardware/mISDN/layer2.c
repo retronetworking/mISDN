@@ -232,6 +232,22 @@ l2mgr(layer2_t *l2, u_int prim, void *arg) {
 	long c = (long)arg;
 
 	printk(KERN_DEBUG "l2mgr: prim %x %c\n", prim, (char)c);
+	if (test_bit(FLG_LAPD, &l2->flag) &&
+		!test_bit(FLG_FIXED_TEI, &l2->flag)) {
+		struct sk_buff  *skb;
+		switch(c) {
+			case 'C':
+			case 'D':
+			case 'G':
+			case 'H':
+				skb = create_link_skb(prim, 0, 0, NULL, 0);
+				if (!skb)
+					break;
+				if (l2_tei(l2->tm, skb))
+					dev_kfree_skb(skb);
+				break;
+		}
+	}
 	return(0);
 }
 
