@@ -216,7 +216,7 @@ isar_load_firmware(bchannel_t *bch, u_char *buf, int size)
 	cnt = 0;
 	/* disable ISAR IRQ */
 	bch->BC_Write_Reg(bch->inst.data, 0, ISAR_IRQBIT, 0);
-	if (!(msg = kmalloc(256, GFP_KERNEL))) {
+	if (!(msg = kmalloc(256, GFP_ATOMIC))) {
 		printk(KERN_ERR"isar_load_firmware no buffer\n");
 		bch->inst.unlock(bch->inst.data);
 		return (1);

@@ -801,7 +801,7 @@ dev_init_timer(hisaxdevice_t *dev, iframe_t *iff)
 
 	ht = get_devtimer(dev, iff->addr);
 	if (!ht) {
-		ht = kmalloc(sizeof(hisaxtimer_t), GFP_KERNEL);
+		ht = kmalloc(sizeof(hisaxtimer_t), GFP_ATOMIC);
 		if (!ht)
 			return(-ENOMEM);
 		ht->prev = NULL;
