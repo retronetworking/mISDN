@@ -60,6 +60,7 @@ typedef struct _bchannel_t {
 	u_char			*conmsg;
 	struct			timer_list transbusy;
 	struct			tq_struct tqueue;
+	void			(*hw_bh) (struct _bchannel_t *);
 	int			event;
 	int			err_crc;
 	int			err_tx;

@@ -702,51 +702,8 @@ hdlc_down(hisaxif_t *hif, struct sk_buff *skb)
 }
 
 static void
-hdlc_bh(bchannel_t *bch)
-{
-	struct sk_buff	*skb;
-	u_int 		pr;
-	int		ret;
-
-	if (!bch)
-		return;
-	if (!bch->inst.up.func) {
-		printk(KERN_WARNING "HiSax: hdlc_bh without up.func\n");
-		return;
-	}
-	if (test_and_clear_bit(B_XMTBUFREADY, &bch->event)) {
-		skb = bch->next_skb;
-		if (skb) {
-			bch->next_skb = NULL;
-			if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-				pr = DL_DATA | CONFIRM;
-			else
-				pr = PH_DATA | CONFIRM;
-			if (if_newhead(&bch->inst.up, pr, DINFO_SKB, skb))
-				dev_kfree_skb(skb);
-		}
-	}
-	if (test_and_clear_bit(B_RCVBUFREADY, &bch->event)) {
-		while ((skb = skb_dequeue(&bch->rqueue))) {
-			if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-				pr = DL_DATA | INDICATION;
-			else
-				pr = PH_DATA | INDICATION;
-			ret = if_newhead(&bch->inst.up, pr, DINFO_SKB, skb);
-			if (ret < 0) {
-				printk(KERN_WARNING "hdlc_bh deliver err %d\n",
-					ret);
-				dev_kfree_skb(skb);
-			}
-		}
-	}
-}
-
-static void
 inithdlc(fritzpnppci *fc)
 {
-	fc->bch[0].tqueue.routine = (void *) (void *) hdlc_bh;
-	fc->bch[1].tqueue.routine = (void *) (void *) hdlc_bh;
 	modehdlc(&fc->bch[0], 0, -1);
 	modehdlc(&fc->bch[1], 1, -1);
 }
