@@ -505,7 +505,7 @@ void cleanup_module(void) {
 	if (hisax_thread.thread) {
 		/* abort hisaxd kernel thread */
 		hisax_thread.notify = &sem;
-		test_and_set_bit(HISAX_TFLAGS_TEST, &hisax_thread.Flags);
+		test_and_set_bit(HISAX_TFLAGS_RMMOD, &hisax_thread.Flags);
 		wake_up_interruptible(&hisax_thread.wq);
 		down(&sem);
 		hisax_thread.notify = NULL;
