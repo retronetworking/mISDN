@@ -8,7 +8,6 @@
 #include <stdarg.h>
 #include <linux/types.h>
 #include <linux/errno.h>
-#include <linux/isdn_compat.h>
 
 /* primitives for information exchange
  * generell format
@@ -549,6 +548,7 @@ typedef struct _FACILITY {
 
 
 #ifdef __KERNEL__
+#include <linux/isdn_compat.h>
 #include <linux/skbuff.h>
 
 typedef struct _hisax_head {
