@@ -42,7 +42,7 @@ typedef struct _mISDN_thread {
 	struct task_struct	*thread;
 	wait_queue_head_t	waitq;
 	struct semaphore	*notify;
-	u_int			Flags;
+	u_long			Flags;
 	struct sk_buff_head	workq;
 } mISDN_thread_t;
 
@@ -306,7 +306,7 @@ sel_channel(mISDNstack_t *st, channel_info_t *ci)
 	}
 	if (err) {
 		mISDNstack_t	*cst = st->child;
-		int		nr = 0;
+		u_int		nr = 0;
 
 		ci->st.p = NULL;
 		if (!(ci->channel & (~CHANNEL_NUMBER))) {

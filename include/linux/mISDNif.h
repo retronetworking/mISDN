@@ -533,7 +533,7 @@ typedef struct _mISDNport {
 	wait_queue_head_t	procq;
 	spinlock_t		lock;
 	mISDNif_t		pif;
-	int			Flag;
+	u_long			Flag;
 	int			size;
 	int			cnt;
 	u_char			*buf;

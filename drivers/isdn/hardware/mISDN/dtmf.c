@@ -26,7 +26,7 @@
 typedef struct _dtmf {
 	struct _dtmf	*prev;
 	struct _dtmf	*next;
-	int 		Flags;
+	u_long 		Flags;
 	int		debug;
 	char		last;
 	int		idx;

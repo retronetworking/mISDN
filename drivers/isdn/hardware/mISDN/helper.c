@@ -70,10 +70,10 @@ bprotocol2pid(void *bp, mISDN_pid_t *pid)
 }
 
 int
-HasProtocol(mISDNobject_t *obj, int protocol)
+HasProtocol(mISDNobject_t *obj, u_int protocol)
 {
 	int layer;
-	int pmask;
+	u_int pmask;
 
 	if (!obj) {
 		int_error();

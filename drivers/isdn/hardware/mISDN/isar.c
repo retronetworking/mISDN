@@ -682,7 +682,7 @@ isar_fill_fifo(bchannel_t *bch)
 	u_char *ptr;
 
 	if ((bch->debug & L1_DEB_HSCX) && !(bch->debug & L1_DEB_HSCX_FIFO))
-		debugprint(&bch->inst, __FUNCTION__);
+		debugprint(&bch->inst, "%s", __FUNCTION__);
 	count = bch->tx_len - bch->tx_idx;
 	if (count <= 0)
 		return;
@@ -1407,8 +1407,7 @@ modeisar(bchannel_t *bch, int channel, u_int bprotocol, u_char *param)
 			case ISDN_PID_L1_B_64TRANS:
 			case ISDN_PID_L1_B_64HDLC:
 				/* best is datapath 2 */
-				if (!test_and_set_bit(ISAR_DP2_USE, 
-					&ih->reg->Flags))
+				if (!test_and_set_bit(ISAR_DP2_USE, &ih->reg->Flags))
 					ih->dpath = 2;
 				else if (!test_and_set_bit(ISAR_DP1_USE,
 					&ih->reg->Flags))

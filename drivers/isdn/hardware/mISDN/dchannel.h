@@ -36,7 +36,7 @@
 
 typedef struct _dchannel_t {
 	mISDNinstance_t		inst;
-	u_int			DFlags;
+	u_long			DFlags;
 	u_int			type;
 	u_int			ph_state;
 	u_char			(*read_reg) (void *, u_char);
@@ -55,7 +55,7 @@ typedef struct _dchannel_t {
 	int			err_rx;
 	void			*hw;
 	struct timer_list	dbusytimer;
-	u_int			event;
+	u_long			event;
 	struct sk_buff_head	rqueue; /* D-channel receive queue */
 	struct tq_struct	tqueue;
 	void			(*hw_bh) (struct _dchannel_t *);

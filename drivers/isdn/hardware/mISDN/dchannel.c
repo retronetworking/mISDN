@@ -21,7 +21,7 @@ dchannel_bh(dchannel_t *dch)
 	if (!dch)
 		return;
 	if (dch->debug)
-		printk(KERN_DEBUG "%s: event %x\n", __FUNCTION__, dch->event);
+		printk(KERN_DEBUG "%s: event %lx\n", __FUNCTION__, dch->event);
 #if 0
 	if (test_and_clear_bit(D_CLEARBUSY, &dch->event)) {
 		if (dch->debug)

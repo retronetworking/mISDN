@@ -21,11 +21,11 @@ static char *l1_revision = "$Revision$";
 typedef struct _layer1 {
 	struct _layer1	*prev;
 	struct _layer1	*next;
-	int Flags;
-	struct FsmInst l1m;
+	u_long		Flags;
+	struct FsmInst	l1m;
 	struct FsmTimer timer;
-	int debug;
-	int delay;
+	int		debug;
+	int		delay;
 	mISDNinstance_t	inst;
 } layer1_t;
 
@@ -36,7 +36,7 @@ typedef struct _status_info_l1 {
 	int	protocol;
 	int	status;
 	int	state;
-	int	Flags;
+	u_long	Flags;
 	int	T3;
 	int	delay;
 	int	debug;

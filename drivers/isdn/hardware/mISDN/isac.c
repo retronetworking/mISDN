@@ -101,7 +101,7 @@ static void
 isac_hwbh(dchannel_t *dch)
 {
 	if (dch->debug)
-		printk(KERN_DEBUG "%s: event %x\n", __FUNCTION__, dch->event);
+		printk(KERN_DEBUG "%s: event %lx\n", __FUNCTION__, dch->event);
 #if 0
 	if (test_and_clear_bit(D_CLEARBUSY, &dch->event)) {
 		if (dch->debug)
@@ -833,9 +833,16 @@ ISAC_clear_pending_ints(dchannel_t *dch)
 }
 
 #ifdef MODULE
-int
-init_module(void) {
+static int isac_mod_init(void)
+{
 	printk(KERN_INFO "ISAC module %s\n", isac_revision);
 	return(0);
 }
+
+static void isac_mod_cleanup(void)
+{
+	printk(KERN_INFO "ISAC module unloaded\n");
+}
+module_init(isac_mod_init);
+module_exit(isac_mod_cleanup);
 #endif

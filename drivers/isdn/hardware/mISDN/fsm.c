@@ -11,6 +11,7 @@
 #define __NO_VERSION__
 #include <linux/kernel.h>
 #include <linux/slab.h>
+#include <linux/string.h>
 #include "fsm.h"
 
 #define FSM_TIMER_DEBUG 0

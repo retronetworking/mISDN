@@ -9,7 +9,7 @@
  */
  
 typedef struct _isar_reg {
-	unsigned int	Flags;
+	unsigned long	Flags;
 	volatile u_char	bstat;
 	volatile u_char	iis;
 	volatile u_char	cmsb;

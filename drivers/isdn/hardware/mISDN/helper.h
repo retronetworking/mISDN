@@ -88,7 +88,7 @@ extern int	get_up_layer(int);
 extern int	get_down_layer(int);
 extern int	layermask2layer(int);
 extern int	get_protocol(mISDNstack_t *, int);
-extern int	HasProtocol(mISDNobject_t *, int);
+extern int	HasProtocol(mISDNobject_t *, u_int);
 extern int	SetHandledPID(mISDNobject_t *, mISDN_pid_t *);
 extern void	RemoveUsedPID(mISDN_pid_t *, mISDN_pid_t *);
 

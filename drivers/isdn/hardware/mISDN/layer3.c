@@ -260,7 +260,7 @@ l3_process_t
 }
 
 l3_process_t
-*getl3proc4id(layer3_t *l3, int id)
+*getl3proc4id(layer3_t *l3, u_int id)
 {
 	l3_process_t *p = l3->proc;
 
