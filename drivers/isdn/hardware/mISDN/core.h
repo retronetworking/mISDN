@@ -17,8 +17,6 @@
 #define mISDN_MINOR_RAW_MIN	128
 #define mISDN_MINOR_RAW_MAX	255
 
-#define mISDN_DEVBUF_SIZE	8192
-
 /* debugging */
 #define DEBUG_CORE_FUNC		0x0001
 #define DEBUG_DUMMY_FUNC	0x0002
@@ -40,7 +38,7 @@ extern int		free_device(mISDNdevice_t *dev);
 extern struct list_head	mISDN_stacklist;
 extern struct list_head	mISDN_instlist;
 
-extern void		get_stack_info(iframe_t *);
+extern void		get_stack_info(struct sk_buff *);
 extern int		get_stack_cnt(void);
 extern mISDNstack_t	*get_stack4id(u_int);
 extern mISDNstack_t	*new_stack(mISDNstack_t *, mISDNinstance_t *);
