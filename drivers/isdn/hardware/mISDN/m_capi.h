@@ -236,6 +236,7 @@ struct _Plci {
 #define PLCI_STATE_ALERTING	2
 #define PLCI_STATE_OUTGOING	3
 #define PLCI_STATE_STACKREADY	4
+#define PLCI_STATE_SENDDELAYED	5
 
 // ---------------------------------------------------------------------------
 // struct AppPlci
@@ -248,7 +249,7 @@ struct _AppPlci {
 	Application_t		*appl;
 	Controller_t		*contr;
 	PLInst_t		*link;
-	_cmsg			*pending;
+	struct sk_buff_head	delayedq;
 	struct list_head	Nccis;
 	struct FsmInst		plci_m;
 	u_char			cause[4];
