@@ -2358,6 +2358,7 @@ int Isdnl2Init(void)
 {
 	int err;
 
+	SET_MODULE_OWNER(&isdnl2);
 	isdnl2.name = MName;
 	isdnl2.DPROTO.protocol[2] = ISDN_PID_L2_LAPD |
 		ISDN_PID_L2_LAPD_NET |

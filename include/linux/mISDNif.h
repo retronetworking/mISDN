@@ -593,9 +593,10 @@ typedef struct _hisaxobject {
 	int			refcnt;
 	hisax_pid_t		DPROTO;
 	hisax_pid_t		BPROTO;
-	int     (*own_ctrl)(void *, u_int, void *);
-	int     (*ctrl)(void *, u_int, void *);
-	void	*ilist;
+	int			(*own_ctrl)(void *, u_int, void *);
+	int			(*ctrl)(void *, u_int, void *);
+	void			*ilist;
+	struct module		*owner;
 } hisaxobject_t;
 
 typedef struct _hisaxif {

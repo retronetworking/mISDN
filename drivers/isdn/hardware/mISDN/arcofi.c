@@ -138,5 +138,5 @@ init_arcofi(dchannel_t *dch) {
 	isac->arcofitimer.function = (void *) arcofi_timer;
 	isac->arcofitimer.data = (long) dch;
 	init_timer(&isac->arcofitimer);
-	test_and_set_bit(HW_ARCOFI, &dch->DFlags);
+	dch->type |= ISAC_TYPE_ARCOFI;
 }

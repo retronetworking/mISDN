@@ -694,6 +694,9 @@ static char MName[] = "ISDNL1";
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
 MODULE_PARM(debug, "1i");
+#ifdef MODULE_LICENSE
+MODULE_LICENSE("GPL");
+#endif
 #define Isdnl1Init init_module
 #endif
 
@@ -761,6 +764,7 @@ int Isdnl1Init(void)
 {
 	int err;
 
+	SET_MODULE_OWNER(&isdnl1);
 	isdnl1.name = MName;
 	isdnl1.DPROTO.protocol[1] = ISDN_PID_L1_TE_S0;
 	isdnl1.own_ctrl = l1_manager;

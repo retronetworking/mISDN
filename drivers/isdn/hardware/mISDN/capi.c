@@ -256,6 +256,7 @@ int Capi20Init(void)
 {
 	int err;
 
+	SET_MODULE_OWNER(&capi_obj);
 	capi_obj.name = MName;
 	capi_obj.DPROTO.protocol[4] = ISDN_PID_L4_CAPI20;
 	capi_obj.BPROTO.protocol[4] = ISDN_PID_L4_B_CAPI20;

@@ -2389,6 +2389,7 @@ int UDSS1Init(void)
 
 	strcpy(tmp, dss1_revision);
 	printk(KERN_INFO "HiSax: DSS1 Rev. %s\n", HiSax_getrev(tmp));
+	SET_MODULE_OWNER(&u_dss1);
 	u_dss1.name = MName;
 	u_dss1.DPROTO.protocol[3] = ISDN_PID_L3_DSS1USER |
 		ISDN_PID_L3_DF_PTP |
