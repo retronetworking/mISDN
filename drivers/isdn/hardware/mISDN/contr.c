@@ -331,11 +331,8 @@ contrL3L4(hisaxif_t *hif, struct sk_buff *skb)
 
 	if (!hif || !skb)
 		return(ret);
-	if (skb->len < HISAX_FRAME_MIN)
-		return(ret);
-	hh = (hisax_head_t *)skb->data;
+	hh = HISAX_HEAD_P(skb);
 	contr = hif->fdata;
-	skb_pull(skb, HISAX_HEAD_SIZE);
 	if (hh->prim == (CC_NEW_CR | INDICATION)) {
 		plci = contrNewPlci(contr);
 		if (!plci)

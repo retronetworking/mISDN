@@ -352,7 +352,7 @@ l3down(layer3_t *l3, u_int prim, int dinfo, struct sk_buff *skb) {
 	if (!skb)
 		err = if_link(&l3->inst.down, prim, dinfo, 0, NULL, 0);
 	else
-		err = if_addhead(&l3->inst.down, prim, dinfo, skb);
+		err = if_newhead(&l3->inst.down, prim, dinfo, skb);
 	return(err);
 }
 

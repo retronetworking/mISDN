@@ -1955,22 +1955,19 @@ global_handler(layer3_t *l3, int mt, struct sk_buff *skb)
 static int
 dss1_fromdown(hisaxif_t *hif, struct sk_buff *skb)
 {
-	layer3_t *l3;
-	int i, mt, cr, cause, callState, ret = -EINVAL;
-	char *ptr;
-	l3_process_t *proc;
+	layer3_t	*l3;
+	int		i, mt, cr, cause, callState, ret = -EINVAL;
+	char		*ptr;
+	l3_process_t	*proc;
 	hisax_head_t	*hh;
 
 	if (!hif || !skb)
 		return(ret);
 	l3 = hif->fdata;
-	hh = (hisax_head_t *)skb->data;
+	hh = HISAX_HEAD_P(skb);
 	printk(KERN_DEBUG __FUNCTION__ ": prim(%x)\n", hh->prim);
-	if (skb->len < HISAX_FRAME_MIN)
-		return(ret);
 	if (!l3)
 		return(ret);
-	skb_pull(skb, HISAX_HEAD_SIZE);
 	switch (hh->prim) {
 		case (DL_DATA | INDICATION):
 		case (DL_UNITDATA | INDICATION):
@@ -2144,13 +2141,10 @@ dss1_fromup(hisaxif_t *hif, struct sk_buff *skb)
 	if (!hif || !skb)
 		return(ret);
 	l3 = hif->fdata;
-	hh = (hisax_head_t *)skb->data;
+	hh = HISAX_HEAD_P(skb);
 	printk(KERN_DEBUG __FUNCTION__ ": prim(%x)\n", hh->prim);
-	if (skb->len < HISAX_FRAME_MIN)
-		return(ret);
 	if (!l3)
 		return(ret);
-	skb_pull(skb, HISAX_HEAD_SIZE);
 	if ((DL_ESTABLISH | REQUEST) == hh->prim) {
 		l3_msg(l3, hh->prim, 0, 0, NULL);
 		dev_kfree_skb(skb);
