@@ -1044,7 +1044,6 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 	u_char *ptr;
 	int fifon;
 	int i;
-	__u8 temp;
 
 	fifon = fifo->fifonum;
 
@@ -1093,15 +1092,15 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 						    len);
 					memcpy(ptr, fifo->skbuff->data,
 						fifo->skbuff->len);
-						
+					dev_kfree_skb(fifo->skbuff);
+					fifo->skbuff=NULL;
+
 					skb_queue_tail(&card->bch[fifo->bch_idx].
 						       rqueue,
 						       skb);
-						       
-					bch_sched_event(&card->bch[fifo->bch_idx], B_RCVBUFREADY);
 
+					bch_sched_event(&card->bch[fifo->bch_idx], B_RCVBUFREADY);
 				}
-				fifo->skbuff = NULL;
 			}
 			return;
 		}
@@ -1127,21 +1126,17 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 							    fifo->skbuff->
 							    len);
 						memcpy(ptr, fifo->skbuff->data, fifo->skbuff->len);
+						dev_kfree_skb(fifo->skbuff);
+						fifo->skbuff=NULL;
+						
 						skb_queue_tail(&card->dch.
 							       rqueue,
 							       skb);
-							       
-			printk (KERN_INFO "HFC-S USB new DChannel Frame Len(%i): ", fifo->skbuff->len);
-			temp = 0;
-			while(temp < fifo->skbuff->len)
-				printk("%02x ", skb->data[temp++]);
-			printk("\n");
-		
-									       
+
 						dchannel_sched_event
 						    (&card->dch,
 						     D_RCVBUFREADY);
-						fifo->skbuff = NULL;	/* buffer was freed from upper layer */
+
 					} else {
 						printk(KERN_WARNING
 						       "HFC-S USB: D receive out of memory\n");
@@ -1162,6 +1157,9 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 								    fifo->skbuff->
 								    len);
 							memcpy(ptr, fifo->skbuff->data, fifo->skbuff->len);
+							dev_kfree_skb(fifo->skbuff);
+							fifo->skbuff=NULL;
+							
 							skb_queue_tail(&card->
 								       bch
 								       [fifo->bch_idx].
@@ -1171,7 +1169,6 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 									bch
 									[fifo->bch_idx],
 									B_RCVBUFREADY);
-							fifo->skbuff = NULL;	/* buffer was freed from upper layer */
 						} else {
 							printk(KERN_WARNING
 							       "HFC-S USB: B%i receive out of memory\n",
