@@ -145,6 +145,7 @@ struct FacConfParm {
 typedef struct _BInst {
 	struct _BInst	*prev;
 	struct _BInst   *next;
+	hisaxstack_t	*bst;
 	hisaxinstance_t	inst;
 } BInst_t;
 
