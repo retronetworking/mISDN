@@ -27,7 +27,16 @@
 		item->prev->next = item; \
 	else \
 		base = item
-	                                                        
+
+#define INSERT_INTO_LIST(newi,nexti,base) \
+	newi->next = nexti; \
+	newi->prev = nexti->prev; \
+	if (newi->prev) \
+		newi->prev->next = newi; \
+	nexti->prev = newi; \
+	if (base == nexti) \
+		base = newi
+
 #define REMOVE_FROM_LIST(item) \
 	if (item->prev) \
 		item->prev->next = item->next; \

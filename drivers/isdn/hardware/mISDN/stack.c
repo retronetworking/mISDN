@@ -225,13 +225,7 @@ insertlayer(hisaxstack_t *st, hisaxlayer_t *layer, int layermask)
 					printk(" item(%p) lm(%x) prev(%p)\n",
 						item, get_layermask(item),
 						item->prev);
-				layer->next = item;
-				layer->prev = item->prev;
-				if (layer->prev)
-					layer->prev->next = layer;
-				item->prev = layer;
-				if (st->lstack == item)
-					st->lstack = layer;
+				INSERT_INTO_LIST(layer, item, st->lstack);
 				return(0);
 			} else {
 				if (!item->next)
