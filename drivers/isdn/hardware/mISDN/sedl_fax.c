@@ -796,7 +796,8 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 				if (isar_down(&inst->down, skb))
 					dev_kfree_skb(skb);
 			}
-			if (inst->pid.protocol[2] == ISDN_PID_L2_B_TRANS)
+			if ((inst->pid.protocol[2] == ISDN_PID_L2_B_TRANS) ||
+				(inst->pid.protocol[2] == ISDN_PID_L2_B_TRANSDTMF))
 				if_link(&inst->up, DL_ESTABLISH | INDICATION,
 					0, 0, NULL, 0);
 			else
@@ -823,11 +824,12 @@ Speedfax_init(void)
 	speedfax.own_ctrl = speedfax_manager;
 	speedfax.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;
 	speedfax.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS |
-				      ISDN_PID_L1_B_TRANS_TT |
-				      ISDN_PID_L1_B_TRANS_TTR |
-				      ISDN_PID_L1_B_TRANS_TTS |
+//				      ISDN_PID_L1_B_TRANS_TT |
+//				      ISDN_PID_L1_B_TRANS_TTR |
+//				      ISDN_PID_L1_B_TRANS_TTS |
 				      ISDN_PID_L1_B_64HDLC;
-	speedfax.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS;
+	speedfax.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS |
+				      ISDN_PID_L2_B_TRANSDTMF;
 	speedfax.prev = NULL;
 	speedfax.next = NULL;
 	

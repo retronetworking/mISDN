@@ -37,6 +37,7 @@
 #define BC_FLG_LL_OK	14
 #define BC_FLG_LL_CONN	15
 #define BC_FLG_TX_NEXT	16
+#define BC_FLG_DTMFSEND	17
 
 typedef struct _bchannel_t {
 	int			channel;
