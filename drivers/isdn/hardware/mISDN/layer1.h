@@ -8,7 +8,7 @@
 
 #include <linux/mISDNif.h>
 #include "fsm.h"
-#ifdef MEMDBG
+#ifdef MISDN_MEMDEBUG
 #include "memdbg.h"
 #endif
 

@@ -19,7 +19,7 @@
 #include <asm/io.h>
 #include <linux/ioport.h>
 #include <linux/skbuff.h>
-#ifdef MEMDBG
+#ifdef MISDN_MEMDEBUG
 #include "memdbg.h"
 #endif
 

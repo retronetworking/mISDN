@@ -609,6 +609,11 @@ mISDNInit(void)
 
 	printk(KERN_INFO "Modular ISDN Stack core %s\n", mISDN_core_revision);
 	core_debug = debug;
+#ifdef MISDN_MEMDEBUG
+	err = __mid_init();
+	if (err)
+		return(err);
+#endif
 	err = init_mISDNdev(debug);
 	if (err)
 		return(err);
@@ -652,6 +657,9 @@ void mISDN_cleanup(void) {
 		down(&sem);
 		mISDN_thread.notify = NULL;
 	}
+#ifdef MISDN_MEMDEBUG
+	__mid_cleanup();
+#endif
 	printk(KERN_DEBUG "mISDNcore unloaded\n");
 }
 

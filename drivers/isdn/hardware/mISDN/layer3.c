@@ -263,7 +263,7 @@ l3_process_t
 l3_process_t
 *new_l3_process(layer3_t *l3, int cr, int n303, u_int id)
 {
-	l3_process_t *p;
+	l3_process_t *p = NULL;
 
 	if (id == MISDN_ID_ANY) {
 		if (l3->entity == MISDN_ENTITY_NONE) {

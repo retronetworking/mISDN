@@ -9,7 +9,7 @@
 #include <linux/mISDNif.h>
 #include <linux/skbuff.h>
 #include "fsm.h"
-#ifdef MEMDBG
+#ifdef MISDN_MEMDEBUG
 #include "memdbg.h"
 #endif
 
