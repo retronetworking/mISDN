@@ -405,7 +405,7 @@ get_free_instid(hisaxstack_t *st, hisaxinstance_t *inst) {
 
 int
 register_layer(hisaxstack_t *st, hisaxinstance_t *inst) {
-	hisaxlayer_t	*layer;
+	hisaxlayer_t	*layer = NULL;
 	int		refinc = 0;
 
 	if (!inst)

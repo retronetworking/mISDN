@@ -2,9 +2,11 @@
  *
  */
 
+#include <linux/hisaxif.h>
+#include "helper.h"
+
 #ifndef __ASN1_H__
 #define __ASN1_H__
-#include "helper.h"
 
 typedef enum {
 	invoke       = 1,

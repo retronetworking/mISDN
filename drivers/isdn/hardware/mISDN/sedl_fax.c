@@ -579,10 +579,10 @@ release_card(sedl_fax *card) {
 
 static int
 speedfax_manager(void *data, u_int prim, void *arg) {
-	sedl_fax *card = speedfax.ilist;
-	hisaxinstance_t *inst=data;
-	int channel = -1;
-	int val;
+	sedl_fax	*card = speedfax.ilist;
+	hisaxinstance_t	*inst=data;
+	int		channel = -1;
+	struct sk_buff	*skb;
 
 	printk(KERN_DEBUG __FUNCTION__": data:%p prim:%x arg:%p\n", data, prim, arg);
 	if (!data) {
@@ -623,14 +623,19 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			return(-ENODEV);
 		} else {
 			if (channel == 2) {
-				val = HW_DEACTIVATE;
 				inst->down.fdata = &card->dch;
-				ISAC_l1hw(&inst->down, PH_CONTROL | REQUEST, 0,
-					4, &val);
+				if ((skb = create_link_skb(PH_CONTROL | REQUEST,
+					HW_DEACTIVATE, 0, NULL, 0))) {
+					if (ISAC_l1hw(&inst->down, skb))
+						dev_kfree_skb(skb);
+				}
 			} else {
 				inst->down.fdata = &card->bch[channel];
-				isar_down(&inst->down, MGR_DISCONNECT | REQUEST,
-					0, 0, NULL);
+				if ((skb = create_link_skb(MGR_DISCONNECT | REQUEST,
+					0, 0, NULL, 0))) {
+					if (isar_down(&inst->down, skb))
+						dev_kfree_skb(skb);
+				}
 				
 			}
 			speedfax.ctrl(inst->up.peer, MGR_DISCONNECT | REQUEST,
@@ -698,15 +703,17 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 		}
 		if ((channel!=2) && (inst->pid.global == 2)) {
 			inst->down.fdata = &card->bch[channel];
-			isar_down(&inst->down, PH_ACTIVATE | REQUEST,
-				0, 0, NULL);
+			if ((skb = create_link_skb(PH_ACTIVATE | REQUEST,
+				0, 0, NULL, 0))) {
+				if (isar_down(&inst->down, skb))
+					dev_kfree_skb(skb);
+			}
 			if (inst->pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-				val = DL_ESTABLISH;
+				if_link(&inst->up, DL_ESTABLISH | INDICATION,
+					0, 0, NULL, 0);
 			else
-				val = PH_ACTIVATE;
-			if (inst->up.func)
-				inst->up.func(&inst->up, val | INDICATION,
-					0, 0, NULL);
+				if_link(&inst->up, PH_ACTIVATE | INDICATION,
+					0, 0, NULL, 0);
 		}
 		break;
 	    default:

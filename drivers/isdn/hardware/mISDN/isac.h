@@ -68,4 +68,4 @@ extern void free_isac(dchannel_t *dch);
 
 extern void isac_interrupt(dchannel_t *, u_char);
 extern void clear_pending_isac_ints(dchannel_t *);
-extern int ISAC_l1hw(hisaxif_t *, u_int, int, int, void *);
+extern int ISAC_l1hw(hisaxif_t *, struct sk_buff *);

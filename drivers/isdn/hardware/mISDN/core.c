@@ -120,11 +120,18 @@ remove_object(hisaxobject_t *obj) {
 }
 
 static int
-dummy_if(hisaxif_t *hif, u_int prim, int dinfo, int len, void *arg) {
+dummy_if(hisaxif_t *hif, struct sk_buff *skb)
+{
+	if (!skb) {
+		printk(KERN_WARNING __FUNCTION__": hif(%p) without skb\n",
+			hif);
+		return(-EINVAL);
+	}
 	if (debug & DEBUG_DUMMY_FUNC)
-		printk(KERN_DEBUG __FUNCTION__": prim:%x hif:%p dinfo:%x len:%d arg:%p\n",
-			prim, hif, dinfo, len, arg);
-	return(-EINVAL);
+		printk(KERN_DEBUG __FUNCTION__": hif(%p) skb(%p) len(%d) prim(%x)\n",
+			hif, skb, skb->len, *((u_int *)skb->data));
+	dev_kfree_skb(skb);
+	return(0);
 }
 
 hisaxinstance_t *
