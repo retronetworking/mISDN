@@ -468,10 +468,10 @@ setup_speedfax(sedl_fax *sf, u_int io_cfg, u_int irq_cfg)
 	 		pci_finished_lookup = 1;
 			printk(KERN_INFO "Sedlbauer: No more PCI cards found\n");
 		}
-#else
-		printk(KERN_WARNING "Sedlbauer: NO_PCI_BIOS\n");
-#endif /* CONFIG_PCI */
 	}
+#else
+	printk(KERN_WARNING "Sedlbauer: NO_PCI_BIOS\n");
+#endif /* CONFIG_PCI */
 	if (!sf->subtyp) { /* OK no PCI found now check for an ISA card */	
 		if ((!io_cfg) || (!irq_cfg)) {
 			if (!sedl_cnt)
