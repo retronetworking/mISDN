@@ -57,11 +57,10 @@ alloc_l3msg(int len, u_char type)
 	struct sk_buff	*skb;
 	Q931_info_t	*qi;
 
-	if (!(skb = alloc_skb(len + MAX_HEADER_LEN + L3_EXTRA_SIZE, GFP_ATOMIC))) {
+	if (!(skb = alloc_skb(len + L3_EXTRA_SIZE +1, GFP_ATOMIC))) {
 		printk(KERN_WARNING "mISDN: No skb for L3\n");
 		return (NULL);
 	}
-	skb_reserve(skb, MAX_HEADER_LEN);
 	qi = (Q931_info_t *)skb_put(skb, L3_EXTRA_SIZE +1);
 	initQ931_info(qi);
 	qi->type = type;

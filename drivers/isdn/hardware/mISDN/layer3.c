@@ -214,18 +214,6 @@ StopAllL3Timer(l3_process_t *pc)
 	}
 }
 
-struct sk_buff *
-l3_alloc_skb(int len)
-{
-	struct sk_buff *skb;
-
-	if (!(skb = alloc_skb(len + MAX_HEADER_LEN + IFRAME_HEAD_SIZE, GFP_ATOMIC))) {
-		printk(KERN_WARNING "mISDN: No skb for D-channel\n");
-		return (NULL);
-	}
-	skb_reserve(skb, MAX_HEADER_LEN + IFRAME_HEAD_SIZE);
-	return (skb);
-}
 /*
 static void
 no_l3_proto(struct PStack *st, int pr, void *arg)

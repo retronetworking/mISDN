@@ -49,19 +49,20 @@ typedef struct _l3_process {
 } l3_process_t;
 
 typedef struct _layer3 {
-	struct _layer3	*prev;
-	struct _layer3	*next;
-	struct FsmInst	l3m;
-	struct FsmTimer	l3m_timer;
-	l3_process_t	*proc;
-	l3_process_t	*global;
-	l3_process_t	*dummy;
-	int		(*p_mgr)(l3_process_t *, u_int, void *);
-	u_int		id;
-	int		debug;
-	u_long		Flag;
-	mISDNinstance_t	inst;
-	struct sk_buff_head squeue;
+	struct _layer3		*prev;
+	struct _layer3		*next;
+	struct FsmInst		l3m;
+	struct FsmTimer		l3m_timer;
+	l3_process_t		*proc;
+	l3_process_t		*global;
+	l3_process_t		*dummy;
+	int			(*p_mgr)(l3_process_t *, u_int, void *);
+	int			down_headerlen;
+	u_int			id;
+	int			debug;
+	u_long			Flag;
+	mISDNinstance_t		inst;
+	struct sk_buff_head	squeue;
 } layer3_t;
 
 struct stateentry {
@@ -71,7 +72,6 @@ struct stateentry {
 };
 
 extern int		l3_msg(layer3_t *, u_int, int, int, void *);
-extern struct sk_buff	*l3_alloc_skb(int);
 extern void		newl3state(l3_process_t *, int);
 extern void		L3InitTimer(l3_process_t *, L3Timer_t *);
 extern void		L3DelTimer(L3Timer_t *);

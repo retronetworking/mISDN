@@ -218,7 +218,8 @@ get_down_layer(int layermask)
 	return(downlayer);
 }
 
-int get_up_layer(int layermask) {
+int
+get_up_layer(int layermask) {
 	int uplayer = MAX_LAYER_NR;
 	
 	if (layermask>=128) {
@@ -312,8 +313,8 @@ ConnectIF(mISDNinstance_t *owner, mISDNinstance_t *peer)
 	return(peer->obj->own_ctrl(peer, MGR_SETIF | REQUEST, hif));
 }
 
-int DisConnectIF(mISDNinstance_t *inst, mISDNif_t *hif) {
-	
+int
+DisConnectIF(mISDNinstance_t *inst, mISDNif_t *hif) {
 	if (hif) {
 		if (hif->next && hif->next->owner) {
 			hif->next->owner->obj->ctrl(hif->next->owner,
@@ -333,3 +334,21 @@ int DisConnectIF(mISDNinstance_t *inst, mISDNif_t *hif) {
 	return(0);
 }
 
+void
+init_mISDNinstance(mISDNinstance_t *inst, mISDNobject_t *obj, void *data)
+{
+	if (!obj) {
+		int_error();
+		return;
+	}
+	if (!obj->ctrl) {
+		int_error();
+		return;
+	}
+	inst->obj = obj;
+	inst->data = data;
+	inst->up.owner = inst;
+	inst->down.owner = inst;
+	obj->ctrl(NULL, MGR_DISCONNECT | REQUEST, &inst->down);
+	obj->ctrl(NULL, MGR_DISCONNECT | REQUEST, &inst->up);
+}

@@ -134,7 +134,7 @@ isac_empty_fifo(dchannel_t *dch, int count)
 		debugprint(&dch->inst, "isac_empty_fifo");
 
 	if (!dch->rx_skb) {
-		if (!(dch->rx_skb = alloc_uplinkD_skb(MAX_DFRAME_LEN_L1))) {
+		if (!(dch->rx_skb = alloc_stack_skb(MAX_DFRAME_LEN_L1, dch->up_headerlen))) {
 			printk(KERN_WARNING "mISDN: D receive out of memory\n");
 			dch->write_reg(dch->inst.data, ISAC_CMDR, 0x80);
 			return;

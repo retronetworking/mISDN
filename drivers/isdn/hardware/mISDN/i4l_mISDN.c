@@ -1435,16 +1435,12 @@ I4Lcapi_register(isdn_if *iif)
 
 	APPEND_TO_LIST(drvmap[drvidx], ((i4l_capi_t *)I4Lcapi.ilist));
 	drvmap[drvidx]->debug = debug;
-	drvmap[drvidx]->inst.obj = &I4Lcapi;
-	drvmap[drvidx]->inst.data = drvmap[drvidx];
 	drvmap[drvidx]->inst.pid.layermask = ISDN_LAYER(0) | ISDN_LAYER(1) | ISDN_LAYER(2) | ISDN_LAYER(3);
 	drvmap[drvidx]->inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
 	drvmap[drvidx]->inst.pid.protocol[1] = ISDN_PID_L1_TE_S0;
 	drvmap[drvidx]->inst.pid.protocol[2] = ISDN_PID_L2_LAPD;
 	drvmap[drvidx]->inst.pid.protocol[3] = ISDN_PID_L3_DSS1USER;
-	drvmap[drvidx]->inst.up.owner = &drvmap[drvidx]->inst;
-	drvmap[drvidx]->inst.down.owner = &drvmap[drvidx]->inst;
-	I4Lcapi.ctrl(NULL, MGR_DISCONNECT | REQUEST, &drvmap[drvidx]->inst.down);
+	init_mISDNinstance(&drvmap[drvidx]->inst, &I4Lcapi, drvmap[drvidx]);
 	sprintf(drvmap[drvidx]->inst.name, "Fritz%d", drvidx+1);
 	set_dchannel_pid(&drvmap[drvidx]->pid, 2, 0);
 	for (i=0; i < drvmap[drvidx]->nr_ch; i++) {

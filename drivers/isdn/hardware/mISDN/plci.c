@@ -154,4 +154,3 @@ int plciL4L3(Plci_t *plci, __u32 prim, struct sk_buff *skb)
 		dev_kfree_skb(skb);
 	return(err);
 }
-

@@ -149,7 +149,7 @@ void listenConstr(Listen_t *listen, Contr_t *contr, __u16 ApplId)
 
 void listenDestr(Listen_t *listen)
 {
-	listenDebug(listen, CAPI_DBG_LISTEN, "%s\n", __FUNCTION__);
+	listenDebug(listen, CAPI_DBG_LISTEN, "%s", __FUNCTION__);
 }
 
 void listenSendMessage(Listen_t *listen, struct sk_buff *skb)
