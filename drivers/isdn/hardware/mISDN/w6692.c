@@ -1503,7 +1503,7 @@ static int __devinit w6692_probe(struct pci_dev *pdev, const struct pci_device_i
 	}
 
 	printk(KERN_INFO "mISDN_w6692: found adapter %s at %s\n",
-	       (char *) ent->driver_data, pdev->slot_name);
+	       (char *) ent->driver_data, pci_name(pdev));
 
 	card->addr = pci_resource_start(pdev, 1);
 	card->irq = pdev->irq;
@@ -1580,11 +1580,13 @@ static int __init w6692_init(void)
 	if (err < 0)
 		goto out;
 
+#ifdef OLD_PCI_REGISTER_DRIVER
 	if (err == 0) {
 		err = -ENODEV;
 		pci_unregister_driver(&w6692_driver);
 		goto out;
 	}
+#endif
 	return 0;
 
  out:
