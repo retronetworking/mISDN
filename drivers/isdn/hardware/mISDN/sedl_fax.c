@@ -820,15 +820,6 @@ Speedfax_init(void)
 				err = 0;
 			return(err);
 		}
-		if ((err = speedfax.ctrl(card->dch.inst.st, MGR_SETSTACK | REQUEST, &pid))) {
-			printk(KERN_ERR  "MGR_SETSTACK REQUEST dch err(%d)\n", err);
-			speedfax.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);
-			if (!sedl_cnt)
-				HiSax_unregister(&speedfax);
-			else
-				err = 0;
-			return(err);
-		}
 		for (i=0; i<2; i++) {
 			if ((err = speedfax.ctrl(card->dch.inst.st,
 				MGR_NEWSTACK | REQUEST, &card->bch[i].inst))) {
@@ -840,6 +831,15 @@ Speedfax_init(void)
 					err = 0;
 				return(err);
 			}
+		}
+		if ((err = speedfax.ctrl(card->dch.inst.st, MGR_SETSTACK | REQUEST, &pid))) {
+			printk(KERN_ERR  "MGR_SETSTACK REQUEST dch err(%d)\n", err);
+			speedfax.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);
+			if (!sedl_cnt)
+				HiSax_unregister(&speedfax);
+			else
+				err = 0;
+			return(err);
 		}
 		if ((err = init_card(card))) {
 			speedfax.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);

@@ -1169,15 +1169,6 @@ Fritz_init(void)
 				err = 0;
 			return(err);
 		}
-		if ((err = fritz.ctrl(card->dch.inst.st, MGR_SETSTACK | REQUEST, &pid))) {
-			printk(KERN_ERR  "MGR_SETSTACK REQUEST dch err(%d)\n", err);
-			fritz.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);
-			if (!fritz_cnt)
-				HiSax_unregister(&fritz);
-			else
-				err = 0;
-			return(err);
-		}
 		for (i=0; i<2; i++) {
 			if ((err = fritz.ctrl(card->dch.inst.st, MGR_NEWSTACK | REQUEST,
 				&card->bch[i].inst))) {
@@ -1190,6 +1181,15 @@ Fritz_init(void)
 					err = 0;
 				return(err);
 			}
+		}
+		if ((err = fritz.ctrl(card->dch.inst.st, MGR_SETSTACK | REQUEST, &pid))) {
+			printk(KERN_ERR  "MGR_SETSTACK REQUEST dch err(%d)\n", err);
+			fritz.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);
+			if (!fritz_cnt)
+				HiSax_unregister(&fritz);
+			else
+				err = 0;
+			return(err);
 		}
 		if ((err = init_card(card))) {
 			fritz.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);

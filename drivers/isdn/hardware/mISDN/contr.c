@@ -41,10 +41,11 @@ int contrConstr(Contr_t *contr, hisaxstack_t *st, hisax_pid_t *pid, hisaxobject_
 		cst = cst->next;
 	}
 	APPEND_TO_LIST(contr, ocapi->ilist);
-	sprintf(tmp, "HiSax%d", contr->adrController);
+	sprintf(tmp, "HiSax%d", st->id);
 	contr->ctrl = cdrv_if->attach_ctr(&hisax_driver, tmp, contr);
 	if (!contr->ctrl)
 		return -ENODEV;
+	contr->adrController = contr->ctrl->cnr;
 	contr->inst.data = contr;
 	ocapi->ctrl(st, MGR_REGLAYER | INDICATION, &contr->inst);
 	contr->inst.up.stat = IF_DOWN;

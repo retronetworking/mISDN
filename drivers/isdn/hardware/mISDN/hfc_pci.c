@@ -2099,7 +2099,7 @@ SelFreeBChannel(hfc_pci_t *hc, channel_info_t *ci)
 		bch = &hfc->bch[cnr & 1];
 		if (!(ci->channel & (~CHANNEL_NUMBER))) {
 			/* only number is set */
-			if ((ci->channel & CHANNEL_NUMBER) == (cnr + 1)) {
+			if ((ci->channel & 0x3) == (cnr + 1)) {
 				if (bch->protocol != ISDN_PID_NONE)
 					return(-EBUSY);
 				bch->channel = (cnr & 1) ? 2 : 1;
