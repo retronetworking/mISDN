@@ -49,7 +49,6 @@ struct isar_reg {
 
 struct isar_hw {
 	int dpath;
-	int txcnt;
 	int mml;
 	u_char state;
 	u_char cmd;
@@ -68,7 +67,6 @@ struct hdlc_hw {
 		struct hdlc_stat_reg sr;
 	} ctrl;
 	u_int stat;
-	int count;              /* Current skb sent count */
 };
 
 

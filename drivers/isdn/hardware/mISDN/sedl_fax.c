@@ -876,6 +876,7 @@ Speedfax_init(void)
 		sprintf(card->dch.inst.id, "SFax%d", sedl_cnt+1);
 		init_dchannel(&card->dch);
 		for (i=0; i<2; i++) {
+			card->bch[i].channel = i;
 			card->bch[i].inst.obj = &speedfax;
 			card->bch[i].inst.data = card;
 			card->bch[i].inst.layermask = 0;

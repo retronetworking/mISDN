@@ -238,6 +238,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 				inst = &binst->inst;
 				break;
 			}
+			binst = binst->next;
 		}
 		if (inst)
 			break;
