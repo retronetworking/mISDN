@@ -1551,7 +1551,7 @@ mode_hfcpci(bchannel_t *bch, int bc, int protocol)
 		rx_slot = (bc>>8) & 0xff;
 		tx_slot = (bc>>16) & 0xff;
 		bc = bc & 0xff;
-	} else if (test_bit(HFC_CFG_PCM, &hc->cfg) && (protocol != ISDN_PID_NONE))
+	} else if (test_bit(HFC_CFG_PCM, &hc->cfg) && (protocol <= 0))
 		printk(KERN_WARNING __FUNCTION__
 			": no pcm channel id but HFC_CFG_PCM\n");
 	save_flags(flags);
@@ -1679,7 +1679,8 @@ mode_hfcpci(bchannel_t *bch, int bc, int protocol)
 			return(-ENOPROTOOPT);
 	}
 	if (test_bit(HFC_CFG_PCM, &hc->cfg)) {
-		if (protocol == ISDN_PID_NONE) {
+		if ((protocol == ISDN_PID_NONE) ||
+			(protocol == -1)) {	/* init case */
 			rx_slot = 0;
 			tx_slot = 0;
 		} else {
