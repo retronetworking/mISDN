@@ -335,6 +335,7 @@ typedef struct _Ncci {
 	} xmit_skb_handles[CAPI_MAXDATAWINDOW];
 	struct sk_buff *recv_skb_handles[CAPI_MAXDATAWINDOW];
 	struct sk_buff_head squeue;
+	_cmsg		tmpmsg;
 } Ncci_t;
 
 #define NCCI_FLG_FCTRL	1
