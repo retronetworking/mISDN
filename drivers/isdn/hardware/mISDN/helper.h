@@ -70,15 +70,15 @@ discard_queue(struct sk_buff_head *q)
 }
 
 static inline struct sk_buff *
-alloc_uplink_skb(size_t size)
+alloc_uplinkD_skb(size_t size)
 {
 	struct sk_buff *skb;
 
-	if (!(skb = alloc_skb(size + UPLINK_HEADER_SPACE, GFP_ATOMIC)))
+	if (!(skb = alloc_skb(size + L3_EXTRA_SIZE, GFP_ATOMIC)))
 		printk(KERN_WARNING "%s(%d): no skb size\n", __FUNCTION__,
 			size);
 	else
-		skb_reserve(skb, UPLINK_HEADER_SPACE);
+		skb_reserve(skb, L3_EXTRA_SIZE);
 	return(skb);
 }
 

@@ -1021,7 +1021,7 @@ wdata_frame(hisaxdevice_t *dev, iframe_t *iff) {
 			return(-EINVAL);
 		}
 		err = if_link(hif, iff->prim, iff->dinfo, iff->len,
-			&iff->data.b[0], UPLINK_HEADER_SPACE);
+			&iff->data.b[0], L3_EXTRA_SIZE);
 		if (device_debug & DEBUG_WDATA && err)
 			printk(KERN_DEBUG "%s: if_link ret(%x)\n",
 				__FUNCTION__, err);
