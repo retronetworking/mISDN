@@ -121,8 +121,8 @@ l2down_skb(layer2_t *l2, struct sk_buff *skb) {
 
 	if (down->func)
 		ret = down->func(down, skb);
-	if (ret)
-		printk(KERN_WARNING "l2down_phd: error %d\n", ret);
+	if (ret && l2->debug)
+		printk(KERN_DEBUG "l2down_skb: ret(%d)\n", ret);
 	return(ret);
 }
 
@@ -470,14 +470,14 @@ FRMR_error(layer2_t *l2, struct sk_buff *skb)
 	if (test_bit(FLG_MOD128, &l2->flag)) {
 		if (skb->len < headers + 5)
 			return 'N';
-		else
+		else if (l2->debug)
 			l2m_debug(&l2->l2m, "FRMR information %2x %2x %2x %2x %2x",
 				datap[0], datap[1], datap[2],
 				datap[3], datap[4]);
 	} else {
 		if (skb->len < headers + 3)
 			return 'N';
-		else
+		else if (l2->debug)
 			l2m_debug(&l2->l2m, "FRMR information %2x %2x %2x",
 				datap[0], datap[1], datap[2]);
 	}
@@ -1851,6 +1851,7 @@ l2from_down(hisaxif_t *hif, struct sk_buff *askb)
 	if (hh->prim == (PH_DATA | CONFIRM))
 		return(ph_data_confirm(hif, hh, askb));
 	if (hh->prim == (MDL_FINDTEI | REQUEST)) {
+		ret = -ESRCH;
 		if (test_bit(FLG_LAPD, &l2->flag)) {
 			if (l2->tei == hh->dinfo) {
 				void *p = ((u_char *)askb->data);
@@ -1899,7 +1900,8 @@ l2from_down(hisaxif_t *hif, struct sk_buff *askb)
 			ret = 0;
 			break;
 		default:
-			l2m_debug(&l2->l2m, "l2 unknown pr %x", hh->prim);
+			if (l2->debug)
+				l2m_debug(&l2->l2m, "l2 unknown pr %x", hh->prim);
 			ret = -EINVAL;
 			break;
 	}
@@ -1969,7 +1971,8 @@ l2from_up(hisaxif_t *hif, struct sk_buff *skb) {
 				(void *)l2->tei);
 			break;
 		default:
-			l2m_debug(&l2->l2m, "l2 unknown pr %04x", hh->prim);
+			if (l2->debug)
+				l2m_debug(&l2->l2m, "l2 unknown pr %04x", hh->prim);
 	}
 	return(ret);
 }
