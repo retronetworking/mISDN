@@ -6,10 +6,8 @@
 #include "helper.h"
 #include "debug.h"
 
-#if 0
 #define applDebug(appl, lev, fmt, args...) \
-        debug(lev, appl->contr->cs, "", fmt, ## args)
-#endif
+        capidebug(lev, fmt, ## args)
 
 void applConstr(Appl_t *appl, Contr_t *contr, __u16 ApplId, capi_register_params *rp)
 {
@@ -261,7 +259,8 @@ void applManufacturerReqI4L(Appl_t *appl, struct sk_buff *skb)
 		bchannel = manuReq->f.leased.BChannel;
 		if (bchannel < 1 || bchannel > 2)
 			goto out;
-		L4L3(appl->contr, CC_SETUP | INDICATION, &bchannel);
+// FIXME
+//		contrL4L3(appl->contr, CC_SETUP | INDICATION, &bchannel);
 		break;
 	case FUNCTION_I4L_DEC_USE_COUNT:
 		break;

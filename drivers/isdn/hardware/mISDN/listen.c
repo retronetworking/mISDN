@@ -6,10 +6,8 @@
 #include "helper.h"
 #include "debug.h"
 
-#if 0
 #define listenDebug(listen, lev, fmt, args...) \
-        debug(lev, listen->contr->cs, "", fmt, ## args)
-#endif
+        capidebug(lev, fmt, ## args)
 
 // --------------------------------------------------------------------
 // LISTEN state machine
@@ -189,3 +187,7 @@ void init_listen(void)
 	FsmNew(&listen_fsm, fn_listen_list, FN_LISTEN_COUNT);
 }
 
+void free_listen(void)
+{
+	FsmFree(&listen_fsm);
+}
