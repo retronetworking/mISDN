@@ -677,7 +677,7 @@ add_if(layer1_t *l1, hisaxif_t *hif) {
 	int err;
 	hisaxinstance_t *inst = &l1->inst;
 
-	printk(KERN_DEBUG "layer1 add_if lay %d/%d prot %x\n", hif->layer,
+	printk(KERN_DEBUG "layer1 add_if lay %d/%x prot %x\n", hif->layer,
 		hif->stat, hif->protocol);
 	hif->fdata = l1;
 	if (IF_TYPE(hif) == IF_UP) {
@@ -710,7 +710,7 @@ del_if(layer1_t *l1, hisaxif_t *hif) {
 	int err;
 	hisaxinstance_t *inst = &l1->inst;
 
-	printk(KERN_DEBUG "layer1 del_if lay %d/%d %p/%p\n", hif->layer,
+	printk(KERN_DEBUG "layer1 del_if lay %d/%x %p/%p\n", hif->layer,
 		hif->stat, hif->func, hif->fdata);
 	if ((hif->func == inst->up.func) && (hif->fdata == inst->up.fdata)) {
 		inst->up.stat = IF_NOACTIV;
