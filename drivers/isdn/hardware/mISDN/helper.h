@@ -23,10 +23,13 @@
 	item->prev = base; \
 	while (item->prev && item->prev->next) \
 		item->prev = item->prev->next; \
-	if (base) \
-		item->prev->next = item; \
-	else \
-		base = item
+	if (item->prev == item) { \
+		int_errtxt("APPEND DUP %p", item); \
+	} else \
+		if (base) { \
+			item->prev->next = item; \
+		} else \
+			base = item
 
 #define INSERT_INTO_LIST(newi,nexti,base) \
 	newi->next = nexti; \
