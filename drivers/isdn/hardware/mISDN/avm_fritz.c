@@ -608,10 +608,12 @@ HDLC_irq(bchannel_t *bch, u_int stat) {
 					hdlc_fill_fifo(bch);
 					bch_sched_event(bch, B_XMTBUFREADY);
 				} else {
+					bch->tx_len = 0;
 					printk(KERN_WARNING "hdlc tx irq TX_NEXT without skb\n");
 					test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 				}
 			} else {
+				bch->tx_len = 0;
 				test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 				bch_sched_event(bch, B_XMTBUFREADY);
 			}
@@ -1030,6 +1032,7 @@ release_card(fritzpnppci *card)
 			card->pdev->deactivate(card->pdev);
 	} else
 		pci_disable_device(card->pdev);
+	pci_set_drvdata(card->pdev, NULL);
 	kfree(card);
 	fritz.refcnt--;
 }
@@ -1307,7 +1310,10 @@ static void __devexit fritz_remove(struct pci_dev *pdev)
 {
 	fritzpnppci	*card = pci_get_drvdata(pdev);
 
-	fritz.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);
+	if (card)
+		fritz.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);
+	else
+		printk(KERN_WARNING "%s: drvdata allready removed\n", __FUNCTION__);
 }
 
 static struct pci_driver fcpci_driver = {

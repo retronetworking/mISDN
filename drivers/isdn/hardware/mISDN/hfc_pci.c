@@ -810,6 +810,7 @@ next_t_frame:
 				} else
 					printk(KERN_WARNING "hfcB tx irq TX_NEXT without skb\n");
 			}
+			bch->tx_len = 0;
 			test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 			bch->tx_idx = bch->tx_len;
 		}
