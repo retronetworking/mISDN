@@ -477,7 +477,6 @@
 #define MAX_DATA_SIZE		2048
 #define MAX_DATA_MEM		2080
 #define MAX_HEADER_LEN		4
-#define IFRAME_HEAD_SIZE	16
 #define	DEFAULT_PORT_QUEUELEN	256
 #define PORT_SKB_RESERVE	L3_EXTRA_SIZE
 #define PORT_SKB_MINIMUM	128
@@ -486,6 +485,15 @@
 
 #define STATUS_INFO_L1	1
 #define STATUS_INFO_L2	2
+
+typedef struct _mISDN_head {
+	u_int	addr __attribute__((packed));
+	u_int	prim __attribute__((packed));
+	int	dinfo __attribute__((packed));
+	int	len __attribute__((packed));
+} mISDN_head_t;
+
+#define mISDN_HEADER_LEN	sizeof(mISDN_head_t)
 
 typedef struct _status_info {
 	int	len;
@@ -618,13 +626,6 @@ typedef int	(ctrl_func_t)(void *, u_int, void *);
 typedef int	(if_func_t)(struct _mISDNif *, struct sk_buff *);
 typedef int	(lock_func_t)(void *, int);
 typedef void	(unlock_func_t)(void *);
-
-typedef struct _mISDN_head {
-	u_int	addr;
-	u_int	prim;
-	int	dinfo;
-	int	len;
-} mISDN_head_t;
 
 #define mISDN_HEAD_P(s)		((mISDN_head_t *)&s->cb[0])
 #define mISDN_HEAD_PRIM(s)	((mISDN_head_t *)&s->cb[0])->prim
