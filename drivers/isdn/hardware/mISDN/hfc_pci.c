@@ -1568,8 +1568,8 @@ mode_hfcpci(bchannel_t *bch, int bc, int protocol)
 		case (ISDN_PID_L1_B_64TRANS):
 			bch->protocol = protocol;
 			bch->channel = bc;
-		        hfcpci_clear_fifo_rx(hc, fifo2);
-		        hfcpci_clear_fifo_tx(hc, fifo2);
+		        hfcpci_clear_fifo_rx(hc, (fifo2 & 2)?1:0);
+		        hfcpci_clear_fifo_tx(hc, (fifo2 & 2)?1:0);
 			if (bc & 2) {
 				hc->hw.sctrl |= SCTRL_B2_ENA;
 				hc->hw.sctrl_r |= SCTRL_B2_ENA;
@@ -1594,8 +1594,8 @@ mode_hfcpci(bchannel_t *bch, int bc, int protocol)
 		case (ISDN_PID_L1_B_64HDLC):
 			bch->protocol = protocol;
 			bch->channel = bc;
-		        hfcpci_clear_fifo_rx(hc, fifo2);
-		        hfcpci_clear_fifo_tx(hc, fifo2);
+		        hfcpci_clear_fifo_rx(hc, (fifo2 & 2)?1:0);
+		        hfcpci_clear_fifo_tx(hc, (fifo2 & 2)?1:0);
 			if (bc & 2) {
 				hc->hw.sctrl |= SCTRL_B2_ENA;
 				hc->hw.sctrl_r |= SCTRL_B2_ENA;
