@@ -1975,9 +1975,14 @@ dss1_fromdown(hisaxif_t *hif, struct sk_buff *skb)
 				dev_kfree_skb(skb);
 			return(0);
 			break;
+		case (DL_DATA | CONFIRM):
+		case (DL_UNITDATA | CONFIRM):
+			dev_kfree_skb(skb);
+			return(0);
+			break;
                 default:
-                        printk(KERN_WARNING
-                        	"HiSax dss1up unknown pr=%04x\n", hh->prim);
+                        printk(KERN_WARNING __FUNCTION__
+                        	": unknown pr=%04x\n", hh->prim);
                         return(-EINVAL);
 	}
 	if (skb->len < 3) {
