@@ -6,7 +6,7 @@
  *
  */
 
-#include "mISDN_core.h"
+#include "core.h"
 
 mISDNstack_t	*mISDN_stacklist = NULL;
 mISDNinstance_t	*mISDN_instlist = NULL;

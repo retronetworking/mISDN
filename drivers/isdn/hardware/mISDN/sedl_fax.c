@@ -32,11 +32,11 @@
 #include <linux/kernel_stat.h>
 #include <linux/delay.h>
 #include <asm/semaphore.h>
-#include "mISDN_dch.h"
-#include "mISDN_bch.h"
+#include "dchannel.h"
+#include "bchannel.h"
 #include "isac.h"
 #include "isar.h"
-#include "mISDNl1.h"
+#include "layer1.h"
 #include "helper.h"
 #include "debug.h"
 

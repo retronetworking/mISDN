@@ -8,8 +8,8 @@
 
 #define __NO_VERSION__
 #include <linux/mISDNif.h>
-#include "mISDNl1.h"
-#include "mISDN_bch.h"
+#include "layer1.h"
+#include "bchannel.h"
 #include "helper.h"
 
 static void

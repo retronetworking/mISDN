@@ -10,7 +10,7 @@
 #include <linux/vmalloc.h>
 #include <linux/config.h>
 #include <linux/timer.h>
-#include "mISDN_core.h"
+#include "core.h"
 
 #define MAX_HEADER_LEN	4
 

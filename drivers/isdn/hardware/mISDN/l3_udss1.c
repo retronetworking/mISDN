@@ -15,7 +15,7 @@
 
 #include <linux/module.h>
 
-#include "mISDNl3.h"
+#include "layer3.h"
 #include "helper.h"
 #include "debug.h"
 #include "dss1.h"

@@ -31,10 +31,10 @@
 #include <linux/kernel_stat.h>
 #include <linux/delay.h>
 
-#include "mISDN_dch.h"
-#include "mISDN_bch.h"
+#include "dchannel.h"
+#include "bchannel.h"
 #include "hfc_pci.h"
-#include "mISDNl1.h"
+#include "layer1.h"
 #include "helper.h"
 #include "debug.h"
 #include <linux/isdn_compat.h>

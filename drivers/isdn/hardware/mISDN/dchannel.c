@@ -8,9 +8,9 @@
 
 #define __NO_VERSION__
 #include <linux/mISDNif.h>
-#include "mISDNl1.h"
+#include "layer1.h"
 #include "helper.h"
-#include "mISDN_dch.h"
+#include "dchannel.h"
 
 static void
 dchannel_bh(dchannel_t *dch)

@@ -11,7 +11,7 @@
  *
  */
 #define __NO_VERSION__
-#include "mISDNl3.h"
+#include "layer3.h"
 #include "helper.h"
 
 const char *l3_revision = "$Revision$";

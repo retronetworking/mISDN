@@ -8,7 +8,7 @@
  *
  */
 #include <linux/module.h>
-#include "mISDNl2.h"
+#include "layer2.h"
 #include "helper.h"
 #include "debug.h"
 

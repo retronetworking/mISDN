@@ -14,7 +14,7 @@ static char *l1_revision = "$Revision$";
 
 #include <linux/config.h>
 #include <linux/module.h>
-#include "mISDNl1.h"
+#include "layer1.h"
 #include "helper.h"
 #include "debug.h"
 

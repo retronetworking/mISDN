@@ -5,7 +5,7 @@
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 #include <asm/uaccess.h>
-#include "mISDN_capi.h"
+#include "capi.h"
 #include "helper.h"
 #include "debug.h"
 

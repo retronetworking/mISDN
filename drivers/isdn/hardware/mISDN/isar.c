@@ -10,9 +10,9 @@
 
 #define __NO_VERSION__
 #include <linux/delay.h>
-#include "mISDNl1.h"
+#include "layer1.h"
 #include "helper.h"
-#include "mISDN_bch.h"
+#include "bchannel.h"
 #include "isar.h"
 #include "debug.h"
 

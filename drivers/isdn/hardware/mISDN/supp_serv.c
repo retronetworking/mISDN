@@ -2,7 +2,7 @@
  *
  */
 
-#include "mISDN_capi.h"
+#include "capi.h"
 #include "asn1_comp.h"
 #include "asn1_enc.h"
 #include "dss1.h"

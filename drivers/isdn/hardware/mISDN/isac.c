@@ -9,10 +9,10 @@
 
 #define __NO_VERSION__
 #include <linux/module.h>
-#include "mISDN_dch.h"
+#include "dchannel.h"
 #include "isac.h"
 #include "arcofi.h"
-#include "mISDNl1.h"
+#include "layer1.h"
 #include "helper.h"
 #include "debug.h"
 #ifdef CONFIG_KMOD

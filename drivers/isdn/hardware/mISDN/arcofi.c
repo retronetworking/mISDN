@@ -9,8 +9,8 @@
  */
  
 #define __NO_VERSION__
-#include "mISDN_dch.h"
-#include "mISDNl1.h"
+#include "dchannel.h"
+#include "layer1.h"
 #include "isac.h"
 #include "arcofi.h"
 #include "debug.h"
