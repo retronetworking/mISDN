@@ -632,9 +632,9 @@ typedef void	(unlock_func_t)(void *);
 #define mISDN_HEAD_DINFO(s)	((mISDN_head_t *)&s->cb[0])->dinfo
 
 typedef struct _mISDN_headext {
-	u_int	addr;
-	u_int	prim;
-	int	dinfo;
+	u_int	addr __attribute__((packed));
+	u_int	prim __attribute__((packed));
+	int	dinfo  __attribute__((packed));
 	void	*data[3];
 	union {
 		ctrl_func_t	*ctrl;
@@ -642,15 +642,6 @@ typedef struct _mISDN_headext {
 		void		*func;
 	} func;
 } mISDN_headext_t;
-
-#define mISDN_HEADEXT_P(s) ((mISDN_headext_t *)&s->cb[0])
-
-typedef struct _mISDN_headifrm {
-	u_int	prim;
-	int	dinfo;
-	int	len;
-	u_int	addr;
-} mISDN_headifrm_t;
 
 #define mISDN_HEADEXT_P(s) ((mISDN_headext_t *)&s->cb[0])
 
