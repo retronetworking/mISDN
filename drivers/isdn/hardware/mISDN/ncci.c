@@ -447,7 +447,7 @@ void ncciDestr(Ncci_t *ncci)
 	discard_queue(&ncci->squeue);
 	for (i = 0; i < ncci->window; i++) {
 		if (ncci->xmit_skb_handles[i].skb)
-			dev_kfree_skb(ncci->xmit_skb_handles[i].skb);
+			ncci->xmit_skb_handles[i].skb = NULL;
 	}
 }
 
