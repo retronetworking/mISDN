@@ -1081,6 +1081,10 @@ dte_from_up(mISDNif_t *hif, struct sk_buff *skb)
 		case CAPI_DATA_B3_REQ:
 			info = x25_data_b3_req(l3c, hh->dinfo, skb);
 			if (info) {
+				if (info == CAPI_SENDQUEUEFULL) {
+					err = -EXFULL;
+					break;
+				}
 				skb_trim(skb, 2);
 				memcpy(skb->data, &info, 2);
 				err = X25sendL4skb(l3c, l3, addr, CAPI_RESET_B3_CONF, hh->dinfo, skb);

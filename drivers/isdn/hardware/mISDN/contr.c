@@ -225,7 +225,7 @@ SendMessage(struct capi_ctr *ctrl, struct sk_buff *skb)
 	Controller_t	*contr = ctrl->driverdata;
 	Application_t	*appl;
 	int		ApplId;
-	int		err = CAPI_NOERROR;
+	int		err;
 
 	ApplId = CAPIMSG_APPID(skb->data);
 	appl = getApplication4Id(contr, ApplId);
@@ -233,7 +233,7 @@ SendMessage(struct capi_ctr *ctrl, struct sk_buff *skb)
 		int_error();
 		err = CAPI_ILLAPPNR;
 	} else
-		ApplicationSendMessage(appl, skb);
+		err = ApplicationSendMessage(appl, skb);
 #ifndef OLDCAPI_DRIVER_INTERFACE
 	return(err);
 #endif

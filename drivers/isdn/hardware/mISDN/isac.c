@@ -487,6 +487,7 @@ isacsx_rme_irq(dchannel_t *dch)
 			count = 32;
 		isac_empty_fifo(dch, count);
 		if (dch->rx_skb) {
+			skb_trim(dch->rx_skb, dch->rx_skb->len - 1);
 			skb_queue_tail(&dch->rqueue, dch->rx_skb);
 		}
 	}
