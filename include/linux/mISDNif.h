@@ -25,6 +25,7 @@
 #define CONFIRM		0x81
 #define INDICATION	0x82
 #define RESPONSE	0x83
+#define SUB_ERROR	0xff
 
 /* management */
 #define MGR_GETOBJECT	0x0f0100

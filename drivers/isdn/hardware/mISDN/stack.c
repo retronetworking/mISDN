@@ -523,6 +523,18 @@ set_stack(hisaxstack_t *st, hisax_pid_t *pid) {
 	}
 	hl = st->lstack;
 	while(hl && hl->next) {
+		if (!hl->inst) {
+			int_error();
+			return(-EINVAL);
+		}
+		if (!hl->inst->obj) {
+			int_error();
+			return(-EINVAL);
+		}
+		if (!hl->inst->obj->own_ctrl) {
+			int_error();
+			return(-EINVAL);
+		}
 		hl->inst->obj->own_ctrl(hl->inst, MGR_CONNECT | REQUEST,
 			hl->next->inst);
 		hl = hl->next;
