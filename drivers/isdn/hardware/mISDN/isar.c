@@ -1640,7 +1640,7 @@ isar_down(hisaxif_t *hif, u_int prim, int dinfo, int len, void *arg)
 			ret, NULL);
 	} else if ((prim == (PH_DEACTIVATE | REQUEST)) ||
 		(prim == (DL_RELEASE | REQUEST)) ||
-		(prim == (MGR_DELIF | REQUEST))) {
+		(prim == (MGR_DISCONNECT | REQUEST))) {
 		bch->inst.lock(bch->inst.data);
 		if (test_and_clear_bit(FLG_TX_NEXT, &bch->Flag)) {
 			dev_kfree_skb(bch->next_skb);
@@ -1650,7 +1650,7 @@ isar_down(hisaxif_t *hif, u_int prim, int dinfo, int len, void *arg)
 		modeisar(bch, bch->channel, 0, NULL);
 		test_and_clear_bit(BC_FLG_ACTIV, &bch->Flag);
 		bch->inst.unlock(bch->inst.data);
-		if (prim != (MGR_DELIF | REQUEST))
+		if (prim != (MGR_DISCONNECT | REQUEST))
 			bch->inst.up.func(&bch->inst.up, prim | CONFIRM, 0,
 				0, NULL);
 	} else if (prim == (PH_CONTROL | REQUEST)) {

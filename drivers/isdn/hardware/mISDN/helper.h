@@ -53,6 +53,7 @@
 
 extern int discard_queue(struct sk_buff_head *);
 extern struct sk_buff *alloc_uplink_skb(size_t);
+extern int get_lowlayer(int);
 extern int get_up_layer(int);
 extern int get_down_layer(int);
 extern int layermask2layer(int);
