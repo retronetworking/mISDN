@@ -245,7 +245,7 @@ static int
 l2mgr(layer2_t *l2, u_int prim, void *arg) {
 	long c = (long)arg;
 
-	printk(KERN_DEBUG "l2mgr: prim %x %c\n", prim, (char)c);
+	printk(KERN_WARNING "l2mgr: prim %x %c\n", prim, (char)c);
 	if (test_bit(FLG_LAPD, &l2->flag) &&
 		!test_bit(FLG_FIXED_TEI, &l2->flag)) {
 		struct sk_buff  *skb;
@@ -2037,7 +2037,8 @@ tei_l2(layer2_t *l2, struct sk_buff *skb)
 	if (!l2 || !skb)
 		return(ret);
 	hh = mISDN_HEAD_P(skb);
-	printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
+	if (l2->debug)
+		printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
 	switch(hh->prim) {
 	    case (MDL_UNITDATA | REQUEST):
 		ret = l2down(l2, PH_DATA_REQ, l2_newid(l2), skb);

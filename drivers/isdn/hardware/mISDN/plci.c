@@ -22,8 +22,9 @@ void plciInit(Controller_t *contr)
 		plci->l3id = MISDN_ID_NONE;
 		INIT_LIST_HEAD(&plci->AppPlcis);
 		plci->contr = contr;
-		printk(KERN_WARNING "%s: %p PLCI(%x) l3id(%x)\n",
-			__FUNCTION__, plci, plci->addr, plci->l3id);
+		if (contr->debug & CAPI_DBG_PLCI)
+			printk(KERN_DEBUG "%s: %p PLCI(%x) l3id(%x)\n",
+				__FUNCTION__, plci, plci->addr, plci->l3id);
 		plci++;
 	}
 }
