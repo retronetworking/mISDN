@@ -299,6 +299,7 @@ struct isac_chip {
 #define FLG_ARCOFI_TIMER	10
 #define FLG_ARCOFI_ERROR	11
 #define FLG_HW_L1_UINT		12
+#define FLG_HW_INIT		13
 
 typedef struct _dchannel_t {
 	hisaxinstance_t	inst;

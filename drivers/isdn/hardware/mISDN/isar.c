@@ -418,6 +418,12 @@ reterror:
 static void
 isar_bh(bchannel_t *bch)
 {
+	if (!bch)
+		return;
+	if (!bch->inst.up.func) {
+		printk(KERN_WARNING "HiSax: isar_bh without up.func\n");
+		return;
+	}
 	if (test_and_clear_bit(B_XMTBUFREADY, &bch->event)) {
 		struct sk_buff *skb = bch->next_skb;
 
@@ -470,7 +476,7 @@ isar_bh(bchannel_t *bch)
 static void
 isar_sched_event(bchannel_t *bch, int event)
 {
-	bch->event |= 1 << event;
+	test_and_set_bit(event, &bch->event);
 	queue_task(&bch->tqueue, &tq_immediate);
 	mark_bh(IMMEDIATE_BH);
 }
