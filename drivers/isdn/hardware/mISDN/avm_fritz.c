@@ -933,12 +933,10 @@ reset_avmpcipnp(fritzpnppci *fc)
 static int init_card(fritzpnppci *fc)
 {
 	int		cnt = 3;
-	unsigned long	flags;
 	u_int		shared = SA_SHIRQ;
 
 	if (fc->type == AVM_FRITZ_PNP)
 		shared = 0;
-	save_flags(flags);
 	lock_dev(fc, 0);
 	reset_avmpcipnp(fc);
 	if (fc->type == AVM_FRITZ_PCIV2) {
@@ -974,11 +972,9 @@ static int init_card(fritzpnppci *fc)
 		/* RESET Receiver and Transmitter */
 		WriteISAC(fc, ISAC_CMDR, 0x41);
 		unlock_dev(fc);
-		sti();
 		/* Timeout 10ms */
 		current->state = TASK_UNINTERRUPTIBLE;
 		schedule_timeout((10*HZ)/1000);
-		restore_flags(flags);
 		printk(KERN_INFO "AVM Fritz!PCI: IRQ %d count %d\n",
 			fc->irq, fc->irqcnt);
 		if (!fc->irqcnt) {

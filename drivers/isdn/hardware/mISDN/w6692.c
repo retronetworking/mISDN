@@ -941,9 +941,7 @@ static void reset_w6692(w6692pci *card)
 static int init_card(w6692pci *card)
 {
 	int		cnt = 3;
-	unsigned long	flags;
 
-	save_flags(flags);
 	lock_dev(card, 0);
 	if (request_irq(card->irq, w6692_interrupt, SA_SHIRQ,
 		"w6692", card)) {
@@ -956,11 +954,9 @@ static int init_card(w6692pci *card)
 		initW6692(card);
 		/* RESET Receiver and Transmitter */
 		unlock_dev(card);
-		sti();
 		/* Timeout 10ms */
 		current->state = TASK_UNINTERRUPTIBLE;
 		schedule_timeout((10*HZ)/1000);
-		restore_flags(flags);
 		printk(KERN_INFO "w6692: IRQ %d count %d\n",
 			card->irq, card->irqcnt);
 		if (!card->irqcnt) {
