@@ -502,9 +502,13 @@ setva(layer2_t *l2, unsigned int nr)
 			l2->va %= 128;
 		else
 			l2->va %= 8;
-		l2up(l2, DL_DATA | CONFIRM, DINFO_SKB, l2->windowar[l2->sow]);
-		dev_kfree_skb(l2->windowar[l2->sow]);
-		l2->windowar[l2->sow] = NULL;
+		if (l2->windowar[l2->sow]) {
+			skb_trim(l2->windowar[l2->sow], HISAX_HEAD_SIZE);
+			if (l2up(l2, DL_DATA | CONFIRM, (int)l2->windowar[l2->sow],
+				l2->windowar[l2->sow]))
+				dev_kfree_skb(l2->windowar[l2->sow]);
+			l2->windowar[l2->sow] = NULL;
+		}
 		l2->sow = (l2->sow + 1) % l2->window;
 	}
 }

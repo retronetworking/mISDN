@@ -443,7 +443,7 @@ hfcpci_empty_fifo(bchannel_t *bch, bzfifo_type * bz, u_char * bdata, int count)
 		bz->za[new_f2].z2 = new_z2;
 		bz->f2 = new_f2;	/* next buffer */
 		skb = NULL;
-	} else if (!(skb = dev_alloc_skb(count - 3)))
+	} else if (!(skb = alloc_uplink_skb(count - 3)))
 		printk(KERN_WARNING "HFCPCI: receive out of memory\n");
 	else {
 		total = count;
@@ -512,7 +512,7 @@ receive_dmsg(hfc_pci_t *hc)
 #endif
 			df->f2 = ((df->f2 + 1) & MAX_D_FRAMES) | (MAX_D_FRAMES + 1);	/* next buffer */
 			df->za[df->f2 & D_FREG_MASK].z2 = (zp->z2 + rcnt) & (D_FIFO_SIZE - 1);
-		} else if ((skb = dev_alloc_skb(rcnt - 3))) {
+		} else if ((skb = alloc_uplink_skb(rcnt - 3))) {
 			total = rcnt;
 			rcnt -= 3;
 			ptr = skb_put(skb, rcnt);
@@ -578,7 +578,7 @@ hfcpci_empty_fifo_trans(bchannel_t *bch, bzfifo_type * bz, u_char * bdata)
 	if (new_z2 >= (B_FIFO_SIZE + B_SUB_VAL))
 		new_z2 -= B_FIFO_SIZE;	/* buffer wrap */
 
-	if (!(skb = dev_alloc_skb(fcnt)))
+	if (!(skb = alloc_uplink_skb(fcnt)))
 		printk(KERN_WARNING "HFCPCI: receive out of memory\n");
 	else {
 		ptr = skb_put(skb, fcnt);
