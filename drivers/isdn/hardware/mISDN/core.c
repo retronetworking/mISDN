@@ -14,6 +14,9 @@
 #ifdef CONFIG_KMOD
 #include <linux/kmod.h>
 #endif
+#ifdef CONFIG_SMP
+#include <linux/smp_lock.h>
+#endif
 
 hisaxobject_t	*hisax_objects = NULL;
 int core_debug;
