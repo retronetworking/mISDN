@@ -2365,7 +2365,9 @@ static int __init HFC_init(void)
 	mISDN_pid_t	pid;
 	mISDNstack_t	*dst;
 
-	SET_MODULE_OWNER(&HFC_obj);
+#ifdef MODULE
+	HFC_obj.owner = THIS_MODULE;
+#endif
 	HFC_obj.name = HFCName;
 	HFC_obj.own_ctrl = HFC_manager;
 	HFC_obj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 |

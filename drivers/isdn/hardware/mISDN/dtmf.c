@@ -610,7 +610,9 @@ static int dtmf_init(void)
 	int err;
 
 	printk(KERN_INFO "DTMF modul version %s\n", mISDN_getrev(mISDN_dtmf_revision));
-	SET_MODULE_OWNER(&dtmf_obj);
+#ifdef MODULE
+	dtmf_obj.owner = THIS_MODULE;
+#endif
 	dtmf_obj.name = MName;
 	dtmf_obj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
 	dtmf_obj.own_ctrl = dtmf_manager;

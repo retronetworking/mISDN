@@ -1343,7 +1343,9 @@ static int __init Fritz_init(void)
 
 	printk(KERN_INFO "AVM Fritz PCI/PnP driver Rev. %s\n", mISDN_getrev(avm_fritz_rev));
 
-	SET_MODULE_OWNER(&fritz);
+#ifdef MODULE
+	fritz.owner = THIS_MODULE;
+#endif
 	fritz.name = FritzName;
 	fritz.own_ctrl = fritz_manager;
 	fritz.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;

@@ -1310,7 +1310,9 @@ x25_dte_init(void)
 	int err;
 
 	printk(KERN_INFO "X25 DTE modul version %s\n", mISDN_getrev(mISDN_dte_revision));
-	SET_MODULE_OWNER(&x25dte_obj);
+#ifdef MODULE
+	x25dte_obj.owner = THIS_MODULE;
+#endif
 	x25dte_obj.name = MName;
 	x25dte_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_X25DTE;
 	x25dte_obj.own_ctrl = dte_manager;

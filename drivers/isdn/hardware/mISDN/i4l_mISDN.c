@@ -1530,7 +1530,9 @@ I4Lcapi_init(void)
 	int err;
 
 	printk(KERN_INFO "I4L CAPI interface modul version %s\n", mISDN_getrev(i4lcapi_revision));
-	SET_MODULE_OWNER(&I4Lcapi);
+#ifdef MODULE
+	I4Lcapi.owner = THIS_MODULE;
+#endif
 	I4Lcapi.name = I4L_capi_name;
 	I4Lcapi.own_ctrl = I4Lcapi_manager;
 	I4Lcapi.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;

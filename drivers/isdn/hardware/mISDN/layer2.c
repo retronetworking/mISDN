@@ -2414,7 +2414,9 @@ int Isdnl2_Init(void)
 	int err;
 
 	printk(KERN_INFO "ISDN L2 driver version %s\n", mISDN_getrev(l2_revision));
-	SET_MODULE_OWNER(&isdnl2);
+#ifdef MODULE
+	isdnl2.owner = THIS_MODULE;
+#endif
 	isdnl2.name = MName;
 	isdnl2.DPROTO.protocol[2] = ISDN_PID_L2_LAPD |
 		ISDN_PID_L2_LAPD_NET |

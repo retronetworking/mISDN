@@ -390,7 +390,9 @@ int Capi20Init(void)
 	int err;
 
 	printk(KERN_INFO "%s driver file version %s\n", MName, mISDN_getrev(capi_revision));
-	SET_MODULE_OWNER(&capi_obj);
+#ifdef MODULE
+	capi_obj.owner = THIS_MODULE;
+#endif
 	capi_obj.name = MName;
 	capi_obj.DPROTO.protocol[4] = ISDN_PID_L4_CAPI20;
 	capi_obj.BPROTO.protocol[4] = ISDN_PID_L4_B_CAPI20;

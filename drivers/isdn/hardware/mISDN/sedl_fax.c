@@ -792,7 +792,9 @@ static int __init Speedfax_init(void)
 	sedl_fax *card;
 	mISDN_pid_t pid;
 
-	SET_MODULE_OWNER(&speedfax);
+#ifdef MODULE
+	speedfax.owner = THIS_MODULE;
+#endif
 	speedfax.name = SpeedfaxName;
 	speedfax.own_ctrl = speedfax_manager;
 	speedfax.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;

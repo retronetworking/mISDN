@@ -766,7 +766,9 @@ int Isdnl1Init(void)
 	int err;
 
 	printk(KERN_INFO "ISDN L1 driver version %s\n", mISDN_getrev(l1_revision));
-	SET_MODULE_OWNER(&isdnl1);
+#ifdef MODULE
+	isdnl1.owner = THIS_MODULE;
+#endif
 	isdnl1.name = MName;
 	isdnl1.DPROTO.protocol[1] = ISDN_PID_L1_TE_S0;
 	isdnl1.own_ctrl = l1_manager;

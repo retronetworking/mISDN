@@ -802,7 +802,7 @@ static int dsp_init(void)
 	/* fill mISDN object (dsp_obj) */
 	memset(&dsp_obj, 0, sizeof(dsp_obj));
 #ifdef MODULE
-	SET_MODULE_OWNER(&dsp_obj);
+	dsp_obj.owner = THIS_MODULE;
 #endif
 	dsp_obj.name = DSPName;
 	dsp_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_DSP;

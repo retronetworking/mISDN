@@ -1529,7 +1529,9 @@ static int __init w6692_init(void)
 
 	printk(KERN_INFO "Winbond W6692 PCI driver Rev. %s\n", mISDN_getrev(w6692_rev));
 
-	SET_MODULE_OWNER(&w6692);
+#ifdef MODULE
+	w6692.owner = THIS_MODULE;
+#endif
 	w6692.name = W6692Name;
 	w6692.own_ctrl = w6692_manager;
 	w6692.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;
