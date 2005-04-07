@@ -708,7 +708,7 @@ new_x25_l3(x25_l3_t **l3_p, mISDNstack_t *st, mISDN_pid_t *pid, mISDNobject_t *o
 	list_add_tail(&n_l3->list, &obj->ilist);
 	err = obj->ctrl(&n_l3->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
-		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%x)\n",
+		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
 			__FUNCTION__, err);
 	}
 	err = obj->ctrl(st, MGR_REGLAYER | INDICATION, &n_l3->inst);

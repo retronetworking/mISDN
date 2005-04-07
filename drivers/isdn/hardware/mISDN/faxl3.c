@@ -2051,7 +2051,7 @@ new_faxl3(mISDNstack_t *st, mISDN_pid_t *pid) {
 	n_faxl3->entity = MISDN_ENTITY_NONE;
 	err = faxl3_obj.ctrl(&n_faxl3->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
-		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%x)\n",
+		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
 			__FUNCTION__, err);
 	}
 	err = faxl3_obj.ctrl(st, MGR_REGLAYER | INDICATION, &n_faxl3->inst);

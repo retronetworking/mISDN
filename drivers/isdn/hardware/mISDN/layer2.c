@@ -2233,7 +2233,7 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid, layer2_t **newl2) {
 	list_add_tail(&nl2->list, &isdnl2.ilist);
 	err = isdnl2.ctrl(&nl2->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
-		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%x)\n",
+		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
 			__FUNCTION__, err);
 	}
 	err = isdnl2.ctrl(st, MGR_REGLAYER | INDICATION, &nl2->inst);

@@ -109,7 +109,7 @@ mISDNd(void *data)
 					err = hhe->func.ctrl(hhe->data[0], hhe->prim,
 						skb->len ? skb->data : NULL);
 					if (err) {
-						printk(KERN_WARNING "mISDNd: addr(%x) prim(%x) failed err(%x)\n",
+						printk(KERN_WARNING "mISDNd: addr(%x) prim(%x) failed err(%d)\n",
 							hhe->addr, hhe->prim, err);
 					} else {
 						if (debug)
@@ -121,7 +121,7 @@ mISDNd(void *data)
 				case MGR_QUEUEIF:
 					err = hhe->func.iff(hhe->data[0], skb);
 					if (err) {
-						printk(KERN_WARNING "mISDNd: addr(%x) prim(%x) failed err(%x)\n",
+						printk(KERN_WARNING "mISDNd: addr(%x) prim(%x) failed err(%d)\n",
 							hhe->addr, hhe->prim, err);
 					}
 					break;

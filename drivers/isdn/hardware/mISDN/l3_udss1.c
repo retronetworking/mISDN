@@ -2302,7 +2302,7 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 	list_add_tail(&nl3->list, &u_dss1.ilist);
 	err = u_dss1.ctrl(&nl3->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
-		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%x)\n",
+		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
 			__FUNCTION__, err);
 	}
 	err = u_dss1.ctrl(st, MGR_REGLAYER | INDICATION, &nl3->inst);
