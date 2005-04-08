@@ -95,6 +95,11 @@ typedef struct {
 #define PCI_DEVICE_ID_ABOCOM_2BD1	0x2BD1
 #endif
 
+#ifndef PCI_VENDOR_ID_SITECOM
+#define PCI_VENDOR_ID_SITECOM		0x182D
+#define PCI_DEVICE_ID_SITECOM_DC105	0x3069
+#endif
+
 static const PCI_ENTRY id_list[] =
 {
 	{PCI_VENDOR_ID_CCD, PCI_DEVICE_ID_CCD_2BD0, "CCD/Billion/Asuscom", "2BD0"},
@@ -117,6 +122,7 @@ static const PCI_ENTRY id_list[] =
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_E,"Digi International", "Digi DataFire Micro V (Europe)"},
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_IOM2_A,"Digi International", "Digi DataFire Micro V IOM2 (North America)"},
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_A,"Digi International", "Digi DataFire Micro V (North America)"},
+	{PCI_VENDOR_ID_SITECOM, PCI_DEVICE_ID_SITECOM_DC105,"Sitecom Connectivity", "DC-105 ISDN TA"},
 	{0, 0, NULL, NULL},
 };
 
