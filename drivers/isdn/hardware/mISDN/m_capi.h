@@ -273,6 +273,7 @@ struct _Ncci {
 	int			savedstate;
 	int			window;
 	u_long			state;
+	spinlock_t		conf_lock;
 	ConfQueue_t		xmit_skb_handles[CAPI_MAXDATAWINDOW];
 	struct sk_buff		*recv_skb_handles[CAPI_MAXDATAWINDOW];
 	struct sk_buff_head	squeue;
