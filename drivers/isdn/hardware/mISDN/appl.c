@@ -177,6 +177,8 @@ ApplicationSendMessage(Application_t *appl, struct sk_buff *skb)
 		case CAPI_CONNECT_B3_ACTIVE_RESP:
 		case CAPI_DISCONNECT_B3_REQ:
 		case CAPI_DISCONNECT_B3_RESP:
+		case CAPI_RESET_B3_REQ:
+		case CAPI_RESET_B3_RESP:
 			aplci = getAppPlci4addr(appl, CAPIMSG_CONTROL(skb->data));
 			if (!aplci) {
 				AnswerMessage2Application(appl, skb, CapiIllContrPlciNcci);

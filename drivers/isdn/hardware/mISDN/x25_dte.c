@@ -1085,8 +1085,8 @@ dte_from_up(mISDNif_t *hif, struct sk_buff *skb)
 					err = -EXFULL;
 					break;
 				}
-				skb_trim(skb, 2);
-				memcpy(skb->data, &info, 2);
+				skb_trim(skb, 0);
+				memcpy(skb_put(skb, 2), &info, 2);
 				err = X25sendL4skb(l3c, l3, addr, CAPI_RESET_B3_CONF, hh->dinfo, skb);
 			} else
 				err = 0;
@@ -1120,8 +1120,8 @@ dte_from_up(mISDNif_t *hif, struct sk_buff *skb)
 					info = 0;
 			} else
 				info = 0x2004; /* no NCCI available */
-			skb_trim(skb, 2);
-			memcpy(skb->data, &info, 2);
+			skb_trim(skb, 0);
+			memcpy(skb_put(skb, 2), &info, 2);
 			err = X25sendL4skb(l3c, l3, addr, CAPI_CONNECT_B3_CONF, hh->dinfo, skb);
 			break;
 		case CAPI_RESET_B3_REQ:
@@ -1143,8 +1143,8 @@ dte_from_up(mISDNif_t *hif, struct sk_buff *skb)
 					info = 0;
 			} else
 				info = 0x2002;
-			skb_trim(skb, 2);
-			memcpy(skb->data, &info, 2);
+			skb_trim(skb, 0);
+			memcpy(skb_put(skb, 2), &info, 2);
 			err = X25sendL4skb(l3c, l3, addr, CAPI_RESET_B3_CONF, hh->dinfo, skb);
 			break;
 		case CAPI_DISCONNECT_B3_REQ:
@@ -1166,8 +1166,9 @@ dte_from_up(mISDNif_t *hif, struct sk_buff *skb)
 					info = 0;
 			} else
 				info = 0x2002;
-			skb_trim(skb, 2);
-			memcpy(skb->data, &info, 2);
+			
+			skb_trim(skb, 0);
+			memcpy(skb_put(skb, 2), &info, 2);
 			err = X25sendL4skb(l3c, l3, addr, CAPI_DISCONNECT_B3_CONF, hh->dinfo, skb);
 			break;
 		case CAPI_CONNECT_B3_RESP:
