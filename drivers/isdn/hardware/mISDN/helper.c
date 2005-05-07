@@ -240,6 +240,7 @@ mISDN_get_up_layer(int layermask) {
 	return(uplayer);
 }
 
+#ifdef OBSOLATE
 int
 mISDN_SetIF(mISDNinstance_t *owner, mISDNif_t *hif, u_int prim, void *upfunc,
 	void *downfunc, void *data)
@@ -339,6 +340,7 @@ mISDN_DisConnectIF(mISDNinstance_t *inst, mISDNif_t *hif) {
 	}
 	return(0);
 }
+#endif
 
 void
 mISDN_init_instance(mISDNinstance_t *inst, mISDNobject_t *obj, void *data)
@@ -352,15 +354,7 @@ mISDN_init_instance(mISDNinstance_t *inst, mISDNobject_t *obj, void *data)
 		return;
 	}
 	inst->obj = obj;
-	inst->data = data;
-	inst->up.owner = inst;
-	inst->down.owner = inst;
-	inst->up.clone = NULL;
-	inst->up.predecessor = NULL;
-	inst->down.clone = NULL;
-	inst->down.predecessor = NULL;
-	obj->ctrl(NULL, MGR_DISCONNECT | REQUEST, &inst->down);
-	obj->ctrl(NULL, MGR_DISCONNECT | REQUEST, &inst->up);
+	inst->privat = data;
 }
 
 EXPORT_SYMBOL(mISDN_set_dchannel_pid);
@@ -373,7 +367,7 @@ EXPORT_SYMBOL(mISDN_HasProtocol);
 EXPORT_SYMBOL(mISDN_SetHandledPID);
 EXPORT_SYMBOL(mISDN_RemoveUsedPID);
 EXPORT_SYMBOL(mISDN_init_instance);
-EXPORT_SYMBOL(mISDN_SetIF);
-EXPORT_SYMBOL(mISDN_ConnectIF);
-EXPORT_SYMBOL(mISDN_DisConnectIF);
+// EXPORT_SYMBOL(mISDN_SetIF);
+// EXPORT_SYMBOL(mISDN_ConnectIF);
+// EXPORT_SYMBOL(mISDN_DisConnectIF);
 EXPORT_SYMBOL(mISDN_bprotocol2pid);

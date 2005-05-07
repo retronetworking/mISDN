@@ -579,7 +579,9 @@ release_card(sedl_fax *card) {
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);
 	mISDN_free_dch(&card->dch);
+#ifdef OBSOLATE
 	speedfax.ctrl(card->dch.inst.up.peer, MGR_DISCONNECT | REQUEST, &card->dch.inst.up);
+#endif
 	speedfax.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
 	list_del(&card->list);
 	unlock_dev(card);
@@ -637,21 +639,21 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 		break;
 	    case MGR_UNREGLAYER | REQUEST:
 		if (channel == 2) {
-			inst->down.fdata = &card->dch;
+//			inst->down.fdata = &card->dch;
 			if ((skb = create_link_skb(PH_CONTROL | REQUEST,
 				HW_DEACTIVATE, 0, NULL, 0))) {
-				if (mISDN_ISAC_l1hw(&inst->down, skb))
+				if (mISDN_ISAC_l1hw(inst, skb))
 					dev_kfree_skb(skb);
 			}
 		} else {
-			inst->down.fdata = &card->bch[channel];
+//			inst->down.fdata = &card->bch[channel];
 			if ((skb = create_link_skb(MGR_DISCONNECT | REQUEST,
 				0, 0, NULL, 0))) {
-				if (isar_down(&inst->down, skb))
+				if (isar_down(inst, skb))
 					dev_kfree_skb(skb);
 			}
 		}
-		speedfax.ctrl(inst->up.peer, MGR_DISCONNECT | REQUEST, &inst->up);
+//		speedfax.ctrl(inst->up.peer, MGR_DISCONNECT | REQUEST, &inst->up);
 		speedfax.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 		break;
 	    case MGR_CLRSTPARA | INDICATION:
@@ -669,6 +671,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			speedfax.refcnt--;
 		}
 		break;
+#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:
@@ -680,6 +683,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
+#endif
 	    case MGR_LOADFIRM | REQUEST:
 	    	{
 			struct firm {
@@ -696,18 +700,18 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 		break;
 	    case MGR_SETSTACK | CONFIRM:
 		if ((channel!=2) && (inst->pid.global == 2)) {
-			inst->down.fdata = &card->bch[channel];
+//			inst->down.fdata = &card->bch[channel];
 			if ((skb = create_link_skb(PH_ACTIVATE | REQUEST,
 				0, 0, NULL, 0))) {
-				if (isar_down(&inst->down, skb))
+				if (isar_down(inst, skb))
 					dev_kfree_skb(skb);
 			}
 			if ((inst->pid.protocol[2] == ISDN_PID_L2_B_TRANS) ||
 				(inst->pid.protocol[2] == ISDN_PID_L2_B_TRANSDTMF))
-				if_link(&inst->up, DL_ESTABLISH | INDICATION,
+				mISDN_queue_data(inst, FLG_MSG_UP, DL_ESTABLISH | INDICATION,
 					0, 0, NULL, 0);
 			else
-				if_link(&inst->up, PH_ACTIVATE | INDICATION,
+				mISDN_queue_data(inst->st, FLG_MSG_UP, PH_ACTIVATE | INDICATION,
 					0, 0, NULL, 0);
 		}
 		break;

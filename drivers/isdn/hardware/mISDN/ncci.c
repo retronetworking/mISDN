@@ -173,9 +173,9 @@ SKB2Application(Ncci_t *ncci, struct sk_buff *skb)
 static inline int
 SKB_l4l3(Ncci_t *ncci, struct sk_buff *skb)
 {
-	if (!ncci->link || !ncci->link->inst.down.func)
+	if (!ncci->link || !ncci->link->inst.func)
 		return(-ENXIO);
-	return(ncci->link->inst.down.func(&ncci->link->inst.down, skb));
+	return(mISDN_queue_down(&ncci->link->inst, 0, skb));
 }
 
 static inline void
@@ -732,7 +732,7 @@ ncciD_disconnect_b3_ind(struct FsmInst *fi, int event, void *arg)
 		skb_pull(skb, CAPIMSG_BASELEN);
 		skb_trim(skb, 0);
 		skb_put(skb, 4);
-		if_newhead(&ncci->link->inst.down, CAPI_DISCONNECT_B3_RESP, 0, skb);
+		mISDN_queuedown_newhead(&ncci->link->inst, 0, CAPI_DISCONNECT_B3_RESP, 0, skb);
 		ncciDestr(ncci);
 	} else
 		SKB2Application(ncci, arg);
@@ -768,7 +768,7 @@ ncciD_appl_release_disc(struct FsmInst *fi, int event, void *arg)
 	capimsg_setu32(parm, 0, ncci->addr);
 	parm[4] = 0;
 	mISDN_FsmChangeState(fi, ST_NCCI_N_4);
-	if_link(&ncci->link->inst.down, CAPI_DISCONNECT_B3_REQ, 0, 5, parm, 0); 
+	mISDN_queue_data(&ncci->link->inst, FLG_MSG_DOWN, CAPI_DISCONNECT_B3_REQ, 0, 5, parm, 0); 
 }
 
 static struct FsmNode fn_ncciD_list[] =
@@ -1400,10 +1400,9 @@ ncciL4L3(Ncci_t *ncci, u_int prim, int dtyp, int len, void *arg, struct sk_buff 
 	capidebug(CAPI_DBG_NCCI_L3, "%s: NCCI %x prim(%x) dtyp(%x) len(%d) skb(%p)",
 		__FUNCTION__, ncci->addr, prim, dtyp, len, skb);
 	if (skb)
-		return(if_newhead(&ncci->link->inst.down, prim, dtyp, skb));
+		return(mISDN_queuedown_newhead(&ncci->link->inst, 0, prim, dtyp, skb));
 	else
-		return(if_link(&ncci->link->inst.down, prim, dtyp,
-			len, arg, 8));
+		return(mISDN_queue_data(&ncci->link->inst, FLG_MSG_DOWN, prim, dtyp, len, arg, 8));
 }
 
 void

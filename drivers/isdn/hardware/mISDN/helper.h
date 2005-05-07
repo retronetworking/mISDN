@@ -176,30 +176,52 @@ mISDN_sethead(u_int prim, int dinfo, struct sk_buff *skb)
 	hh->dinfo = dinfo;
 }
 
-/* send the skb through this interface with new header values */
+static inline int mISDN_send_message(void) {return 0;};
+static inline int mISDN_send_data(void) {return 0;};
+static inline int mISDN_sendup(void) {return 0;};
+static inline int mISDN_sendup_newhead(void) {return 0;};
+static inline int mISDN_senddown(void) {return 0;};
+static inline int mISDN_senddown_newhead(void) {return 0;};
+
+
+#define mISDN_queue_up(i, a, s)		mISDN_queue_message(i, a | FLG_MSG_UP, s)
+#define mISDN_queue_down(i, a, s)	mISDN_queue_message(i, a | FLG_MSG_DOWN, s)
+
 static inline int
-if_newhead(mISDNif_t *i, u_int prim, int dinfo, struct sk_buff *skb)
+mISDN_queueup_newhead(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, struct sk_buff *skb)
 {
-	if (!i->func || !skb)
-		return(-ENXIO);
-	mISDN_sethead(prim, dinfo, skb);
-	return(i->func(i, skb));
+	mISDN_head_t *hh = mISDN_HEAD_P(skb);
+
+	hh->prim = prim;
+	hh->dinfo = dinfo;
+	return(mISDN_queue_up(inst, aflag, skb));
 }
+
+static inline int
+mISDN_queuedown_newhead(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, struct sk_buff *skb)
+{
+	mISDN_head_t *hh = mISDN_HEAD_P(skb);
+
+	hh->prim = prim;
+	hh->dinfo = dinfo;
+	return(mISDN_queue_down(inst, aflag, skb));
+}
+
 
 /* allocate a mISDN message SKB with enough headroom and set the header fields
  * the MEMDEBUG version is for debugging memory leaks in the mISDN stack
  */
 #ifdef MISDN_MEMDEBUG
-#define create_link_skb(p, d, l, a, r)	__mid_create_link_skb(p, d, l, a, r, __FILE__, __LINE__)
+#define create_link_skb(p, d, l, dp, r)	__mid_create_link_skb(p, d, l, dp, r, __FILE__, __LINE__)
 static inline struct sk_buff *
-__mid_create_link_skb(u_int prim, int dinfo, int len, void *arg, int reserve, char *fn, int line)
+__mid_create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve, char *fn, int line)
 {
 	struct sk_buff	*skb;
 
 	if (!(skb = __mid_alloc_skb(len + reserve, GFP_ATOMIC, fn, line))) {
 #else
 static inline struct sk_buff *
-create_link_skb(u_int prim, int dinfo, int len, void *arg, int reserve)
+create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve)
 {
 	struct sk_buff	*skb;
 
@@ -211,7 +233,7 @@ create_link_skb(u_int prim, int dinfo, int len, void *arg, int reserve)
 	} else
 		skb_reserve(skb, reserve);
 	if (len)
-		memcpy(skb_put(skb, len), arg, len);
+		memcpy(skb_put(skb, len), dp, len);
 	mISDN_sethead(prim, dinfo, skb);
 	return(skb);
 }
@@ -221,28 +243,25 @@ create_link_skb(u_int prim, int dinfo, int len, void *arg, int reserve)
  * the MEMDEBUG version is for debugging memory leaks in the mISDN stack
  */
 #ifdef MISDN_MEMDEBUG
-#define if_link(i, p, d, l, a, r)	__mid_if_link(i, p, d, l, a, r, __FILE__, __LINE__)
+#define mISDN_queue_data(i, a, p, d, l, dp, r)	__mid_queue_data(i, a, p, d, l, dp, r, __FILE__, __LINE__)
 static inline int
-__mid_if_link(mISDNif_t *i, u_int prim, int dinfo, int len, void *arg, int reserve, char *fn, int line)
+__mid_queue_data(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, int len, void *dp, int reserve, char *fn, int line)
 {
 	struct sk_buff	*skb;
 	int		err;
 
-	if (!(skb = __mid_create_link_skb(prim, dinfo, len, arg, reserve, fn, line)))
+	if (!(skb = __mid_create_link_skb(prim, dinfo, len, dp, reserve, fn, line)))
 #else
 static inline int
-if_link(mISDNif_t *i, u_int prim, int dinfo, int len, void *arg, int reserve)
+mISDN_queue_data(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, int len, void *dp, int reserve)
 {
 	struct sk_buff	*skb;
 	int		err;
 
-	if (!(skb = create_link_skb(prim, dinfo, len, arg, reserve)))
+	if (!(skb = create_link_skb(prim, dinfo, len, dp, reserve)))
 #endif
 		return(-ENOMEM);
-	if (!i)
-		err = -ENXIO;
-	else
-		err = i->func(i, skb);
+	err = mISDN_queue_message(inst, aflag, skb);
 	if (err)
 		kfree_skb(skb);
 	return(err);

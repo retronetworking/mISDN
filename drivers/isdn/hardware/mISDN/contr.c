@@ -58,6 +58,7 @@ ControllerDestr(Controller_t *contr)
 	}
 #endif
 	contr->ctrl = NULL;
+#ifdef FIXME
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);
@@ -66,6 +67,7 @@ ControllerDestr(Controller_t *contr)
 		inst->down.peer->obj->ctrl(inst->down.peer,
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
+#endif
 	list_for_each_safe(item, next, &contr->linklist) {
 		PLInst_t	*plink = list_entry(item, PLInst_t, list);
 		list_del(&plink->list);
@@ -469,17 +471,15 @@ SSProcess_t
 }
 
 int
-ControllerL3L4(mISDNif_t *hif, struct sk_buff *skb)
+ControllerL3L4(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	Controller_t	*contr;
 	Plci_t		*plci;
 	int		ret = -EINVAL;
 	mISDN_head_t	*hh;
 
-	if (!hif || !skb)
-		return(ret);
 	hh = mISDN_HEAD_P(skb);
-	contr = hif->fdata;
+	contr = inst->privat;
 	contrDebug(contr, CAPI_DBG_CONTR_INFO, "%s: prim(%x) id(%x)",
 		__FUNCTION__, hh->prim, hh->dinfo);
 	if (hh->prim == (CC_NEW_CR | INDICATION)) {
@@ -503,7 +503,7 @@ ControllerL3L4(mISDNif_t *hif, struct sk_buff *skb)
 int
 ControllerL4L3(Controller_t *contr, u_int prim, int dinfo, struct sk_buff *skb)
 {
-	return(if_newhead(&contr->inst.down, prim, dinfo, skb));
+	return(mISDN_queuedown_newhead(&contr->inst, 0, prim, dinfo, skb));
 }
 
 void
@@ -598,7 +598,7 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 		plink->inst.st = cst;
 		mISDN_init_instance(&plink->inst, ocapi, plink);
 		plink->inst.pid.layermask |= ISDN_LAYER(4);
-		plink->inst.down.stat = IF_NOACTIV;
+//		plink->inst.down.stat = IF_NOACTIV;
 		list_add_tail(&plink->list, &contr->linklist);
 	}
 	list_add_tail(&contr->list, &ocapi->ilist);
@@ -636,7 +636,7 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 		contr->addr = contr->ctrl->cnr;
 		plciInit(contr);
 		ocapi->ctrl(st, MGR_REGLAYER | INDICATION, &contr->inst);
-		contr->inst.up.stat = IF_DOWN;
+//		contr->inst.up.stat = IF_DOWN;
 		*contr_p = contr;
 	} else {
 		ControllerDestr(contr);

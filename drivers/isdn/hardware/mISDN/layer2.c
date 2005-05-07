@@ -131,22 +131,20 @@ l2_newid(layer2_t *l2)
 static int
 l2up(layer2_t *l2, u_int prim, int dinfo, struct sk_buff *skb)
 {
-	return(if_newhead(&l2->inst.up, prim, dinfo, skb));
+	return(mISDN_queueup_newhead(&l2->inst, 0, prim, dinfo, skb));
 }
 
 static int
 l2up_create(layer2_t *l2, u_int prim, int dinfo, int len, void *arg)
 {
-	return(if_link(&l2->inst.up, prim, dinfo, len, arg, 0));
+	return(mISDN_queue_data(&l2->inst, FLG_MSG_UP, prim, dinfo, len, arg, 0));
 }
 
 static int
 l2down_skb(layer2_t *l2, struct sk_buff *skb) {
-	mISDNif_t *down = &l2->inst.down;
-	int ret = -ENXIO;
+	int ret;
 
-	if (down->func)
-		ret = down->func(down, skb);
+	ret = mISDN_queue_down(&l2->inst, 0, skb);
 	if (ret && l2->debug)
 		printk(KERN_DEBUG "l2down_skb: ret(%d)\n", ret);
 	return(ret);
@@ -190,17 +188,15 @@ l2down_create(layer2_t *l2, u_int prim, int dinfo, int len, void *arg)
 }
 
 static int
-l2_chain_down(mISDNif_t *hif, struct sk_buff *skb) {
-	if (!hif || !hif->fdata)
-		return(-EINVAL);
-	return(l2down_raw(hif->fdata, skb));
+l2_chain_down(mISDNinstance_t *inst, struct sk_buff *skb) {
+	return(l2down_raw(inst->privat, skb));
 }
 
 static int
-ph_data_confirm(mISDNif_t *up, mISDN_head_t *hh, struct sk_buff *skb) {
-	layer2_t *l2 = up->fdata;
+ph_data_confirm(mISDNinstance_t *inst, mISDN_head_t *hh, struct sk_buff *skb) {
+	layer2_t *l2 = inst->privat;
 	struct sk_buff *nskb = skb; 
-	mISDNif_t *next = up->clone;
+//	mISDNif_t *next = up->clone;
 	int ret = -EAGAIN;
 
 	if (test_bit(FLG_L1_BUSY, &l2->flag)) {
@@ -213,8 +209,10 @@ ph_data_confirm(mISDNif_t *up, mISDN_head_t *hh, struct sk_buff *skb) {
 				}
 			} else
 				l2->down_id = MISDN_ID_NONE;
+#ifdef FIXME
 			if (next)
 				ret = next->func(next, skb);
+#endif
 			if (ret) {
 				dev_kfree_skb(skb);
 				ret = 0;
@@ -225,8 +223,10 @@ ph_data_confirm(mISDNif_t *up, mISDN_head_t *hh, struct sk_buff *skb) {
 			}
 		}
 	}
+#ifdef FIXME
 	if (ret && next)
 		ret = next->func(next, skb);
+#endif
 	if (!test_and_set_bit(FLG_L1_BUSY, &l2->flag)) {
 		if ((nskb = skb_dequeue(&l2->down_queue))) {
 			l2->down_id = mISDN_HEAD_DINFO(nskb);
@@ -1880,27 +1880,25 @@ ph_data_indication(layer2_t *l2, mISDN_head_t *hh, struct sk_buff *skb) {
 }
 
 static int
-l2from_down(mISDNif_t *hif, struct sk_buff *askb)
+l2from_down(mISDNinstance_t *inst, struct sk_buff *askb)
 {
 	layer2_t	*l2;
 	int 		ret = -EINVAL;
 	struct sk_buff	*cskb = askb;
-	mISDNif_t	*next;
 	mISDN_head_t	*hh, sh;
 
-	if (!hif || !askb)
-		return(-EINVAL);
-	l2 = hif->fdata;
+	l2 = inst->privat;
 	hh = mISDN_HEAD_P(askb);
-	next = hif->clone;
 //	printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
 	if (!l2) {
+#ifdef FIXME
 		if (next && next->func)
 			ret = next->func(next, askb);
+#endif
 		return(ret);
 	}
 	if (hh->prim == (PH_DATA | CONFIRM))
-		return(ph_data_confirm(hif, hh, askb));
+		return(ph_data_confirm(inst, hh, askb));
 	if (hh->prim == (MDL_FINDTEI | REQUEST)) {
 		ret = -ESRCH;
 		if (test_bit(FLG_LAPD, &l2->flag)) {
@@ -1914,10 +1912,13 @@ l2from_down(mISDNif_t *hif, struct sk_buff *askb)
 				}
 			}
 		}
+#ifdef FIXME
 		if (next && next->func)
 			ret = next->func(next, askb);
+#endif
 		return(ret);
 	}
+#ifdef FIXME
 	if (next) {
 		if (next->func) {
 			if (!(cskb = skb_clone(askb, GFP_ATOMIC)))
@@ -1926,6 +1927,7 @@ l2from_down(mISDNif_t *hif, struct sk_buff *askb)
 				sh = *hh;
 		}
 	}
+#endif
 	switch (hh->prim) {
 		case (PH_DATA_IND):
 			ret = ph_data_indication(l2, hh, cskb);
@@ -1962,22 +1964,22 @@ l2from_down(mISDNif_t *hif, struct sk_buff *askb)
 		dev_kfree_skb(cskb);
 		ret = 0;
 	}
+#ifdef FIXME
 	if (next && next->func) {
 		*hh = sh;
 		ret = next->func(next, askb);
 	}
+#endif
 	return(ret);
 }
 
 static int
-l2from_up(mISDNif_t *hif, struct sk_buff *skb) {
+l2from_up(mISDNinstance_t *inst, struct sk_buff *skb) {
 	layer2_t	*l2;
 	mISDN_head_t	*hh;
 	int		ret = -EINVAL;
 
-	if (!hif || !skb)
-		return(ret);
-	l2 = hif->fdata;
+	l2 = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 //	printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
 	if (!l2)
@@ -2087,6 +2089,7 @@ release_l2(layer2_t *l2)
 	ReleaseWin(l2);
 	if (test_bit(FLG_LAPD, &l2->flag))
 		release_tei(l2->tm);
+#ifdef OBSOLATE
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);
@@ -2108,6 +2111,7 @@ release_l2(layer2_t *l2)
 		kfree(l2->cloneif);
 		l2->cloneif = NULL;
 	}
+#endif
 	list_del(&l2->list);
 	isdnl2.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l2->entity != MISDN_ENTITY_NONE)
@@ -2262,7 +2266,6 @@ static int
 clone_l2(layer2_t *l2, mISDNinstance_t **new_ip) {
 	int err;
 	layer2_t	*nl2;
-	mISDNif_t	*nif;
 	mISDNstack_t	*st;
 
 	if (!l2)
@@ -2272,19 +2275,12 @@ clone_l2(layer2_t *l2, mISDNinstance_t **new_ip) {
 	st = (mISDNstack_t *)*new_ip;
 	if (!st)
 		return(-EINVAL);
-	if (!l2->inst.down.peer)
-		return(-EINVAL);
-	if (!(nif = kmalloc(sizeof(mISDNif_t), GFP_ATOMIC))) {
-		printk(KERN_ERR "clone l2 no if mem\n");
-		return(-ENOMEM);
-	}
 	err = new_l2(st, &l2->inst.pid, &nl2);
 	if (err) {
-		kfree(nif);
 		printk(KERN_ERR "clone l2 failed err(%d)\n", err);
 		return(err);
 	}
-	memset(nif, 0, sizeof(mISDNif_t));
+#ifdef FIXME
 	nl2->cloneif = nif;
 	nif->func = l2from_down;
 	nif->fdata = nl2;
@@ -2300,6 +2296,7 @@ clone_l2(layer2_t *l2, mISDNinstance_t **new_ip) {
 	nl2->inst.down.func = l2_chain_down;
 	nl2->inst.down.fdata = l2;
 	nl2->inst.down.stat = IF_UP;
+#endif
 	*new_ip = &nl2->inst;
 	return(err);
 }
@@ -2388,6 +2385,7 @@ l2_manager(void *data, u_int prim, void *arg) {
 		break;
 	    case MGR_CLONELAYER | REQUEST:
 		return(clone_l2(l2l, arg));
+#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:
@@ -2405,6 +2403,7 @@ l2_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
+#endif
 	    case MGR_RELEASE | INDICATION:
 	    case MGR_UNREGLAYER | REQUEST:
 		release_l2(l2l);

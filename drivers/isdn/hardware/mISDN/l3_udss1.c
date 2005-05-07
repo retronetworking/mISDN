@@ -1932,7 +1932,7 @@ global_handler(layer3_t *l3, u_int mt, struct sk_buff *skb)
 }
 
 static int
-dss1_fromdown(mISDNif_t *hif, struct sk_buff *skb)
+dss1_fromdown(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	layer3_t	*l3;
 	u_int		i;
@@ -1941,11 +1941,8 @@ dss1_fromdown(mISDNif_t *hif, struct sk_buff *skb)
 	l3_process_t	*proc;
 	mISDN_head_t	*hh;
 	Q931_info_t	*qi;
-	
 
-	if (!hif || !skb)
-		return(ret);
-	l3 = hif->fdata;
+	l3 = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	if (debug)
 		printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
@@ -2119,7 +2116,7 @@ dss1_fromdown(mISDNif_t *hif, struct sk_buff *skb)
 }
 
 static int
-dss1_fromup(mISDNif_t *hif, struct sk_buff *skb)
+dss1_fromup(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	layer3_t	*l3;
 	u_int		i;
@@ -2127,9 +2124,7 @@ dss1_fromup(mISDNif_t *hif, struct sk_buff *skb)
 	l3_process_t	*proc;
 	mISDN_head_t	*hh;
 
-	if (!hif || !skb)
-		return(ret);
-	l3 = hif->fdata;
+	l3 = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	if (debug)
 		printk(KERN_DEBUG  "%s: prim(%x)\n", __FUNCTION__, hh->prim);
@@ -2223,6 +2218,7 @@ release_udss1(layer3_t *l3)
 	printk(KERN_DEBUG "release_udss1 refcnt %d l3(%p) inst(%p)\n",
 		u_dss1.refcnt, l3, inst);
 	release_l3(l3);
+#ifdef FIXME
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);
@@ -2231,6 +2227,7 @@ release_udss1(layer3_t *l3)
 		inst->down.peer->obj->ctrl(inst->down.peer,
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
+#endif
 	list_del(&l3->list);
 	u_dss1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l3->entity != MISDN_ENTITY_NONE)
@@ -2365,6 +2362,7 @@ udss1_manager(void *data, u_int prim, void *arg) {
 	    	l3l->down_headerlen = ((mISDN_stPara_t *)arg)->down_headerlen;
 	    case MGR_CLRSTPARA | INDICATION:
 		break;
+#ifdef FIXME
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:
@@ -2373,6 +2371,7 @@ udss1_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
+#endif
 	    case MGR_RELEASE | INDICATION:
 	    case MGR_UNREGLAYER | REQUEST:
 	    	if (debug & 0x1000)

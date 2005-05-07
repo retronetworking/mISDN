@@ -42,9 +42,9 @@ ph_command(dchannel_t *dch, unsigned int command)
 	if (dch->debug & L1_DEB_ISAC)
 		mISDN_debugprint(&dch->inst, "ph_command %x", command);
 	if (dch->type & ISAC_TYPE_ISACSX)
-		dch->write_reg(dch->inst.data, ISACSX_CIX0, (command << 4) | 0xE);
+		dch->write_reg(dch->inst.privat, ISACSX_CIX0, (command << 4) | 0xE);
 	else
-		dch->write_reg(dch->inst.data, ISAC_CIX0, (command << 2) | 3);
+		dch->write_reg(dch->inst.privat, ISAC_CIX0, (command << 2) | 3);
 }
 
 static void
@@ -52,14 +52,13 @@ isac_new_ph(dchannel_t *dch)
 {
 	u_int		prim = PH_SIGNAL | INDICATION;
 	u_int		para = 0;
-	mISDNif_t	*upif = &dch->inst.up;
 
 	switch (dch->ph_state) {
 		case (ISAC_IND_RS):
 		case (ISAC_IND_EI):
-			dch->inst.lock(dch->inst.data,0);
+			dch->inst.lock(dch->inst.privat,0);
 			ph_command(dch, ISAC_CMD_DUI);
-			dch->inst.unlock(dch->inst.data);
+			dch->inst.unlock(dch->inst.privat);
 			prim = PH_CONTROL | INDICATION;
 			para = HW_RESET;
 			break;
@@ -90,10 +89,7 @@ isac_new_ph(dchannel_t *dch)
 		default:
 			return;
 	}
-	while(upif) {
-		if_link(upif, prim, para, 0, NULL, 0);
-		upif = upif->clone;
-	}
+	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
 }
 
 static void
@@ -135,7 +131,7 @@ isac_empty_fifo(dchannel_t *dch, int count)
 	if (!dch->rx_skb) {
 		if (!(dch->rx_skb = alloc_stack_skb(MAX_DFRAME_LEN_L1, dch->up_headerlen))) {
 			printk(KERN_WARNING "mISDN: D receive out of memory\n");
-			dch->write_reg(dch->inst.data, ISAC_CMDR, 0x80);
+			dch->write_reg(dch->inst.privat, ISAC_CMDR, 0x80);
 			return;
 		}
 	}
@@ -143,12 +139,12 @@ isac_empty_fifo(dchannel_t *dch, int count)
 		if (dch->debug & L1_DEB_WARN)
 			mISDN_debugprint(&dch->inst, "isac_empty_fifo overrun %d",
 				dch->rx_skb->len + count);
-		dch->write_reg(dch->inst.data, ISAC_CMDR, 0x80);
+		dch->write_reg(dch->inst.privat, ISAC_CMDR, 0x80);
 		return;
 	}
 	ptr = skb_put(dch->rx_skb, count);
-	dch->read_fifo(dch->inst.data, ptr, count);
-	dch->write_reg(dch->inst.data, ISAC_CMDR, 0x80);
+	dch->read_fifo(dch->inst.privat, ptr, count);
+	dch->write_reg(dch->inst.privat, ISAC_CMDR, 0x80);
 	if (dch->debug & L1_DEB_ISAC_FIFO) {
 		char *t = dch->dlog;
 
@@ -178,8 +174,8 @@ isac_fill_fifo(dchannel_t *dch)
 	}
 	ptr = dch->tx_buf + dch->tx_idx;
 	dch->tx_idx += count;
-	dch->write_fifo(dch->inst.data, ptr, count);
-	dch->write_reg(dch->inst.data, ISAC_CMDR, more ? 0x8 : 0xa);
+	dch->write_fifo(dch->inst.privat, ptr, count);
+	dch->write_reg(dch->inst.privat, ISAC_CMDR, more ? 0x8 : 0xa);
 	if (test_and_set_bit(FLG_DBUSY_TIMER, &dch->DFlags)) {
 		mISDN_debugprint(&dch->inst, "isac_fill_fifo dbusytimer running");
 		del_timer(&dch->dbusytimer);
@@ -202,7 +198,7 @@ isac_rme_irq(dchannel_t *dch)
 	u_char	val;
 	u_int	count;
 
-	val = dch->read_reg(dch->inst.data, ISAC_RSTA);
+	val = dch->read_reg(dch->inst.privat, ISAC_RSTA);
 	if ((val & 0x70) != 0x20) {
 		if (val & 0x40) {
 			if (dch->debug & L1_DEB_WARN)
@@ -218,11 +214,11 @@ isac_rme_irq(dchannel_t *dch)
 			dch->err_crc++;
 #endif
 		}
-		dch->write_reg(dch->inst.data, ISAC_CMDR, 0x80);
+		dch->write_reg(dch->inst.privat, ISAC_CMDR, 0x80);
 		if (dch->rx_skb)
 			dev_kfree_skb(dch->rx_skb);
 	} else {
-		count = dch->read_reg(dch->inst.data, ISAC_RBCL) & 0x1f;
+		count = dch->read_reg(dch->inst.privat, ISAC_RBCL) & 0x1f;
 		if (count == 0)
 			count = 32;
 		isac_empty_fifo(dch, count);
@@ -297,7 +293,7 @@ isac_mos_irq(dchannel_t *dch)
 	u_char		val;
 	isac_chip_t	*isac = dch->hw;
 
-	val = dch->read_reg(dch->inst.data, ISAC_MOSR);
+	val = dch->read_reg(dch->inst.privat, ISAC_MOSR);
 	if (dch->debug & L1_DEB_MONITOR)
 		mISDN_debugprint(&dch->inst, "ISAC MOSR %02x", val);
 #if ARCOFI_USE
@@ -308,7 +304,7 @@ isac_mos_irq(dchannel_t *dch)
 					mISDN_debugprint(&dch->inst, "ISAC MON RX out of memory!");
 				isac->mocr &= 0xf0;
 				isac->mocr |= 0x0a;
-				dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+				dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 				goto afterMONR0;
 			} else
 				isac->mon_rxp = 0;
@@ -316,18 +312,18 @@ isac_mos_irq(dchannel_t *dch)
 		if (isac->mon_rxp >= MAX_MON_FRAME) {
 			isac->mocr &= 0xf0;
 			isac->mocr |= 0x0a;
-			dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			isac->mon_rxp = 0;
 			if (dch->debug & L1_DEB_WARN)
 				mISDN_debugprint(&dch->inst, "ISAC MON RX overflow!");
 			goto afterMONR0;
 		}
-		isac->mon_rx[isac->mon_rxp++] = dch->read_reg(dch->inst.data, ISAC_MOR0);
+		isac->mon_rx[isac->mon_rxp++] = dch->read_reg(dch->inst.privat, ISAC_MOR0);
 		if (dch->debug & L1_DEB_MONITOR)
 			mISDN_debugprint(&dch->inst, "ISAC MOR0 %02x", isac->mon_rx[isac->mon_rxp -1]);
 		if (isac->mon_rxp == 1) {
 			isac->mocr |= 0x04;
-			dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 		}
 	}
 afterMONR0:
@@ -338,7 +334,7 @@ afterMONR0:
 					mISDN_debugprint(&dch->inst, "ISAC MON RX out of memory!");
 				isac->mocr &= 0x0f;
 				isac->mocr |= 0xa0;
-				dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+				dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 				goto afterMONR1;
 			} else
 				isac->mon_rxp = 0;
@@ -346,40 +342,40 @@ afterMONR0:
 		if (isac->mon_rxp >= MAX_MON_FRAME) {
 			isac->mocr &= 0x0f;
 			isac->mocr |= 0xa0;
-			dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			isac->mon_rxp = 0;
 			if (dch->debug & L1_DEB_WARN)
 				mISDN_debugprint(&dch->inst, "ISAC MON RX overflow!");
 			goto afterMONR1;
 		}
-		isac->mon_rx[isac->mon_rxp++] = dch->read_reg(dch->inst.data, ISAC_MOR1);
+		isac->mon_rx[isac->mon_rxp++] = dch->read_reg(dch->inst.privat, ISAC_MOR1);
 		if (dch->debug & L1_DEB_MONITOR)
 			mISDN_debugprint(&dch->inst, "ISAC MOR1 %02x", isac->mon_rx[isac->mon_rxp -1]);
 		isac->mocr |= 0x40;
-		dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 	}
 afterMONR1:
 	if (val & 0x04) {
 		isac->mocr &= 0xf0;
-		dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 		isac->mocr |= 0x0a;
-		dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 		dchannel_sched_event(dch, D_RX_MON0);
 	}
 	if (val & 0x40) {
 		isac->mocr &= 0x0f;
-		dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 		isac->mocr |= 0xa0;
-		dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 		dchannel_sched_event(dch, D_RX_MON1);
 	}
 	if (val & 0x02) {
 		if ((!isac->mon_tx) || (isac->mon_txc && 
 			(isac->mon_txp >= isac->mon_txc) && !(val & 0x08))) {
 			isac->mocr &= 0xf0;
-			dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			isac->mocr |= 0x0a;
-			dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc))
 				dchannel_sched_event(dch, D_TX_MON0);
 			goto AfterMOX0;
@@ -388,7 +384,7 @@ afterMONR1:
 			dchannel_sched_event(dch, D_TX_MON0);
 			goto AfterMOX0;
 		}
-		dch->write_reg(dch->inst.data, ISAC_MOX0,
+		dch->write_reg(dch->inst.privat, ISAC_MOX0,
 		isac->mon_tx[isac->mon_txp++]);
 		if (dch->debug & L1_DEB_MONITOR)
 			mISDN_debugprint(&dch->inst, "ISAC %02x -> MOX0", isac->mon_tx[isac->mon_txp -1]);
@@ -398,9 +394,9 @@ AfterMOX0:
 		if ((!isac->mon_tx) || (isac->mon_txc && 
 			(isac->mon_txp >= isac->mon_txc) && !(val & 0x80))) {
 			isac->mocr &= 0x0f;
-			dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			isac->mocr |= 0xa0;
-			dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc))
 				dchannel_sched_event(dch, D_TX_MON1);
 			goto AfterMOX1;
@@ -409,7 +405,7 @@ AfterMOX0:
 			dchannel_sched_event(dch, D_TX_MON1);
 			goto AfterMOX1;
 		}
-		dch->write_reg(dch->inst.data, ISAC_MOX1,
+		dch->write_reg(dch->inst.privat, ISAC_MOX1,
 		isac->mon_tx[isac->mon_txp++]);
 		if (dch->debug & L1_DEB_MONITOR)
 			mISDN_debugprint(&dch->inst, "ISAC %02x -> MOX1", isac->mon_tx[isac->mon_txp -1]);
@@ -423,7 +419,7 @@ static void
 isac_cisq_irq(dchannel_t *dch) {
 	unsigned char val;
 
-	val = dch->read_reg(dch->inst.data, ISAC_CIR0);
+	val = dch->read_reg(dch->inst.privat, ISAC_CIR0);
 	if (dch->debug & L1_DEB_ISAC)
 		mISDN_debugprint(&dch->inst, "ISAC CIR0 %02X", val);
 	if (val & 2) {
@@ -434,7 +430,7 @@ isac_cisq_irq(dchannel_t *dch) {
 		dchannel_sched_event(dch, D_L1STATECHANGE);
 	}
 	if (val & 1) {
-		val = dch->read_reg(dch->inst.data, ISAC_CIR1);
+		val = dch->read_reg(dch->inst.privat, ISAC_CIR1);
 		if (dch->debug & L1_DEB_ISAC)
 			mISDN_debugprint(&dch->inst, "ISAC CIR1 %02X", val );
 	}
@@ -445,7 +441,7 @@ isacsx_cic_irq(dchannel_t *dch)
 {
 	unsigned char val;
 
-	val = dch->read_reg(dch->inst.data, ISACSX_CIR0);
+	val = dch->read_reg(dch->inst.privat, ISACSX_CIR0);
 	if (dch->debug & L1_DEB_ISAC)
 		mISDN_debugprint(&dch->inst, "ISACSX CIR0 %02X", val);
 	if (val & ISACSX_CIR0_CIC0) {
@@ -463,7 +459,7 @@ isacsx_rme_irq(dchannel_t *dch)
 	int count;
 	unsigned char val;
 
-	val = dch->read_reg(dch->inst.data, ISACSX_RSTAD);
+	val = dch->read_reg(dch->inst.privat, ISACSX_RSTAD);
 	if ((val & (ISACSX_RSTAD_VFR | 
 		    ISACSX_RSTAD_RDO | 
 		    ISACSX_RSTAD_CRC | 
@@ -477,11 +473,11 @@ isacsx_rme_irq(dchannel_t *dch)
 		else
 			dch->err_crc++;
 #endif
-	    	dch->write_reg(dch->inst.data, ISACSX_CMDRD, ISACSX_CMDRD_RMC);
+	    	dch->write_reg(dch->inst.privat, ISACSX_CMDRD, ISACSX_CMDRD_RMC);
 		if (dch->rx_skb)
 			dev_kfree_skb(dch->rx_skb);
 	} else {
-		count = dch->read_reg(dch->inst.data, ISACSX_RBCLD) & 0x1f;
+		count = dch->read_reg(dch->inst.privat, ISACSX_RBCLD) & 0x1f;
 		if (count == 0)
 			count = 32;
 		isac_empty_fifo(dch, count);
@@ -503,7 +499,7 @@ mISDN_isac_interrupt(dchannel_t *dch, u_char val)
 		if (val & ISACSX_ISTA_CIC)
 			isacsx_cic_irq(dch);
 		if (val & ISACSX_ISTA_ICD) {
-			val = dch->read_reg(dch->inst.data, ISACSX_ISTAD);
+			val = dch->read_reg(dch->inst.privat, ISACSX_ISTAD);
 			if (dch->debug & L1_DEB_ISAC)
 				mISDN_debugprint(&dch->inst, "ISTAD %02x", val);
 			if (val & ISACSX_ISTAD_XDU) {
@@ -527,7 +523,7 @@ mISDN_isac_interrupt(dchannel_t *dch, u_char val)
 			if (val & ISACSX_ISTAD_RFO) {
 				if (dch->debug & L1_DEB_WARN)
 					mISDN_debugprint(&dch->inst, "ISAC RFO");
-				dch->write_reg(dch->inst.data, ISACSX_CMDRD, ISACSX_CMDRD_RMC);
+				dch->write_reg(dch->inst.privat, ISACSX_CMDRD, ISACSX_CMDRD_RMC);
 			}
 			if (val & ISACSX_ISTAD_RME)
 				isacsx_rme_irq(dch);
@@ -550,7 +546,7 @@ mISDN_isac_interrupt(dchannel_t *dch, u_char val)
 			if (dch->debug & L1_DEB_WARN)
 				mISDN_debugprint(&dch->inst, "ISAC SIN interrupt");
 		if (val & 0x01) {	/* EXI */
-			val = dch->read_reg(dch->inst.data, ISAC_EXIR);
+			val = dch->read_reg(dch->inst.privat, ISAC_EXIR);
 			if (dch->debug & L1_DEB_WARN)
 				mISDN_debugprint(&dch->inst, "ISAC EXIR %02x", val);
 			if (val & 0x80)	/* XMR */
@@ -570,48 +566,47 @@ mISDN_isac_interrupt(dchannel_t *dch, u_char val)
 }
 
 int
-mISDN_ISAC_l1hw(mISDNif_t *hif, struct sk_buff *skb)
+mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	dchannel_t	*dch;
 	int		ret = -EINVAL;
 	mISDN_head_t	*hh;
 
-	if (!hif || !skb)
-		return(ret);
 	hh = mISDN_HEAD_P(skb);
-	dch = hif->fdata;
+	dch = container_of(inst, dchannel_t, inst);
 	ret = 0;
 	if (hh->prim == PH_DATA_REQ) {
 		if (dch->next_skb) {
 			mISDN_debugprint(&dch->inst, " l2l1 next_skb exist this shouldn't happen");
 			return(-EBUSY);
 		}
-		dch->inst.lock(dch->inst.data,0);
+		dch->inst.lock(dch->inst.privat,0);
 		if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
 			test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
 			dch->next_skb = skb;
-			dch->inst.unlock(dch->inst.data);
+			dch->inst.unlock(dch->inst.privat);
 			return(0);
 		} else {
 			dch->tx_len = skb->len;
 			memcpy(dch->tx_buf, skb->data, dch->tx_len);
 			dch->tx_idx = 0;
 			isac_fill_fifo(dch);
-			dch->inst.unlock(dch->inst.data);
-			return(if_newhead(&dch->inst.up, PH_DATA_CNF,
+			dch->inst.unlock(dch->inst.privat);
+			skb_trim(skb, 0);
+			return(mISDN_queueup_newhead(inst, 0, PH_DATA_CNF,
 				hh->dinfo, skb));
 		}
 	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
-		dch->inst.lock(dch->inst.data,0);
+		dch->inst.lock(dch->inst.privat,0);
 		if (hh->dinfo == INFO3_P8)
 			ph_command(dch, ISAC_CMD_AR8);
 		else if (hh->dinfo == INFO3_P10)
 			ph_command(dch, ISAC_CMD_AR10);
 		else
 			ret = -EINVAL;
-		dch->inst.unlock(dch->inst.data);
+		dch->inst.unlock(dch->inst.privat);
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
-		dch->inst.lock(dch->inst.data,0);
+		dch->inst.lock(dch->inst.privat,0);
 		if (hh->dinfo == HW_RESET) {
 			if ((dch->ph_state == ISAC_IND_EI) ||
 				(dch->ph_state == ISAC_IND_DR) ||
@@ -646,19 +641,19 @@ mISDN_ISAC_l1hw(mISDNif_t *hif, struct sk_buff *skb)
 				if (ISAC_TYPE_IOM1 & dch->type) {
 					/* IOM 1 Mode */
 					if (!tl) {
-						dch->write_reg(dch->inst.data, ISAC_SPCR, 0xa);
-						dch->write_reg(dch->inst.data, ISAC_ADF1, 0x2);
+						dch->write_reg(dch->inst.privat, ISAC_SPCR, 0xa);
+						dch->write_reg(dch->inst.privat, ISAC_ADF1, 0x2);
 					} else {
-						dch->write_reg(dch->inst.data, ISAC_SPCR, tl);
-						dch->write_reg(dch->inst.data, ISAC_ADF1, 0xa);
+						dch->write_reg(dch->inst.privat, ISAC_SPCR, tl);
+						dch->write_reg(dch->inst.privat, ISAC_ADF1, 0xa);
 					}
 				} else {
 					/* IOM 2 Mode */
-					dch->write_reg(dch->inst.data, ISAC_SPCR, tl);
+					dch->write_reg(dch->inst.privat, ISAC_SPCR, tl);
 					if (tl)
-						dch->write_reg(dch->inst.data, ISAC_ADF1, 0x8);
+						dch->write_reg(dch->inst.privat, ISAC_ADF1, 0x8);
 					else
-						dch->write_reg(dch->inst.data, ISAC_ADF1, 0x0);
+						dch->write_reg(dch->inst.privat, ISAC_ADF1, 0x0);
 				}
 			}
 		} else {
@@ -667,7 +662,7 @@ mISDN_ISAC_l1hw(mISDNif_t *hif, struct sk_buff *skb)
 					hh->dinfo);
 			ret = -EINVAL;
 		}
-		dch->inst.unlock(dch->inst.data);
+		dch->inst.unlock(dch->inst.privat);
 	} else {
 		if (dch->debug & L1_DEB_WARN)
 			mISDN_debugprint(&dch->inst, "isac_l1hw unknown prim %x",
@@ -705,13 +700,13 @@ dbusy_timer_handler(dchannel_t *dch)
 	int	rbch, star;
 
 	if (test_bit(FLG_DBUSY_TIMER, &dch->DFlags)) {
-		if (dch->inst.lock(dch->inst.data, 1)) {
+		if (dch->inst.lock(dch->inst.privat, 1)) {
 			dch->dbusytimer.expires = jiffies + 1;
 			add_timer(&dch->dbusytimer);
 			return;
 		}
-		rbch = dch->read_reg(dch->inst.data, ISAC_RBCH);
-		star = dch->read_reg(dch->inst.data, ISAC_STAR);
+		rbch = dch->read_reg(dch->inst.privat, ISAC_RBCH);
+		star = dch->read_reg(dch->inst.privat, ISAC_STAR);
 		if (dch->debug) 
 			mISDN_debugprint(&dch->inst, "D-Channel Busy RBCH %02x STAR %02x",
 				rbch, star);
@@ -734,9 +729,9 @@ dbusy_timer_handler(dchannel_t *dch)
 				mISDN_debugprint(&dch->inst, "D-Channel Busy no tx_idx");
 			}
 			/* Transmitter reset */
-			dch->write_reg(dch->inst.data, ISAC_CMDR, 0x01);
+			dch->write_reg(dch->inst.privat, ISAC_CMDR, 0x01);
 		}
-		dch->inst.unlock(dch->inst.data);
+		dch->inst.unlock(dch->inst.privat);
 	}
 }
 
@@ -762,45 +757,45 @@ mISDN_isac_init(dchannel_t *dch)
   	isac->mocr = 0xaa;
 	if (dch->type & ISAC_TYPE_ISACSX) {
 		// clear LDD
-		dch->write_reg(dch->inst.data, ISACSX_TR_CONF0, 0x00);
+		dch->write_reg(dch->inst.privat, ISACSX_TR_CONF0, 0x00);
 		// enable transmitter
-		dch->write_reg(dch->inst.data, ISACSX_TR_CONF2, 0x00);
+		dch->write_reg(dch->inst.privat, ISACSX_TR_CONF2, 0x00);
 		// transparent mode 0, RAC, stop/go
-		dch->write_reg(dch->inst.data, ISACSX_MODED, 0xc9);
+		dch->write_reg(dch->inst.privat, ISACSX_MODED, 0xc9);
 		// all HDLC IRQ unmasked
-		dch->write_reg(dch->inst.data, ISACSX_MASKD, 0x03);
+		dch->write_reg(dch->inst.privat, ISACSX_MASKD, 0x03);
 		// unmask ICD, CID IRQs
-		dch->write_reg(dch->inst.data, ISACSX_MASK, ~(ISACSX_ISTA_ICD | ISACSX_ISTA_CIC));
+		dch->write_reg(dch->inst.privat, ISACSX_MASK, ~(ISACSX_ISTA_ICD | ISACSX_ISTA_CIC));
 		printk(KERN_INFO "mISDN_isac_init: ISACSX\n");
 		dchannel_sched_event(dch, D_L1STATECHANGE);
 		ph_command(dch, ISAC_CMD_RS);
 	} else { /* old isac */
-	  	dch->write_reg(dch->inst.data, ISAC_MASK, 0xff);
-		val = dch->read_reg(dch->inst.data, ISAC_RBCH);
+	  	dch->write_reg(dch->inst.privat, ISAC_MASK, 0xff);
+		val = dch->read_reg(dch->inst.privat, ISAC_RBCH);
 		printk(KERN_INFO "mISDN_isac_init: ISAC version (%x): %s\n", val, ISACVer[(val >> 5) & 3]);
 		dch->type |= ((val >> 5) & 3);
 		if (ISAC_TYPE_IOM1 & dch->type) {
 			/* IOM 1 Mode */
-			dch->write_reg(dch->inst.data, ISAC_ADF2, 0x0);
-			dch->write_reg(dch->inst.data, ISAC_SPCR, 0xa);
-			dch->write_reg(dch->inst.data, ISAC_ADF1, 0x2);
-			dch->write_reg(dch->inst.data, ISAC_STCR, 0x70);
-			dch->write_reg(dch->inst.data, ISAC_MODE, 0xc9);
+			dch->write_reg(dch->inst.privat, ISAC_ADF2, 0x0);
+			dch->write_reg(dch->inst.privat, ISAC_SPCR, 0xa);
+			dch->write_reg(dch->inst.privat, ISAC_ADF1, 0x2);
+			dch->write_reg(dch->inst.privat, ISAC_STCR, 0x70);
+			dch->write_reg(dch->inst.privat, ISAC_MODE, 0xc9);
 		} else {
 			/* IOM 2 Mode */
 			if (!isac->adf2)
 				isac->adf2 = 0x80;
-			dch->write_reg(dch->inst.data, ISAC_ADF2, isac->adf2);
-			dch->write_reg(dch->inst.data, ISAC_SQXR, 0x2f);
-			dch->write_reg(dch->inst.data, ISAC_SPCR, 0x00);
-			dch->write_reg(dch->inst.data, ISAC_STCR, 0x70);
-			dch->write_reg(dch->inst.data, ISAC_MODE, 0xc9);
-			dch->write_reg(dch->inst.data, ISAC_TIMR, 0x00);
-			dch->write_reg(dch->inst.data, ISAC_ADF1, 0x00);
+			dch->write_reg(dch->inst.privat, ISAC_ADF2, isac->adf2);
+			dch->write_reg(dch->inst.privat, ISAC_SQXR, 0x2f);
+			dch->write_reg(dch->inst.privat, ISAC_SPCR, 0x00);
+			dch->write_reg(dch->inst.privat, ISAC_STCR, 0x70);
+			dch->write_reg(dch->inst.privat, ISAC_MODE, 0xc9);
+			dch->write_reg(dch->inst.privat, ISAC_TIMR, 0x00);
+			dch->write_reg(dch->inst.privat, ISAC_ADF1, 0x00);
 		}
 		dchannel_sched_event(dch, D_L1STATECHANGE);
 		ph_command(dch, ISAC_CMD_RS);
-		dch->write_reg(dch->inst.data, ISAC_MASK, 0x0);
+		dch->write_reg(dch->inst.privat, ISAC_MASK, 0x0);
 	}
 	return 0;
 }
@@ -814,20 +809,20 @@ mISDN_clear_isac(dchannel_t *dch)
 	if (!isac)
 		return;
 	/* Disable all IRQ */
-	dch->write_reg(dch->inst.data, ISAC_MASK, 0xFF);
-	val = dch->read_reg(dch->inst.data, ISAC_STAR);
+	dch->write_reg(dch->inst.privat, ISAC_MASK, 0xFF);
+	val = dch->read_reg(dch->inst.privat, ISAC_STAR);
 	mISDN_debugprint(&dch->inst, "ISAC STAR %x", val);
-	val = dch->read_reg(dch->inst.data, ISAC_MODE);
+	val = dch->read_reg(dch->inst.privat, ISAC_MODE);
 	mISDN_debugprint(&dch->inst, "ISAC MODE %x", val);
-	val = dch->read_reg(dch->inst.data, ISAC_ADF2);
+	val = dch->read_reg(dch->inst.privat, ISAC_ADF2);
 	mISDN_debugprint(&dch->inst, "ISAC ADF2 %x", val);
-	val = dch->read_reg(dch->inst.data, ISAC_ISTA);
+	val = dch->read_reg(dch->inst.privat, ISAC_ISTA);
 	mISDN_debugprint(&dch->inst, "ISAC ISTA %x", val);
 	if (val & 0x01) {
-		eval = dch->read_reg(dch->inst.data, ISAC_EXIR);
+		eval = dch->read_reg(dch->inst.privat, ISAC_EXIR);
 		mISDN_debugprint(&dch->inst, "ISAC EXIR %x", eval);
 	}
-	val = dch->read_reg(dch->inst.data, ISAC_CIR0);
+	val = dch->read_reg(dch->inst.privat, ISAC_CIR0);
 	mISDN_debugprint(&dch->inst, "ISAC CIR0 %x", val);
 	dch->ph_state = (val >> 2) & 0xf;
 }

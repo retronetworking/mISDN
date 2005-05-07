@@ -851,18 +851,13 @@ dte_dl_data_ind(x25_l3_t *l3, struct sk_buff *skb)
 }
 
 static int
-dte_from_down(mISDNif_t *hif,  struct sk_buff *skb)
+dte_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 {
 	x25_l3_t	*l3;
 	mISDN_head_t	*hh;
 	int		ret = -EINVAL;
 
-	if (!hif || !hif->fdata || !skb)
-		return(ret);
-	l3 = hif->fdata;
-	if (!l3->inst.up.func) {
-		return(-ENXIO);
-	}
+	l3 = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	if (l3->debug)
 		printk(KERN_DEBUG "%s: prim(%x) dinfo(%x)\n", __FUNCTION__, hh->prim, hh->dinfo);
@@ -1049,7 +1044,7 @@ new_l3(mISDNstack_t *st, mISDN_pid_t *pid) {
 }
 
 static int
-dte_from_up(mISDNif_t *hif, struct sk_buff *skb)
+dte_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	x25_l3_t	*l3;
 	x25_channel_t   *l3c;
@@ -1058,12 +1053,7 @@ dte_from_up(mISDNif_t *hif, struct sk_buff *skb)
 	__u16		info = 0;
 	int		err = 0;
 
-	if (!hif || !hif->fdata || !skb)
-		return(-EINVAL);
-	l3 = hif->fdata;
-	if (!l3->inst.down.func) {
-		return(-ENXIO);
-	}
+	l3 = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	if (l3->debug)
 		printk(KERN_DEBUG "%s: prim(%x) dinfo(%x) len(%d)\n", __FUNCTION__, hh->prim, hh->dinfo, skb->len);
@@ -1287,6 +1277,7 @@ dte_manager(void *data, u_int prim, void *arg) {
 	    case MGR_CLRSTPARA | INDICATION:
 	    case MGR_CLONELAYER | REQUEST:
 		break;
+#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:
@@ -1295,6 +1286,7 @@ dte_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
+#endif
 	    case MGR_UNREGLAYER | REQUEST:
 	    case MGR_RELEASE | INDICATION:
 		if (debug & DEBUG_L3X25_MGR)

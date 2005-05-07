@@ -26,8 +26,8 @@ typedef struct _devicelayer {
 	mISDNdevice_t		*dev;
 	mISDNinstance_t		inst;
 	mISDNinstance_t		*slave;
-	mISDNif_t		s_up;
-	mISDNif_t		s_down;
+//	mISDNif_t		s_up;
+//	mISDNif_t		s_down;
 	int			iaddr;
 	int			lm_st;
 	u_long			Flags;
@@ -61,7 +61,7 @@ static char MName[] = "UserDevice";
 
 static int device_debug = 0;
 
-static int from_up_down(mISDNif_t *, struct sk_buff *);
+static int from_up_down(mISDNinstance_t *, struct sk_buff *);
 
 // static int from_peer(mISDNif_t *, u_int, int, int, void *);
 // static int to_peer(mISDNif_t *, u_int, int, int, void *);
@@ -83,16 +83,15 @@ get_mISDNdevice4minor(int minor)
 	return(NULL);
 }
 
+#ifdef FIXME
 static int
-mISDN_rdata_raw(mISDNif_t *hif, struct sk_buff *skb) {
+mISDN_rdata_raw(mISDNinstance_t *inst, struct sk_buff *skb) {
 	mISDNdevice_t	*dev;
 	mISDN_head_t	*hh;
 	u_long		flags;
 	int		retval = 0;
 
-	if (!hif || !hif->fdata || !skb)
-		return(-EINVAL);
-	dev = hif->fdata;
+	dev = inst->priv;
 	hh = mISDN_HEAD_P(skb);
 	if (hh->prim == (PH_DATA | INDICATION)) {
 		if (test_bit(FLG_mISDNPORT_OPEN, &dev->rport.Flag)) {
@@ -164,6 +163,7 @@ mISDN_rdata_raw(mISDNif_t *hif, struct sk_buff *skb) {
 		dev_kfree_skb_any(skb);
 	return(retval);
 }
+#endif
 
 static int
 mISDN_rdata(mISDNdevice_t *dev, struct sk_buff *skb)
@@ -210,7 +210,7 @@ static devicelayer_t
 //		if (device_debug & DEBUG_MGR_FUNC)
 //			printk(KERN_DEBUG "%s: dl(%p) iaddr:%x\n",
 //				__FUNCTION__, dl, dl->iaddr);
-		if ((u_int)dl->iaddr == (IF_IADDRMASK & addr))
+		if ((u_int)dl->iaddr == (INST_ID_MASK & addr))
 			return(dl);
 	}
 	return(NULL);
@@ -327,7 +327,6 @@ static int
 create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 {
 	layer_info_t	*linfo;
-	mISDNlayer_t	*layer;
 	mISDNstack_t	*st;
 	int		i, ret;
 	devicelayer_t	*nl;
@@ -354,23 +353,16 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 				__FUNCTION__, ret);
 			return(ret);
 		}
-		layer = getlayer4lay(st, linfo->pid.layermask);
-		if (!layer) {
-			printk(KERN_WARNING "%s: no layer for lm(%x)\n",
-				__FUNCTION__, linfo->pid.layermask);
-			return(-EINVAL);
-		}
-		inst = layer->inst;
+		inst = getlayer4lay(st, linfo->pid.layermask);
 		if (!inst) {
-			printk(KERN_WARNING "%s: no inst in layer(%p)\n",
-				__FUNCTION__, layer);
+			printk(KERN_WARNING "%s: no inst found\n", __FUNCTION__);
 			return(-EINVAL);
 		}
-	} else if ((layer = getlayer4lay(st, linfo->pid.layermask))) {
+	} else if ((inst = getlayer4lay(st, linfo->pid.layermask))) {
 		if (!(linfo->extentions & EXT_INST_MIDDLE)) {
 			printk(KERN_WARNING
-				"mISDN create_layer st(%x) LM(%x) inst not empty(%p)\n",
-				st->id, linfo->pid.layermask, layer);
+				"mISDN create_layer st(%x) LM(%x) inst not empty(%08x)\n",
+				st->id, linfo->pid.layermask, inst->id);
 			return(-EBUSY);
 		}
 	}
@@ -399,10 +391,8 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 		st->mgr = &nl->inst;
 		test_and_set_bit(FLG_MGR_OWNSTACK, &nl->Flags);
 	}
-	nl->inst.down.owner = &nl->inst;
-	nl->inst.up.owner = &nl->inst;
 	nl->inst.obj = &udev_obj;
-	nl->inst.data = nl;
+	nl->inst.privat = nl;
 	list_add_tail(&nl->list, &dev->layerlist);
 	nl->inst.obj->ctrl(st, MGR_REGLAYER | INDICATION, &nl->inst);
 	nl->iaddr = nl->inst.id;
@@ -415,41 +405,6 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 		memset(skb_put(skb, sizeof(nl->iaddr)), 0, sizeof(nl->iaddr));
 	}
 	return(8);
-}
-
-static int
-remove_if(devicelayer_t *dl, int stat) {
-	mISDNif_t *hif,*phif,*shif;
-	int err;
-
-	if (device_debug & DEBUG_MGR_FUNC)
-		printk(KERN_DEBUG "%s: dl(%p) stat(%x)\n", __FUNCTION__,
-			dl, stat);
-	phif = NULL;
-	if (stat & IF_UP) {
-		hif = &dl->inst.up;
-		shif = &dl->s_up;
-		if (shif->owner)
-			phif = &shif->owner->down;
-	} else if (stat & IF_DOWN) {
-		hif = &dl->inst.down;
-		shif = &dl->s_down;
-		if (shif->owner)
-			phif = &shif->owner->up;
-	} else {
-		printk(KERN_WARNING "%s: stat not UP/DOWN\n", __FUNCTION__);
-		return(-EINVAL);
-	}
-	err = udev_obj.ctrl(hif->peer, MGR_DISCONNECT | REQUEST, hif);
-	if (phif) {
-		memcpy(phif, shif, sizeof(mISDNif_t));
-		memset(shif, 0, sizeof(mISDNif_t));
-	}
-	if (hif->predecessor)
-		hif->predecessor->clone = hif->clone;
-	if (hif->clone)
-		hif->clone->predecessor = hif->predecessor;
-	return(err);
 }
 
 static int
@@ -491,8 +446,6 @@ del_layer(devicelayer_t *dl)
 		printk(KERN_DEBUG "%s: iaddr %x inst %s slave %p\n",
 			__FUNCTION__, dl->iaddr, inst->name, dl->slave);
 	}
-	remove_if(dl, IF_UP);
-	remove_if(dl, IF_DOWN);
 	if (dl->slave) {
 		if (dl->slave->obj)
 			dl->slave->obj->own_ctrl(dl->slave,
@@ -513,14 +466,6 @@ del_layer(devicelayer_t *dl)
 			printk(KERN_DEBUG "del_layer: CLEARSTACK id(%x)\n",
 				inst->st->id);
 		udev_obj.ctrl(inst->st, MGR_CLEARSTACK | REQUEST, NULL);
-	}
-	if (inst->up.peer) {
-		inst->up.peer->obj->ctrl(inst->up.peer,
-			MGR_DISCONNECT | REQUEST, &inst->up);
-	}
-	if (inst->down.peer) {
-		inst->down.peer->obj->ctrl(inst->down.peer,
-			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
 	dl->iaddr = 0;
 	list_del(&dl->list);
@@ -557,6 +502,42 @@ clone_instance(devicelayer_t *dl, mISDNstack_t  *st, mISDNinstance_t *peer)
 		return(NULL);
 	}
 	return(dl->slave);
+}
+
+#ifdef OBSOLATE
+static int
+remove_if(devicelayer_t *dl, int stat) {
+	mISDNif_t *hif,*phif,*shif;
+	int err;
+
+	if (device_debug & DEBUG_MGR_FUNC)
+		printk(KERN_DEBUG "%s: dl(%p) stat(%x)\n", __FUNCTION__,
+			dl, stat);
+	phif = NULL;
+	if (stat & IF_UP) {
+		hif = &dl->inst.up;
+		shif = &dl->s_up;
+		if (shif->owner)
+			phif = &shif->owner->down;
+	} else if (stat & IF_DOWN) {
+		hif = &dl->inst.down;
+		shif = &dl->s_down;
+		if (shif->owner)
+			phif = &shif->owner->up;
+	} else {
+		printk(KERN_WARNING "%s: stat not UP/DOWN\n", __FUNCTION__);
+		return(-EINVAL);
+	}
+	err = udev_obj.ctrl(hif->peer, MGR_DISCONNECT | REQUEST, hif);
+	if (phif) {
+		memcpy(phif, shif, sizeof(mISDNif_t));
+		memset(shif, 0, sizeof(mISDNif_t));
+	}
+	if (hif->predecessor)
+		hif->predecessor->clone = hif->clone;
+	if (hif->clone)
+		hif->clone->predecessor = hif->predecessor;
+	return(err);
 }
 
 static int
@@ -765,6 +746,43 @@ del_if_req(mISDNdevice_t *dev, u_int addr)
 	return(remove_if(dl, addr));
 }
 
+static void
+get_if_info(struct sk_buff *skb)
+{
+	mISDN_head_t		*hp;
+	mISDNinstance_t		*inst;
+	mISDNif_t		*hif;
+	interface_info_t	*ii = (interface_info_t *)skb->data;
+	
+	hp = mISDN_HEAD_P(skb);
+	if (!(inst = get_instance4id(hp->addr & IF_ADDRMASK))) {
+		printk(KERN_WARNING "%s: no instance\n", __FUNCTION__);
+		hp->len = -ENODEV;
+		return;
+	}
+	if (hp->dinfo == IF_DOWN)
+		hif = &inst->down;
+	else if (hp->dinfo == IF_UP)
+		hif = &inst->up;
+	else {
+		printk(KERN_WARNING "%s: wrong interface %x\n",
+			__FUNCTION__, hp->dinfo);
+		hp->len = -EINVAL;
+		return;
+	}
+	hp->dinfo = 0;
+	memset(ii, 0, sizeof(interface_info_t));
+	if (hif->owner)
+		ii->owner = hif->owner->id;
+	if (hif->peer)
+		ii->peer = hif->peer->id;
+	ii->extentions = hif->extentions;
+	ii->stat = hif->stat;
+	hp->len = sizeof(interface_info_t);
+	skb_put(skb, hp->len);
+}
+#endif
+
 static int
 new_entity_req(mISDNdevice_t *dev, int *entity)
 {
@@ -940,7 +958,7 @@ get_status(struct sk_buff *skb)
 	int		err;
 
 	hp = mISDN_HEAD_P(skb);
-	if (!(inst = get_instance4id(hp->addr & IF_ADDRMASK))) {
+	if (!(inst = get_instance4id(hp->addr & INST_ID_MASK))) {
 		printk(KERN_WARNING "%s: no instance\n", __FUNCTION__);
 		err = -ENODEV;
 	} else {
@@ -963,7 +981,7 @@ get_layer_info(struct sk_buff *skb)
 	layer_info_t	*li = (layer_info_t *)skb->data;
 
 	hp = mISDN_HEAD_P(skb);
-	if (!(inst = get_instance4id(hp->addr & IF_ADDRMASK))) {
+	if (!(inst = get_instance4id(hp->addr & INST_ID_MASK))) {
 		printk(KERN_WARNING "%s: no instance\n", __FUNCTION__);
 		hp->len = -ENODEV;
 		return;
@@ -981,47 +999,10 @@ get_layer_info(struct sk_buff *skb)
 	skb_put(skb, hp->len);
 }
 
-static void
-get_if_info(struct sk_buff *skb)
-{
-	mISDN_head_t		*hp;
-	mISDNinstance_t		*inst;
-	mISDNif_t		*hif;
-	interface_info_t	*ii = (interface_info_t *)skb->data;
-	
-	hp = mISDN_HEAD_P(skb);
-	if (!(inst = get_instance4id(hp->addr & IF_ADDRMASK))) {
-		printk(KERN_WARNING "%s: no instance\n", __FUNCTION__);
-		hp->len = -ENODEV;
-		return;
-	}
-	if (hp->dinfo == IF_DOWN)
-		hif = &inst->down;
-	else if (hp->dinfo == IF_UP)
-		hif = &inst->up;
-	else {
-		printk(KERN_WARNING "%s: wrong interface %x\n",
-			__FUNCTION__, hp->dinfo);
-		hp->len = -EINVAL;
-		return;
-	}
-	hp->dinfo = 0;
-	memset(ii, 0, sizeof(interface_info_t));
-	if (hif->owner)
-		ii->owner = hif->owner->id;
-	if (hif->peer)
-		ii->peer = hif->peer->id;
-	ii->extentions = hif->extentions;
-	ii->stat = hif->stat;
-	hp->len = sizeof(interface_info_t);
-	skb_put(skb, hp->len);
-}
-
 static int
 wdata_frame(mISDNdevice_t *dev, struct sk_buff *skb)
 {
 	mISDN_head_t	*hp;
-	mISDNif_t	*hif = NULL;
 	devicelayer_t	*dl;
 	int		err = -ENXIO;
 
@@ -1030,36 +1011,18 @@ wdata_frame(mISDNdevice_t *dev, struct sk_buff *skb)
 		printk(KERN_DEBUG "%s: addr:%x\n", __FUNCTION__, hp->addr);
 	if (!(dl=get_devlayer(dev, hp->addr)))
 		return(err);
-	if (hp->addr & IF_UP) {
-		hif = &dl->inst.up;
-		if (IF_TYPE(hif) != IF_DOWN) {
-			printk(KERN_WARNING "%s: inst.up no down\n", __FUNCTION__);
-			hif = NULL;
-		}
-	} else if (hp->addr & IF_DOWN) {
-		hif = &dl->inst.down;
-		if (IF_TYPE(hif) != IF_UP) {
-			printk(KERN_WARNING "%s: inst.down no up\n", __FUNCTION__);
-			hif = NULL;
-		}
+	if (device_debug & DEBUG_WDATA)
+		printk(KERN_DEBUG "%s: pr(%x) di(%x) l(%d)\n",
+			__FUNCTION__, hp->prim, hp->dinfo, hp->len);
+	if (hp->len < 0) {
+		printk(KERN_WARNING "%s: data negativ(%d)\n",
+			__FUNCTION__, hp->len);
+		return(-EINVAL);
 	}
-	if (hif) {
-		if (device_debug & DEBUG_WDATA)
-			printk(KERN_DEBUG "%s: pr(%x) di(%x) l(%d)\n",
-				__FUNCTION__, hp->prim, hp->dinfo, hp->len);
-		if (hp->len < 0) {
-			printk(KERN_WARNING "%s: data negativ(%d)\n",
-				__FUNCTION__, hp->len);
-			return(-EINVAL);
-		}
-		err = hif->func(hif, skb);
-		if (device_debug & DEBUG_WDATA && err)
-			printk(KERN_DEBUG "%s: hif->func ret(%x)\n",
-				__FUNCTION__, err);
-	} else {
-		if (device_debug & DEBUG_WDATA)
-			printk(KERN_DEBUG "mISDN: no matching interface\n");
-	}
+	err = mISDN_queue_message(&dl->inst, hp->addr, skb);
+	if (device_debug & DEBUG_WDATA && err)
+		printk(KERN_DEBUG "%s: mISDN_send_message ret(%x)\n",
+			__FUNCTION__, err);
 	return(err);
 }
 
@@ -1070,7 +1033,7 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 	mISDN_head_t	*hp;
 	mISDNstack_t	*st;
 	devicelayer_t	*dl;
-	mISDNlayer_t    *layer;
+	mISDNinstance_t *inst;
 	int		lay;
 	int		err = 0;
 
@@ -1154,9 +1117,9 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 			hp->len = 0;
 			lay = ISDN_LAYER(lay);
 			if ((st = get_stack4id(hp->addr))) {
-				if ((layer = getlayer4lay(st, lay))) {
-					if (layer->inst)
-						hp->dinfo = layer->inst->id;
+				if ((inst = getlayer4lay(st, lay))) {
+					if (inst)
+						hp->dinfo = inst->id;
 				}
 			}
 		}
@@ -1190,6 +1153,7 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 		else
 			hp->len = -ENXIO;
 		break;
+#ifdef OBSOLATE
 	    case (MGR_GETIF | REQUEST):
 		hp->prim = MGR_GETIF | CONFIRM;
 		hp->dinfo = 0;
@@ -1226,6 +1190,7 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 		hp->prim = MGR_DISCONNECT | CONFIRM;
 		hp->dinfo = 0;
 		break;
+#endif
 	    case (MGR_NEWENTITY | REQUEST):
 		hp->prim = MGR_NEWENTITY | CONFIRM;
 		hp->len = new_entity_req(dev, &hp->dinfo);
@@ -1288,7 +1253,7 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 	    		hp->dinfo = 0;
 	    	break;
 	    default:
-		if (hp->addr & IF_TYPEMASK) {
+		if (hp->addr & FLG_INSTANCE) {
 			err = wdata_frame(dev, skb);
 			if (err) {
 				if (device_debug & DEBUG_WDATA)
@@ -1342,6 +1307,7 @@ init_device(u_int minor) {
 	return(dev);
 }
 
+#ifdef FIXME
 mISDNdevice_t *
 get_free_rawdevice(void)
 {
@@ -1366,6 +1332,7 @@ get_free_rawdevice(void)
 	}
 	return(NULL);
 }
+#endif
 
 int
 free_device(mISDNdevice_t *dev)
@@ -1647,6 +1614,7 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 			wake_up(&dev->wport.procq);
 		}
 		test_and_clear_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag);
+#ifdef FIXME
 	} else { /* raw device */
 		skb = alloc_stack_skb(count, PORT_SKB_RESERVE);
 		if (skb) {
@@ -1691,6 +1659,7 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 		}
 		test_and_clear_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag);
 		spin_unlock_irqrestore(&dev->wport.lock, flags);
+#endif
 	}
 	return(count - len);
 }
@@ -1755,18 +1724,16 @@ static struct file_operations mISDN_fops =
 };
 
 static int
-from_up_down(mISDNif_t *hif, struct sk_buff *skb) {
+from_up_down(mISDNinstance_t *inst, struct sk_buff *skb) {
 	
 	devicelayer_t	*dl;
 	mISDN_head_t	*hh; 
 	int		retval = -EINVAL;
 
-	if (!hif || !hif->fdata || !skb)
-		return(-EINVAL);
-	dl = hif->fdata;
+	dl = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	hh->len = skb->len;
-	hh->addr = dl->iaddr | IF_TYPE(hif);
+	hh->addr = dl->iaddr;
 	if (device_debug & DEBUG_RDATA)
 		printk(KERN_DEBUG "from_up_down: %x(%x) dinfo:%x len:%d\n",
 			hh->prim, hh->addr, hh->dinfo, hh->len);
@@ -1774,7 +1741,7 @@ from_up_down(mISDNif_t *hif, struct sk_buff *skb) {
 	return(retval);
 }
 
-
+#ifdef OBSOLATE
 static int
 set_if(devicelayer_t *dl, u_int prim, mISDNif_t *hif)
 {
@@ -1783,6 +1750,7 @@ set_if(devicelayer_t *dl, u_int prim, mISDNif_t *hif)
 	err = mISDN_SetIF(&dl->inst, hif, prim, from_up_down, from_up_down, dl);
 	return(err);
 }
+#endif
 
 static int
 udev_manager(void *data, u_int prim, void *arg) {
@@ -1812,6 +1780,7 @@ udev_manager(void *data, u_int prim, void *arg) {
 		goto out;
 	}
 	switch(prim) {
+#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 	    	err = mISDN_ConnectIF(inst, arg);
 	    	break;
@@ -1823,6 +1792,7 @@ udev_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | INDICATION:
 	    	err = mISDN_DisConnectIF(inst, arg);
 	    	break;
+#endif
 	    case MGR_RELEASE | INDICATION:
 		if (device_debug & DEBUG_MGR_FUNC)
 			printk(KERN_DEBUG "release_dev id %x\n",

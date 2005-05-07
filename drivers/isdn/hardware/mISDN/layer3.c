@@ -369,9 +369,9 @@ mISDN_l3up(l3_process_t *l3p, u_int prim, struct sk_buff *skb)
 		return(-EINVAL);
 	l3 = l3p->l3;
 	if (!skb)
-		err = if_link(&l3->inst.up, prim, l3p->id, 0, NULL, 0);
+		err = mISDN_queue_data(&l3->inst, FLG_MSG_UP, prim, l3p->id, 0, NULL, 0);
 	else
-		err = if_newhead(&l3->inst.up, prim, l3p->id, skb);
+		err = mISDN_queueup_newhead(&l3->inst, 0, prim, l3p->id, skb);
 	return(err);
 }
 
@@ -380,9 +380,9 @@ l3down(layer3_t *l3, u_int prim, int dinfo, struct sk_buff *skb) {
 	int err = -EINVAL;
 
 	if (!skb)
-		err = if_link(&l3->inst.down, prim, dinfo, 0, NULL, 0);
+		err = mISDN_queue_data(&l3->inst, FLG_MSG_DOWN, prim, dinfo, 0, NULL, 0);
 	else
-		err = if_newhead(&l3->inst.down, prim, dinfo, skb);
+		err = mISDN_queuedown_newhead(&l3->inst, 0, prim, dinfo, skb);
 	return(err);
 }
 

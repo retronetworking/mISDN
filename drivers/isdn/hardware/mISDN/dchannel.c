@@ -39,14 +39,14 @@ dchannel_bh(dchannel_t *dch)
 			hh = mISDN_HEAD_P(skb);
 			dch->next_skb = NULL;
 			skb_trim(skb, 0);
-			if (if_newhead(&dch->inst.up, PH_DATA_CNF, hh->dinfo, skb))
+			if (mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb))
 				dev_kfree_skb(skb);
 		}
 	}
 
 	if (test_and_clear_bit(D_RCVBUFREADY, &dch->event)) {
 		while ((skb = skb_dequeue(&dch->rqueue))) {
-			err = if_newhead(&dch->inst.up, PH_DATA_IND, MISDN_ID_ANY, skb);
+			err = mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_IND, MISDN_ID_ANY, skb);
 			if (err < 0) {
 				printk(KERN_WARNING "%s: deliver err %d\n", __FUNCTION__, err);
 				dev_kfree_skb(skb);

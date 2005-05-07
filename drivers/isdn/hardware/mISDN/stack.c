@@ -28,7 +28,7 @@ get_stack_info(struct sk_buff *skb)
 	mISDN_head_t	*hp;
 	mISDNstack_t	*cst, *st;
 	stack_info_t	*si;
-	mISDNlayer_t	*lay;
+	int		i;
 
 	hp = mISDN_HEAD_P(skb);
 	st = get_stack4id(hp->addr);
@@ -46,9 +46,9 @@ get_stack_info(struct sk_buff *skb)
 		memcpy(&si->pid, &st->pid, sizeof(mISDN_pid_t));
 		memcpy(&si->para, &st->para, sizeof(mISDN_stPara_t));
 		si->instcnt = 0;
-		list_for_each_entry(lay, &st->layerlist, list) {
-			if (lay->inst) {
-				si->inst[si->instcnt] = lay->inst->id;
+		for (i = 0; i <= MAX_LAYER_NR; i++) {
+			if (st->i_array[i]) {
+				si->inst[si->instcnt] = st->i_array[i]->id;
 				si->instcnt++;
 			}
 		}
@@ -135,6 +135,7 @@ get_stack4id(u_int id)
 	return(NULL);
 }
 
+#ifdef OBSOLATE
 mISDNlayer_t *
 getlayer4lay(mISDNstack_t *st, int layermask)
 {
@@ -152,12 +153,48 @@ getlayer4lay(mISDNstack_t *st, int layermask)
 	}
 	return(NULL);
 }
+#endif
+
+static mISDNinstance_t *
+get_nextinstance(mISDNstack_t *st, u_int addr)
+{
+	mISDNinstance_t	*inst=NULL;
+	int		layer = addr & LAYER_ID_MASK;
+
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "%s: st(%08x) addr(%08x)\n", __FUNCTION__, st->id, addr);
+
+	switch(addr & MSG_DIR_MASK) {
+		case FLG_MSG_DOWN:
+			if (addr & FLG_MSG_CLONED) {
+				
+			} else
+				layer -= LAYER_ID_INC;
+			break;
+		case FLG_MSG_UP:
+			layer += LAYER_ID_INC;
+			break;
+		case MSG_DIRECT:
+			break;
+		default: /* broadcast */
+			int_errtxt("st(%08x) addr(%08x) wrong address", st->id, addr);
+			return(NULL);
+	}
+		
+	if ((layer < 0) || (layer > MAX_LAYER_NR)) {
+		int_errtxt("st(%08x) addr(%08x) layer %d out of range", st->id, addr, layer);
+		return(NULL);
+	}
+	inst = st->i_array[layer];
+	/* more checks, refcnt locking */
+	return(inst);
+}
 
 mISDNinstance_t *
 get_instance(mISDNstack_t *st, int layer_nr, int protocol)
 {
-	mISDNlayer_t	*layer;
 	mISDNinstance_t	*inst=NULL;
+	int		i;
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "get_instance st(%p) lnr(%d) prot(%x)\n",
@@ -166,29 +203,22 @@ get_instance(mISDNstack_t *st, int layer_nr, int protocol)
 		int_error();
 		return(NULL);
 	}
-	if ((layer_nr<0) || (layer_nr>MAX_LAYER_NR)) {
+	if ((layer_nr < 0) || (layer_nr > MAX_LAYER_NR)) {
 		int_errtxt("lnr %d", layer_nr);
 		return(NULL);
 	}
-	list_for_each_entry(layer, &st->layerlist, list) {
-		inst = layer->inst;
-		if (inst) {
+	for (i = 0; i <= MAX_LAYER_NR; i++) {
+		if ((inst = st->i_array[i])) {
 			if (core_debug & DEBUG_CORE_FUNC)
-				printk(KERN_DEBUG "get_instance inst(%p, %x) lm %x/%x prot %x/%x\n",
-					inst, inst->id, inst->pid.layermask, ISDN_LAYER(layer_nr),
+				printk(KERN_DEBUG "get_instance inst%d(%p, %x) lm %x/%x prot %x/%x\n",
+					i,inst, inst->id, inst->pid.layermask, ISDN_LAYER(layer_nr),
 					inst->pid.protocol[layer_nr], protocol);
 			if ((inst->pid.layermask & ISDN_LAYER(layer_nr)) &&
 				(inst->pid.protocol[layer_nr] == protocol))
-				goto out;
-			inst = NULL;
-		}
-		if (list_empty(&layer->list)) {
-			int_errtxt("deadloop layer %p", layer);
-			return(NULL);
+				return(inst);
 		}
 	}
-out:
-	return(inst);
+	return(NULL);
 }
 
 mISDNinstance_t *
@@ -202,6 +232,7 @@ get_instance4id(u_int id)
 	return(NULL);
 }
 
+#ifdef OBSOLATE
 int
 get_layermask(mISDNlayer_t *layer)
 {
@@ -237,6 +268,114 @@ insertlayer(mISDNstack_t *st, mISDNlayer_t *layer, int layermask)
 	}
 	return(0);
 }
+#endif
+
+int
+mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
+{
+	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+	mISDNstack_t	*st = inst->st;
+	u_int		id;
+
+	if (aflag && ((aflag & MSG_DIR_MASK) == MSG_DIRECT)) {
+		id = aflag;
+	} else {
+		id = (inst->id & INST_ID_MASK) | aflag;
+	}
+	if ((aflag & MSG_DIR_MASK) == FLG_MSG_DOWN) {
+		if (inst->parent) {
+			st = inst->parent->st;
+			id = id | FLG_MSG_CLONED;
+		}
+	}
+	if (!st)
+		return(-EINVAL);
+	if (st->id == 0 || test_bit(mISDN_STACK_ABORT, &st->status))
+		return(-EBUSY);
+	if (test_bit(mISDN_STACK_KILLED, &st->status))
+		return(-EBUSY);
+	if (test_bit(mISDN_STACK_STOPPED, &st->status))
+		return(-EBUSY);
+	if ((st->id & STACK_ID_MASK) != (id & STACK_ID_MASK)) {
+		int_errtxt("stack id not match st(%08x) id(%08x)", st->id, id);
+	}
+	hh->addr = id;
+	skb_queue_tail(&st->msgq, skb);
+	wake_up_interruptible(&st->workq);
+	return(0);
+}
+
+static void
+do_broadcast(mISDNstack_t *st, struct sk_buff *skb)
+{
+	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+
+	/* not implemented yet */
+	int_errtxt("%s: st(%08x) addr(%08x) prim(%x) dinfo(%x)", __FUNCTION__, st->id, hh->addr, hh->prim, hh->dinfo);
+	dev_kfree_skb(skb);
+}
+
+static int
+mISDNStackd(void *data)
+{
+	mISDNstack_t	*st = data;
+	int		err = 0;
+
+#ifdef CONFIG_SMP
+	lock_kernel();
+#endif
+	MAKEDAEMON("mISDNStackd");
+	sigfillset(&current->blocked);
+	st->thread = current;
+#ifdef CONFIG_SMP
+	unlock_kernel();
+#endif
+	printk(KERN_DEBUG "mISDNStackd started for id %x\n", st->id);
+	test_and_clear_bit(mISDN_STACK_INIT, &st->status);
+	for (;;) {
+		struct sk_buff	*skb;
+		mISDN_head_t	*hh;
+
+		while ((skb = skb_dequeue(&st->msgq))) {
+			mISDNinstance_t	*inst;
+
+			hh = mISDN_HEAD_P(skb);
+			if ((hh->addr & MSG_DIR_MASK) == MSG_BROADCAST) {
+				do_broadcast(st, skb);
+				continue;
+			}
+			inst = get_nextinstance(st, hh->addr);
+			if (!inst) {
+				int_errtxt("%s: st(%08x) no instance for id(%08x)", __FUNCTION__, st->id, hh->addr);
+				dev_kfree_skb(skb);
+				continue;
+			}
+			if (!inst->func) {
+				int_errtxt("%s: instance(%08x) no function", __FUNCTION__, inst->id);
+				dev_kfree_skb(skb);
+				continue;
+			}
+			err = inst->func(inst, skb);
+			if (err) {
+				int_errtxt("%s: instance(%08x)->function return(%d)", __FUNCTION__, inst->id, err);
+				dev_kfree_skb(skb);
+				continue;
+			}
+		}
+		if (test_bit(mISDN_STACK_ABORT, &st->status))
+			break;
+		if (st->notify != NULL)
+			up(st->notify);
+		interruptible_sleep_on(&st->workq);
+	}
+	printk(KERN_DEBUG "mISDNStackd daemon for id %x killed now\n", st->id);
+	test_and_set_bit(mISDN_STACK_KILLED, &st->status);
+	discard_queue(&st->msgq);
+	st->thread = NULL;
+	if (st->notify != NULL)
+		up(st->notify);
+	return(0);
+}
 
 mISDNstack_t *
 new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
@@ -251,8 +390,10 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 		return(NULL);
 	}
 	memset(newst, 0, sizeof(mISDNstack_t));
-	INIT_LIST_HEAD(&newst->layerlist);
 	INIT_LIST_HEAD(&newst->childlist);
+	init_waitqueue_head(&newst->workq);
+	skb_queue_head_init(&newst->msgq);
+	test_and_set_bit(mISDN_STACK_INIT, &newst->status);
 	if (!master) {
 		if (inst && inst->st) {
 			newst->id = get_free_stackid(inst->st, FLG_CLONE_STACK);
@@ -272,6 +413,7 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 		printk(KERN_DEBUG "Stack id %x added\n", newst->id);
 	if (inst)
 		inst->st = newst;
+	kernel_thread(mISDNStackd, (void *)newst, 0);	
 	return(newst);
 }
 
@@ -279,24 +421,15 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 static int
 release_layers(mISDNstack_t *st, u_int prim)
 {
-	mISDNinstance_t *inst;
-	mISDNlayer_t    *layer, *nl;
-	int		cnt = 0;
+	int	i;
 
-	list_for_each_entry_safe(layer, nl, &st->layerlist, list) {
-		inst = layer->inst;
-		if (inst) {
+	for (i = 0; i <= MAX_LAYER_NR; i++) {
+		if (st->i_array[i]) {
 			if (core_debug & DEBUG_CORE_FUNC)
-				printk(KERN_DEBUG  "%s: st(%p) inst(%p):%x %s lm(%x)\n",
-					__FUNCTION__, st, inst, inst->id,
-					inst->name, inst->pid.layermask);
-			inst->obj->own_ctrl(inst, prim, NULL);
-		}
-		list_del(&layer->list);
-		kfree(layer);
-		if (cnt++ > 1000) {
-			int_errtxt("release_layers endless loop st(%p)", st);
-			return(-EINVAL);
+				printk(KERN_DEBUG  "%s: st(%p) inst%d(%p):%x %s lm(%x)\n",
+					__FUNCTION__, st, i, st->i_array[i], st->i_array[i]->id,
+					st->i_array[i]->name, st->i_array[i]->pid.layermask);
+			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, NULL);
 		}
 	}
 	return(0);
@@ -306,25 +439,19 @@ int
 do_for_all_layers(void *data, u_int prim, void *arg)
 {
 	mISDNstack_t	*st = data;
-	mISDNinstance_t *inst;
-	mISDNlayer_t    *layer, *nl;
-	int		cnt = 0;
+	int		i;
 
 	if (!st) {
 		int_error();
 		return(-EINVAL);
 	}
-	list_for_each_entry_safe(layer, nl, &st->layerlist, list) {
-		inst = layer->inst;
-		if (inst) {
+	for (i = 0; i <= MAX_LAYER_NR; i++) {
+		if (st->i_array[i]) {
 			if (core_debug & DEBUG_CORE_FUNC)
-				printk(KERN_DEBUG  "%s: st(%p) inst(%p):%x %s prim(%x) arg(%p)\n",
-					__FUNCTION__, st, inst, inst->id, inst->name, prim, arg);
-			inst->obj->own_ctrl(inst, prim, arg);
-		}
-		if (cnt++ > 1000) {
-			int_errtxt("do_for_all_layers endless loop st(%p)", st);
-			return(-EINVAL);
+				printk(KERN_DEBUG  "%s: st(%p) inst%d(%p):%x %s prim(%x) arg(%p)\n",
+					__FUNCTION__, st, i, st->i_array[i], st->i_array[i]->id,
+					st->i_array[i]->name, prim, arg);
+			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, arg);
 		}
 	}
 	return(0);
@@ -367,6 +494,30 @@ change_stack_para(mISDNstack_t *st, u_int prim, mISDN_stPara_t *stpara)
 	return(do_for_all_layers(st, prim, stpara));
 }
 
+static int
+delete_stack(mISDNstack_t *st)
+{
+	DECLARE_MUTEX_LOCKED(sem);
+	int	err;
+
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "%s: st(%p)\n", __FUNCTION__, st);
+	if (st->thread) {
+		st->notify = &sem;
+		test_and_set_bit(mISDN_STACK_ABORT, &st->status);
+		wake_up_interruptible(&st->workq);
+		down(&sem);
+		st->notify = NULL;
+	}
+	if ((err = release_layers(st, MGR_RELEASE | INDICATION))) {
+		printk(KERN_WARNING "%s: err(%d)\n", __FUNCTION__, err);
+		return(err);
+	}
+	list_del(&st->list);
+	kfree(st);
+	return(0);
+}
+
 int
 release_stack(mISDNstack_t *st) {
 	int err;
@@ -374,22 +525,16 @@ release_stack(mISDNstack_t *st) {
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%p)\n", __FUNCTION__, st);
+
 	list_for_each_entry_safe(cst, nst, &st->childlist, list) {
-		if (core_debug & DEBUG_CORE_FUNC)
-			printk(KERN_DEBUG "%s: cst(%p)\n", __FUNCTION__, cst);
-		if ((err = release_layers(cst, MGR_RELEASE | INDICATION))) {
-			printk(KERN_WARNING "release_stack child err(%d)\n", err);
+		if ((err = delete_stack(cst))) {
 			return(err);
 		}
-		list_del(&cst->list);
-		kfree(cst);
 	}
-	if ((err = release_layers(st, MGR_RELEASE | INDICATION))) {
-		printk(KERN_WARNING "release_stack err(%d)\n", err);
+
+	if ((err = delete_stack(st)))
 		return(err);
-	}
-	list_del(&st->list);
-	kfree(st);
+
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: mISDN_stacklist(%p<-%p->%p)\n", __FUNCTION__,
 			mISDN_stacklist.prev, &mISDN_stacklist, mISDN_stacklist.next);
@@ -397,10 +542,10 @@ release_stack(mISDNstack_t *st) {
 }
 
 void
-release_stacks(mISDNobject_t *obj) {
-	mISDNstack_t *st, *tmp;
-	mISDNlayer_t *layer, *ltmp;
-	int rel;
+release_stacks(mISDNobject_t *obj)
+{
+	mISDNstack_t	*st, *tmp;
+	int		rel, i;
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: obj(%p) %s\n",
@@ -410,11 +555,13 @@ release_stacks(mISDNobject_t *obj) {
 		if (core_debug & DEBUG_CORE_FUNC)
 			printk(KERN_DEBUG "%s: st(%p)\n",
 				__FUNCTION__, st);
-		list_for_each_entry_safe(layer, ltmp, &st->layerlist, list) {
+		for (i = 0; i <= MAX_LAYER_NR; i++) {
+			if (!st->i_array[i])
+				continue;
 			if (core_debug & DEBUG_CORE_FUNC)
-				printk(KERN_DEBUG "%s: layer(%p) inst(%p)\n",
-					__FUNCTION__, layer, layer->inst);
-			if (layer->inst && layer->inst->obj == obj)
+				printk(KERN_DEBUG "%s: inst%d(%p)\n",
+					__FUNCTION__, i, st->i_array[i]);
+			if (st->i_array[i]->obj == obj)
 				rel++;
 		}		
 		if (rel)
@@ -425,7 +572,7 @@ release_stacks(mISDNobject_t *obj) {
 			obj->name, obj->refcnt);
 }
 
-
+#ifdef OBSOLATE
 static void
 get_free_instid(mISDNstack_t *st, mISDNinstance_t *inst) {
 	mISDNinstance_t *il;
@@ -441,93 +588,97 @@ get_free_instid(mISDNstack_t *st, mISDNinstance_t *inst) {
 					inst->id = 0;
 					return;
 				}
-				inst->id += INST_ID_INC;
+				inst->id += LAYER_ID_INC;
 				il = list_entry(mISDN_instlist.next, mISDNinstance_t, list);
 			}
 		}
 	}
 }
+#endif
 
 int
 register_layer(mISDNstack_t *st, mISDNinstance_t *inst) {
-	mISDNlayer_t	*layer = NULL;
-	int		refinc = 0;
+	int		idx;
+	mISDNinstance_t	*dup;
 
-	if (!inst)
+	if (!inst || !st)
 		return(-EINVAL);
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s:st(%p) inst(%p/%p) lmask(%x) id(%x)\n",
 			__FUNCTION__, st, inst, inst->obj,
 			inst->pid.layermask, inst->id);
 	if (inst->id) { /* allready registered */
-		if (inst->st || !st) {
+		// if (inst->st || !st) {
 			int_errtxt("register duplicate %08x %p %p",
 				inst->id, inst->st, st);
 			return(-EBUSY);
-		}
+		//}
 	}
-	if (st) {
-		if ((layer = getlayer4lay(st, inst->pid.layermask))) {
-			if (layer->inst) {
-				int_errtxt("stack %08x has layer %08x",
-					st->id, layer->inst->id);
-				return(-EBUSY);
-			}
-		} else if (!(layer = kmalloc(sizeof(mISDNlayer_t), GFP_ATOMIC))) {
-			int_errtxt("no mem for layer %x", inst->pid.layermask);
-			return(-ENOMEM);
+	/*
+	 * To simplify registration we assume that our stacks are 
+	 * always build with monoton increasing layernumbers from
+	 * bottom (HW,L0) to highest number
+	 */
+//	if (st) {
+		for (idx = 0; idx <= MAX_LAYER_NR; idx++)
+			if (!st->i_array[idx])
+				break;
+		if (idx > MAX_LAYER_NR) {
+			int_errtxt("stack %08x overflow", st->id);
+			return(-EXFULL);
 		}
-		memset(layer, 0, sizeof(mISDNlayer_t));
-		insertlayer(st, layer, inst->pid.layermask);
-		layer->inst = inst;
-	}
-	if (!inst->id)
-		refinc++;
-	get_free_instid(st, inst);
+		inst->regcnt++;
+		st->i_array[idx] = inst;
+		inst->id = st->id | FLG_INSTANCE | idx;
+		dup = get_instance4id(inst->id);
+		if (dup) {
+			int_errtxt("register duplicate %08x i1(%p) i2(%p) i1->st(%p) i2->st(%p) st(%p)",
+				inst->id, inst, dup, inst->st, dup->st, st);
+			inst->regcnt--;
+			st->i_array[idx] = NULL;
+			inst->id = 0;
+			return(-EBUSY);
+		}
+//	}
+	
 	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "%s: inst(%p/%p) id(%x)%s\n", __FUNCTION__,
-			inst, inst->obj, inst->id, refinc ? " changed" : "");
-	if (!inst->id) {
-		int_errtxt("no free inst->id for layer %x", inst->pid.layermask);
-		if (st && layer) {
-			list_del(&layer->list);
-			kfree(layer);
-		}
-		return(-EINVAL);
-	}
+		printk(KERN_DEBUG "%s: inst(%p/%p) id(%x)\n", __FUNCTION__,
+			inst, inst->obj, inst->id);
 	inst->st = st;
-	if (refinc)
-		inst->obj->refcnt++;
 	list_add_tail(&inst->list, &mISDN_instlist);
 	return(0);
 }
 
 int
 unregister_instance(mISDNinstance_t *inst) {
-	mISDNlayer_t *layer;
-	int err = 0;
+	int	i;
 
 	if (!inst)
 		return(-EINVAL);
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%p) inst(%p):%x lay(%x)\n",
 			__FUNCTION__, inst->st, inst, inst->id, inst->pid.layermask);
-	if (inst->st) {
-		if ((layer = getlayer4lay(inst->st, inst->pid.layermask))) {
-			if (core_debug & DEBUG_CORE_FUNC)
-				printk(KERN_DEBUG "%s: layer(%p)->inst(%p)\n",
-					__FUNCTION__, layer, layer->inst);
-			layer->inst = NULL;
-		} else {
-			printk(KERN_WARNING "%s: no layer found\n", __FUNCTION__);
-			err = -ENODEV;
+	if (inst->st && inst->id) {
+		i = inst->id & LAYER_ID_MASK;
+		if (i > MAX_LAYER_NR) {
+			int_errtxt("unregister %08x  st(%08x) wrong layer", inst->id, inst->st->id);
+			return(-EINVAL);
 		}
+		if (inst->st->i_array[i] == inst) {
+			inst->regcnt--;
+			inst->st->i_array[i] = NULL;
+		} else if (inst->st->i_array[i]) {
+			int_errtxt("unregister %08x  st(%08x) wrong instance %08x",
+				inst->id, inst->st->id, inst->st->i_array[i]->id);
+			return(-EINVAL);
+		} else
+			printk(KERN_WARNING "unregister %08x  st(%08x) not in stack",
+				inst->id, inst->st->id);
 		if (inst->st && (inst->st->mgr != inst))
 			inst->st = NULL;
 	}
 	list_del_init(&inst->list);
 	inst->id = 0;
-	inst->obj->refcnt--;
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: mISDN_instlist(%p<-%p->%p)\n", __FUNCTION__,
 			mISDN_instlist.prev, &mISDN_instlist, mISDN_instlist.next);
@@ -563,7 +714,7 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 	int 		err;
 	u_char		*pbuf = NULL;
 	mISDNinstance_t	*inst;
-	mISDNlayer_t	*hl, *hln;
+//	mISDNlayer_t	*hl, *hln;
 
 	if (!st || !pid) {
 		int_error();
@@ -599,7 +750,8 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 		}
 		mISDN_RemoveUsedPID(pid, &inst->pid);
 	}
-	
+
+#ifdef FIXME
 	list_for_each_entry_safe(hl, hln, &st->layerlist, list) {
 		if (hl->list.next == &st->layerlist)
 			break;
@@ -618,6 +770,7 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 		hl->inst->obj->own_ctrl(hl->inst, MGR_CONNECT | REQUEST,
 			hln->inst);
 	}
+#endif
 	st->mgr->obj->own_ctrl(st->mgr, MGR_SETSTACK |CONFIRM, NULL);
 	return(0);
 }
@@ -761,3 +914,5 @@ evaluate_stack_pids(mISDNstack_t *st, mISDN_pid_t *pid)
 	}
 	return(0);
 }
+
+EXPORT_SYMBOL(mISDN_queue_message);

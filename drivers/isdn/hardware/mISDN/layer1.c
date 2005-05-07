@@ -166,13 +166,13 @@ l1m_debug(struct FsmInst *fi, char *fmt, ...)
 static int
 l1up(layer1_t *l1, u_int prim, int dinfo, int len, void *arg)
 {
-	return(if_link(&l1->inst.up, prim, dinfo, len, arg, 0));
+	return(mISDN_queue_data(&l1->inst, FLG_MSG_UP, prim, dinfo, len, arg, 0));
 }
 
 static int
 l1down(layer1_t *l1, u_int prim, int dinfo, int len, void *arg)
 {
-	return(if_link(&l1->inst.down, prim, dinfo, len, arg, 0));
+	return(mISDN_queue_data(&l1->inst, FLG_MSG_DOWN, prim, dinfo, len, arg, 0));
 }
 
 static void
@@ -491,24 +491,18 @@ static struct FsmNode L1BFnList[] =
 #define L1B_FN_COUNT (sizeof(L1BFnList)/sizeof(struct FsmNode))
 
 static int
-l1from_up(mISDNif_t *hif, struct sk_buff *skb)
+l1from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	layer1_t	*l1;
 	mISDN_head_t	*hh;
 	int		err = 0;
 
-	if (!hif || !hif->fdata || !skb)
-		return(-EINVAL);
-	l1 = hif->fdata;
+	l1 = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	switch(hh->prim) {
 		case (PH_DATA | REQUEST):
 		case (PH_CONTROL | REQUEST):
-			if (l1->inst.down.func)
-				return(l1->inst.down.func(&l1->inst.down,
-					skb));
-			else
-				err = -ENXIO;
+			return(mISDN_queue_down(inst, 0, skb));
 			break;
 		case (PH_ACTIVATE | REQUEST):
 			if (test_bit(FLG_L1_ACTIVATED, &l1->Flags))
@@ -519,10 +513,7 @@ l1from_up(mISDNif_t *hif, struct sk_buff *skb)
 			}
 			break;
 		case (MDL_FINDTEI | REQUEST):
-			if (l1->inst.up.func)
-				return(l1->inst.up.func(&l1->inst.up, skb));
-			else
-				err = -ENXIO;
+			return(mISDN_queue_up(inst, 0, skb));
 			break;
 		default:
 			if (l1->debug)
@@ -537,28 +528,20 @@ l1from_up(mISDNif_t *hif, struct sk_buff *skb)
 }
 
 static int
-l1from_down(mISDNif_t *hif,  struct sk_buff *skb)
+l1from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 {
 	layer1_t	*l1;
 	mISDN_head_t	*hh;
 	int		err = 0;
 
-	if (!hif || !hif->fdata || !skb)
-		return(-EINVAL);
-	l1 = hif->fdata;
+	l1 = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	if (hh->prim == PH_DATA_IND) {
 		if (test_bit(FLG_L1_ACTTIMER, &l1->Flags))
 			mISDN_FsmEvent(&l1->l1m, EV_TIMER_ACT, NULL);
-		if (l1->inst.up.func)
-			return(l1->inst.up.func(&l1->inst.up, skb));
-		else
-			err = -ENXIO;
+		return(mISDN_queue_up(inst, 0, skb));
 	} else if (hh->prim == PH_DATA_CNF) {
-		if (l1->inst.up.func)
-			return(l1->inst.up.func(&l1->inst.up, skb));
-		else
-			err = -ENXIO;
+		return(mISDN_queue_up(inst, 0, skb));
 	} else if (hh->prim == (PH_CONTROL | INDICATION)) {
 		if (hh->dinfo == HW_RESET)
 			mISDN_FsmEvent(&l1->l1m, EV_RESET_IND, NULL);
@@ -605,6 +588,7 @@ release_l1(layer1_t *l1) {
 	mISDNinstance_t	*inst = &l1->inst;
 
 	mISDN_FsmDelTimer(&l1->timer, 0);
+#ifdef OBSOLATE
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);
@@ -613,6 +597,7 @@ release_l1(layer1_t *l1) {
 		inst->down.peer->obj->ctrl(inst->down.peer,
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
+#endif
 	list_del(&l1->list);
 	isdnl1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(l1);
@@ -722,6 +707,7 @@ l1_manager(void *data, u_int prim, void *arg) {
 	    case MGR_NEWLAYER | REQUEST:
 		err = new_l1(data, arg);
 		break;
+#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 		err = mISDN_ConnectIF(inst, arg);
 		break;
@@ -733,6 +719,7 @@ l1_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | INDICATION:
 		err = mISDN_DisConnectIF(inst, arg);
 		break;
+#endif
 	    case MGR_UNREGLAYER | REQUEST:
 	    case MGR_RELEASE | INDICATION:
 		printk(KERN_DEBUG "release_l1 id %x\n", l1l->inst.st->id);

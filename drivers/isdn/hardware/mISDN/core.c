@@ -118,6 +118,7 @@ mISDNd(void *data)
 						err--; /* to free skb */
 					}
 					break;
+#ifdef FIXME
 				case MGR_QUEUEIF:
 					err = hhe->func.iff(hhe->data[0], skb);
 					if (err) {
@@ -125,6 +126,7 @@ mISDNd(void *data)
 							hhe->addr, hhe->prim, err);
 					}
 					break;
+#endif
 				default:
 					int_error();
 					printk(KERN_WARNING "mISDNd: addr(%x) prim(%x) unknown\n",
@@ -221,19 +223,22 @@ find_object_module(int protocol) {
 
 static void
 remove_object(mISDNobject_t *obj) {
-	mISDNstack_t *st, *nst;
-	mISDNlayer_t *layer, *nl;
-	mISDNinstance_t *inst;
+	mISDNstack_t	*st, *nst;
+//	mISDNlayer_t	*layer, *nl;
+	mISDNinstance_t	*inst;
+	int		i;
 
 	list_for_each_entry_safe(st, nst, &mISDN_stacklist, list) {
-		list_for_each_entry_safe(layer, nl, &st->layerlist, list) {
-			inst = layer->inst;
+		for (i = 0; i < MAX_LAYER_NR; i++) {
+//		list_for_each_entry_safe(layer, nl, &st->layerlist, list) {
+			inst = st->i_array[i];
 			if (inst && inst->obj == obj)
 				inst->obj->own_ctrl(st, MGR_RELEASE | INDICATION, inst);
 		}
 	}
 }
 
+#ifdef FIXME
 static int
 dummy_if(mISDNif_t *hif, struct sk_buff *skb)
 {
@@ -251,6 +256,7 @@ dummy_if(mISDNif_t *hif, struct sk_buff *skb)
 	dev_kfree_skb_any(skb);
 	return(0);
 }
+#endif
 
 mISDNinstance_t *
 get_next_instance(mISDNstack_t *st, mISDN_pid_t *pid)
@@ -335,6 +341,7 @@ sel_channel(mISDNstack_t *st, channel_info_t *ci)
 	return(err);
 }
 
+#ifdef FIXME
 static int
 disconnect_if(mISDNinstance_t *inst, u_int prim, mISDNif_t *hif) {
 	int	err = 0;
@@ -371,6 +378,7 @@ add_if(mISDNinstance_t *inst, u_int prim, mISDNif_t *hif) {
 	inst->obj->own_ctrl(inst, prim, hif);
 	return(0);
 }
+#endif
 
 static char tmpbuf[4096];
 static int
@@ -535,15 +543,19 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		return(-EINVAL);
 	    case MGR_UNREGLAYER | REQUEST:
 		return(unregister_instance(data));
+#ifdef FIXME
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(disconnect_if(data, prim, arg));
+#endif
 	    case MGR_GETDEVICE | REQUEST:
 	    	return(get_hdevice(data, arg));
 	    case MGR_DELDEVICE | REQUEST:
 	    	return(free_device(data));
+#ifdef FIXME
 	    case MGR_QUEUEIF | REQUEST:
 	    	return(mgr_queue(data, MGR_QUEUEIF, arg));
+#endif
 	}
 	if (!data)
 		return(-EINVAL);
@@ -559,24 +571,28 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		return(release_stack(st));
 	    case MGR_SELCHANNEL | REQUEST:
 		return(sel_channel(st, arg));
+#ifdef FIXME
 	    case MGR_ADDIF | REQUEST:
 		return(add_if(data, prim, arg));
+#endif
 	    case MGR_CTRLREADY | INDICATION:
 	    	return(queue_ctrl_ready(st, arg));
 	    case MGR_ADDSTPARA | REQUEST:
 	    case MGR_CLRSTPARA | REQUEST:
 		return(change_stack_para(st, prim, arg));
+#ifdef FIXME
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(data, arg));
+#endif
 	    case MGR_EVALSTACK  | REQUEST:
 	    	return(evaluate_stack_pids(data, arg));
 	    case MGR_GLOBALOPT | REQUEST:
 	    case MGR_LOADFIRM | REQUEST:
 	    	if (st->mgr && st->mgr->obj && st->mgr->obj->own_ctrl)
 	    		return(st->mgr->obj->own_ctrl(st->mgr, prim, arg));
-	    	break;
+		break;
 	    case MGR_DEBUGDATA | REQUEST:
-	    	return(debugout(data, arg));
+		return(debugout(data, arg));
 	    default:
 	    	if (debug)
 			printk(KERN_WARNING "manager prim %x not handled\n", prim);

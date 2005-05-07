@@ -350,7 +350,7 @@ isdn_audio_goertzel(dtmf_t *dtmf)
 		if (dtmf->debug & DEBUG_DTMF_TONE)
 			printk(KERN_DEBUG "DTMF: tone='%c'\n", what);
 		k = what | DTMF_TONE_VAL;
-		if_link(&dtmf->inst.up, PH_CONTROL | INDICATION,
+		mISDN_queue_data(&dtmf->inst, FLG_MSG_UP, PH_CONTROL | INDICATION,
 			0, sizeof(int), &k, 0);
 	}
 	dtmf->last = what;
@@ -398,19 +398,14 @@ dtmf_reset(dtmf_t *dtmf)
 }
 
 static int
-dtmf_from_up(mISDNif_t *hif, struct sk_buff *skb)
+dtmf_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	dtmf_t		*dtmf;
 	mISDN_head_t	*hh;
 	int		*data;
 	int		err = 0;
 
-	if (!hif || !hif->fdata || !skb)
-		return(-EINVAL);
-	dtmf = hif->fdata;
-	if (!dtmf->inst.down.func) {
-		return(-ENXIO);
-	}
+	dtmf = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	switch(hh->prim) {
 		case (PH_CONTROL | REQUEST):
@@ -431,7 +426,7 @@ dtmf_from_up(mISDNif_t *hif, struct sk_buff *skb)
 			}
 			/* Fall trough in case of not handled function */
 		default:
-			return(dtmf->inst.down.func(&dtmf->inst.down, skb));
+			return(mISDN_queue_down(inst, 0, skb));
 	}
 	if (!err)
 		dev_kfree_skb(skb);
@@ -439,17 +434,12 @@ dtmf_from_up(mISDNif_t *hif, struct sk_buff *skb)
 }
 
 static int
-dtmf_from_down(mISDNif_t *hif,  struct sk_buff *skb)
+dtmf_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 {
 	dtmf_t		*dtmf;
 	mISDN_head_t	*hh;
 
-	if (!hif || !hif->fdata || !skb)
-		return(-EINVAL);
-	dtmf = hif->fdata;
-	if (!dtmf->inst.up.func) {
-		return(-ENXIO);
-	}
+	dtmf = inst->privat;
 	hh = mISDN_HEAD_P(skb);
 	switch(hh->prim) {
 		case (PH_DATA | CONFIRM):
@@ -474,21 +464,13 @@ dtmf_from_down(mISDNif_t *hif,  struct sk_buff *skb)
 			hh->prim = DL_RELEASE | INDICATION;
 			break;
 	}
-	return(dtmf->inst.up.func(&dtmf->inst.up, skb));
+	return(mISDN_queue_up(inst, 0, skb));
 }
 
 static void
 release_dtmf(dtmf_t *dtmf) {
 	mISDNinstance_t	*inst = &dtmf->inst;
 
-	if (inst->up.peer) {
-		inst->up.peer->obj->ctrl(inst->up.peer,
-			MGR_DISCONNECT | REQUEST, &inst->up);
-	}
-	if (inst->down.peer) {
-		inst->down.peer->obj->ctrl(inst->down.peer,
-			MGR_DISCONNECT | REQUEST, &inst->down);
-	}
 	list_del(&dtmf->list);
 	dtmf_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(dtmf);
@@ -582,6 +564,7 @@ dtmf_manager(void *data, u_int prim, void *arg) {
 	    case MGR_CLRSTPARA | INDICATION:
 	    case MGR_CLONELAYER | REQUEST:
 		break;
+#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:
@@ -590,6 +573,7 @@ dtmf_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
+#endif
 	    case MGR_UNREGLAYER | REQUEST:
 	    case MGR_RELEASE | INDICATION:
 		if (debug & DEBUG_DTMF_MGR)

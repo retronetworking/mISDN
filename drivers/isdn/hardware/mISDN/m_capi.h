@@ -315,7 +315,7 @@ int		ControllerReleasePlci(Plci_t *);
 Application_t	*getApplication4Id(Controller_t *, __u16);
 Plci_t		*getPlci4Addr(Controller_t *, __u32);
 int		ControllerL4L3(Controller_t *, u_int, int, struct sk_buff *);
-int		ControllerL3L4(mISDNif_t *, struct sk_buff *);
+int		ControllerL3L4(mISDNinstance_t *, struct sk_buff *);
 PLInst_t	*ControllerSelChannel(Controller_t *, u_int);
 void		ControllerAddSSProcess(Controller_t *, SSProcess_t *);
 SSProcess_t	*getSSProcess4Id(Controller_t *, __u16);

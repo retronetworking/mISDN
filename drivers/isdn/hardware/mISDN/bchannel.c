@@ -19,14 +19,9 @@ bchannel_bh(bchannel_t *bch)
 	u_int 		pr;
 	int		ret;
 	mISDN_head_t	*hh;
-	mISDNif_t	*hif;
 
 	if (!bch)
 		return;
-	if (!bch->inst.up.func) {
-		printk(KERN_WARNING "%s: without up.func\n", __FUNCTION__);
-		return;
-	}
 #if 0
 	printk(KERN_DEBUG "%s: event %x\n", __FUNCTION__, bch->event);
 	if (bch->dev)
@@ -42,27 +37,31 @@ bchannel_bh(bchannel_t *bch)
 				pr = DL_DATA | CONFIRM;
 			else
 				pr = PH_DATA | CONFIRM;
+#ifdef FIXME
 			if ((bch->inst.pid.protocol[2] == ISDN_PID_L2_B_RAWDEV)
 				&& bch->dev)
 				hif = &bch->dev->rport.pif;
 			else
 				hif = &bch->inst.up;
-			if (if_newhead(hif, pr, hh->dinfo, skb))
+#endif
+			if (mISDN_queueup_newhead(&bch->inst, 0, pr, hh->dinfo, skb))
 				dev_kfree_skb(skb);
 		}
 	}
 	if (test_and_clear_bit(B_RCVBUFREADY, &bch->event)) {
+#ifdef FIXME
 		if ((bch->inst.pid.protocol[2] == ISDN_PID_L2_B_RAWDEV)
 			&& bch->dev)
 			hif = &bch->dev->rport.pif;
 		else
 			hif = &bch->inst.up;
+#endif
 		while ((skb = skb_dequeue(&bch->rqueue))) {
 			if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
 				pr = DL_DATA | INDICATION;
 			else
 				pr = PH_DATA | INDICATION;
-			ret = if_newhead(hif, pr, MISDN_ID_ANY, skb);
+			ret = mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb);
 			if (ret < 0) {
 				printk(KERN_WARNING "%s: deliver err %d\n",
 					__FUNCTION__, ret);

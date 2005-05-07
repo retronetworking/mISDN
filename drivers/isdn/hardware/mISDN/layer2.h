@@ -47,7 +47,7 @@ typedef struct _layer2 {
 	int			T200, N200, T203;
 	int			debug;
 	mISDNinstance_t		inst;
-	mISDNif_t		*cloneif;
+//	mISDNif_t		*cloneif;
 	int			next_id;
 	u_int			down_id;
 	struct sk_buff		*windowar[MAX_WINDOW];

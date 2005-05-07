@@ -1269,7 +1269,7 @@ AppPlciLinkUp(AppPlci_t *aplci)
 	}
 	capidebug(CAPI_DBG_NCCI, "AppPlciLinkUp aplci->link(%p)", aplci->link);
 	memset(&aplci->link->inst.pid, 0, sizeof(mISDN_pid_t));
-	aplci->link->inst.data = aplci;
+	aplci->link->inst.privat = aplci;
 	aplci->link->inst.pid.layermask = ISDN_LAYER(4);
 	aplci->link->inst.pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
 	if (pid.protocol[3] == ISDN_PID_L3_B_TRANS) {
@@ -1370,17 +1370,15 @@ get_single_NCCI(AppPlci_t *aplci)
 }
 
 static int
-PL_l3l4(mISDNif_t *hif, struct sk_buff *skb)
+PL_l3l4(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	AppPlci_t		*aplci;
 	Ncci_t 			*ncci;
 	int			ret = -EINVAL;
 	mISDN_head_t		*hh;
 
-	if (!hif || !skb)
-		return(ret);
 	hh = mISDN_HEAD_P(skb);
-	aplci = hif->fdata;
+	aplci = inst->privat;
 	if (!aplci)
 		return(-EINVAL);
 	ncci = get_single_NCCI(aplci);
@@ -1401,7 +1399,7 @@ PL_l3l4(mISDNif_t *hif, struct sk_buff *skb)
 }
 
 static int
-PL_l3l4mux(mISDNif_t *hif, struct sk_buff *skb)
+PL_l3l4mux(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	AppPlci_t	*aplci;
 	Ncci_t 		*ncci;
@@ -1409,10 +1407,8 @@ PL_l3l4mux(mISDNif_t *hif, struct sk_buff *skb)
 	mISDN_head_t	*hh;
 	__u32		addr;
 
-	if (!hif || !skb)
-		return(ret);
 	hh = mISDN_HEAD_P(skb);
-	aplci = hif->fdata;
+	aplci = inst->privat;
 	if (!aplci)
 		return(-EINVAL);
 	
@@ -1464,13 +1460,14 @@ AppPlcimISDN_SetIF(AppPlci_t *aplci, u_int prim, void *arg)
 {
 	int ret;
 
+#ifdef FIXME
 	if (aplci->Bprotocol.B3 == 0) // transparent
 		ret = mISDN_SetIF(&aplci->link->inst, arg, prim, NULL, PL_l3l4, aplci);
 	else
 		ret = mISDN_SetIF(&aplci->link->inst, arg, prim, NULL, PL_l3l4mux, aplci);
 	if (ret)
 		return(ret);
-	
+#endif	
 	if (!test_and_set_bit(PLCI_STATE_SENDDELAYED, &aplci->plci->state)) {
 		test_and_set_bit(PLCI_STATE_STACKREADY, &aplci->plci->state);
 		SendingDelayedMsg(aplci);

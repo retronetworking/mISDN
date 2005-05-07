@@ -348,6 +348,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    case MGR_NEWENTITY | CONFIRM:
 		ctrl->entity = (int)arg;
 		break;
+#ifdef FIXME
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | INDICATION:
@@ -359,6 +360,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
+#endif
 	    case MGR_RELEASE | INDICATION:
 		if (CAPI_DBG_INFO & debug)
 			printk(KERN_DEBUG "release_capi20 id %x\n", ctrl->inst.st->id);
@@ -366,8 +368,8 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    	break;
 	    case MGR_UNREGLAYER | REQUEST:
 		if (plink) {
-			capi_obj.ctrl(plink->inst.down.peer, MGR_DISCONNECT | REQUEST,
-				&plink->inst.down);
+//			capi_obj.ctrl(plink->inst.down.peer, MGR_DISCONNECT | REQUEST,
+//				&plink->inst.down);
 			capi_obj.ctrl(&plink->inst, MGR_UNREGLAYER | REQUEST, NULL);
 		}
 		break;

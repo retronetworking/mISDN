@@ -378,7 +378,7 @@ X25_confirmed(x25_channel_t *chan)
 	i = cq->MsgId;
 	/* free entry */
 	cq->PktId = 0;
-	ret = if_newhead(&chan->l3->inst.up, CAPI_DATA_B3_CONF, i, skb);
+	ret = mISDN_queueup_newhead(&chan->l3->inst, 0, CAPI_DATA_B3_CONF, i, skb);
 	if (ret) {
 		printk(KERN_WARNING "%s: up error %d\n", __FUNCTION__, ret);
 		dev_kfree_skb(skb);
@@ -453,7 +453,7 @@ X25_receive_data(x25_channel_t *chan, int ps, int flag, struct sk_buff *skb)
 	capimsg_setu16(nskb->data, 10, i);
 	capimsg_setu16(nskb->data, 12, flag);
 
-	if (if_newhead(&chan->l3->inst.up, CAPI_DATA_B3_IND, 0, nskb)) {
+	if (mISDN_queueup_newhead(&chan->l3->inst, 0, CAPI_DATA_B3_IND, 0, nskb)) {
 		chan->recv_handles[i] = 0;
 		return(X25_ERRCODE_DISCARD);
 	}
@@ -560,6 +560,7 @@ X25_release_l3(x25_l3_t *l3) {
 	mISDNinstance_t	*inst = &l3->inst;
 	x25_channel_t	*ch, *nch;
 
+#ifdef OBSOLATE
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);
@@ -568,6 +569,7 @@ X25_release_l3(x25_l3_t *l3) {
 		inst->down.peer->obj->ctrl(inst->down.peer,
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
+#endif
 	if (inst->obj) {
 		list_del_init(&l3->list);
 	}
@@ -853,9 +855,7 @@ X25sendL3frame(x25_channel_t *l3c, x25_l3_t *l3, u_char pt, int len, void *arg)
 	mISDN_sethead(DL_DATA_REQ, X25_next_id(l3), skb);
 
 	if (l3->l2l3m.state == ST_LL_ESTAB) {
-		mISDNif_t	*down = &l3->inst.down;
-
-		ret = down->func(down, skb);
+		ret = mISDN_queue_message(&l3->inst, FLG_MSG_DOWN, skb);
 		if (ret) {
 			dev_kfree_skb(skb);
 		}
@@ -869,15 +869,13 @@ X25sendL3frame(x25_channel_t *l3c, x25_l3_t *l3, u_char pt, int len, void *arg)
 int
 X25_l3down(x25_l3_t *l3, u_int prim, u_int dinfo, struct sk_buff *skb)
 {
-	mISDNif_t	*down = &l3->inst.down;
 	int		ret;
 
 	if (!skb) {
 		if (!(skb = alloc_stack_skb(0, l3->down_headerlen)))
 			return(-ENOMEM);
 	}
-	mISDN_sethead(prim, dinfo, skb);
-	ret = down->func(down, skb);
+	ret = mISDN_queuedown_newhead(&l3->inst, 0, prim, dinfo, skb);
 	if (ret) {
 		dev_kfree_skb(skb);
 	}
@@ -951,7 +949,7 @@ X25sendL4skb(x25_channel_t *l3c, x25_l3_t *l3, __u32 addr, int prim, int dinfo, 
 		capimsg_setu32(skb->data, 0, l3c->ncci);
 	else
 		capimsg_setu32(skb->data, 0, addr);
-	return(if_newhead(&l3->inst.up, prim, dinfo, skb));		 
+	return(mISDN_queueup_newhead(&l3->inst, 0, prim, dinfo, skb));		 
 }
 
 int
@@ -991,7 +989,7 @@ X25sendL4frame(x25_channel_t *l3c, x25_l3_t *l3, int prim, int flags, int len, v
 			dev_kfree_skb(skb);
 			return(-EINVAL);
 	}
-	ret = if_newhead(&l3->inst.up, prim, 0, skb);
+	ret = mISDN_queueup_newhead(&l3->inst, 0, prim, 0, skb);
 	if (ret) {
 		printk(KERN_WARNING "%s: up error %d\n", __FUNCTION__, ret);
 		dev_kfree_skb(skb);

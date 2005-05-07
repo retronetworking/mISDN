@@ -45,11 +45,11 @@ send_arcofi(dchannel_t *dch) {
 	}
 	isac->mocr &= 0x0f;
 	isac->mocr |= 0xa0;
-	dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
-	val = dch->read_reg(dch->inst.data, ISAC_MOSR);
-	dch->write_reg(dch->inst.data, ISAC_MOX1, isac->mon_tx[isac->mon_txp++]);
+	dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
+	val = dch->read_reg(dch->inst.privat, ISAC_MOSR);
+	dch->write_reg(dch->inst.privat, ISAC_MOX1, isac->mon_tx[isac->mon_txp++]);
 	isac->mocr |= 0x10;
-	dch->write_reg(dch->inst.data, ISAC_MOCR, isac->mocr);
+	dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 }
 
 int
