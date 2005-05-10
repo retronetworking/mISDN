@@ -12,6 +12,7 @@
 #include "helper.h"
 #include "dchannel.h"
 
+#ifdef OBSOLATE
 static void
 dchannel_bh(dchannel_t *dch)
 {
@@ -57,6 +58,7 @@ dchannel_bh(dchannel_t *dch)
 	if (dch->hw_bh)
 		dch->hw_bh(dch);
 }
+#endif
 
 int
 mISDN_init_dch(dchannel_t *dch) {
@@ -76,15 +78,18 @@ mISDN_init_dch(dchannel_t *dch) {
 	dch->rx_skb = NULL;
 	dch->tx_idx = 0;
 	dch->next_skb = NULL;
+#ifdef OBSOLATE
 	dch->event = 0;
 	INIT_WORK(&dch->work, (void *)(void *)dchannel_bh, dch);
 	dch->hw_bh = NULL;
 	skb_queue_head_init(&dch->rqueue);
+#endif
 	return(0);
 }
 
 int
 mISDN_free_dch(dchannel_t *dch) {
+#ifdef OBSOLATE
 #ifdef HAS_WORKQUEUE
 	if (dch->work.pending)
 		printk(KERN_ERR "mISDN_free_dch work:(%lx)\n", dch->work.pending);
@@ -93,6 +98,7 @@ mISDN_free_dch(dchannel_t *dch) {
 		printk(KERN_ERR "mISDN_free_dch work:(%lx)\n", dch->work.sync);
 #endif
 	discard_queue(&dch->rqueue);
+#endif
 	if (dch->rx_skb) {
 		dev_kfree_skb(dch->rx_skb);
 		dch->rx_skb = NULL;

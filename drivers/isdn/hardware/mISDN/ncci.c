@@ -173,7 +173,7 @@ SKB2Application(Ncci_t *ncci, struct sk_buff *skb)
 static inline int
 SKB_l4l3(Ncci_t *ncci, struct sk_buff *skb)
 {
-	if (!ncci->link || !ncci->link->inst.func)
+	if (!ncci->link)
 		return(-ENXIO);
 	return(mISDN_queue_down(&ncci->link->inst, 0, skb));
 }

@@ -12,6 +12,7 @@
 #include "bchannel.h"
 #include "helper.h"
 
+#ifdef OBSOLATE
 static void
 bchannel_bh(bchannel_t *bch)
 {
@@ -72,6 +73,7 @@ bchannel_bh(bchannel_t *bch)
 	if (bch->hw_bh)
 		bch->hw_bh(bch);
 }
+#endif
 
 int
 mISDN_init_bch(bchannel_t *bch) {
@@ -98,14 +100,16 @@ mISDN_init_bch(bchannel_t *bch) {
 		bch->rx_buf = NULL;
 		return (-ENOMEM);
 	}
+#ifdef OBSOLATE
 	skb_queue_head_init(&bch->rqueue);
+	bch->event = 0;
+	INIT_WORK(&bch->work, (void *)(void *)bchannel_bh, bch);
+#endif
 	bch->next_skb = NULL;
 	bch->Flag = 0;
-	bch->event = 0;
 	bch->rx_idx = 0;
 	bch->tx_len = 0;
 	bch->tx_idx = 0;
-	INIT_WORK(&bch->work, (void *)(void *)bchannel_bh, bch);
 	bch->hw_bh = NULL;
 	if (!bch->dev) {
 		if (bch->inst.obj->ctrl(&bch->dev, MGR_GETDEVICE | REQUEST,
@@ -119,6 +123,7 @@ mISDN_init_bch(bchannel_t *bch) {
 
 int
 mISDN_free_bch(bchannel_t *bch) {
+#ifdef OBSOLATE
 #ifdef HAS_WORKQUEUE
 	if (bch->work.pending)
 		printk(KERN_ERR "mISDN_free_bch work:(%lx)\n", bch->work.pending);
@@ -127,6 +132,7 @@ mISDN_free_bch(bchannel_t *bch) {
 		printk(KERN_ERR "mISDN_free_bch work:(%lx)\n", bch->work.sync);
 #endif
 	discard_queue(&bch->rqueue);
+#endif
 	if (bch->blog) {
 		kfree(bch->blog);
 		bch->blog = NULL;

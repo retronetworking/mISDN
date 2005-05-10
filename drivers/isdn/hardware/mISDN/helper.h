@@ -141,7 +141,7 @@ extern void	mISDN_RemoveUsedPID(mISDN_pid_t *, mISDN_pid_t *);
  *
  * initialisize the mISDNinstance_t struct <inst>
  */ 
-extern void	mISDN_init_instance(mISDNinstance_t *, mISDNobject_t *, void *);
+extern void	mISDN_init_instance(mISDNinstance_t *, mISDNobject_t *, void *, if_func_t *);
 
 /* returns the member count of a list */
 static inline int

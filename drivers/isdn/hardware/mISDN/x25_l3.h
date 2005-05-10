@@ -262,7 +262,7 @@ extern void		X25_release_channel(x25_channel_t *);
 extern void		X25_release_l3(x25_l3_t *);
 extern int		X25_realloc_ncpi_data(x25_channel_t *, int, u_char *);
 extern int		new_x25_channel(x25_l3_t *, x25_channel_t **, __u16, int, u_char *);
-extern int		new_x25_l3(x25_l3_t **, mISDNstack_t *, mISDN_pid_t *, mISDNobject_t *, int);
+extern int		new_x25_l3(x25_l3_t **, mISDNstack_t *, mISDN_pid_t *, mISDNobject_t *, int, if_func_t *);
 extern int		X25_next_id(x25_l3_t *);
 extern int		X25_add_header(x25_channel_t *, x25_l3_t *, u_char , u_char *, u_char);
 extern int		X25sendL3frame(x25_channel_t *, x25_l3_t *, u_char, int, void *);

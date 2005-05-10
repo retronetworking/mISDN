@@ -851,14 +851,10 @@ dte_dl_data_ind(x25_l3_t *l3, struct sk_buff *skb)
 }
 
 static int
-dte_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
+dte_from_down(x25_l3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 {
-	x25_l3_t	*l3;
-	mISDN_head_t	*hh;
-	int		ret = -EINVAL;
+	int	ret = -EINVAL;
 
-	l3 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
 	if (l3->debug)
 		printk(KERN_DEBUG "%s: prim(%x) dinfo(%x)\n", __FUNCTION__, hh->prim, hh->dinfo);
 	switch(hh->prim) {
@@ -1030,33 +1026,13 @@ dte_create_channel(x25_l3_t *l3, int typ, u_char flag, __u16 ch, int len, u_char
 }
 
 static int
-new_l3(mISDNstack_t *st, mISDN_pid_t *pid) {
-	x25_l3_t	*n_l3;
-	int		err;
-
-	err = new_x25_l3(&n_l3, st, pid, &x25dte_obj, debug);
-	if (err)
-		return(err);
-
-	n_l3->x25r.fsm = &dte_rfsm;
-	n_l3->x25r.state = ST_R0;
-	return(0);
-}
-
-static int
-dte_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
+dte_from_up(x25_l3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 {
-	x25_l3_t	*l3;
 	x25_channel_t   *l3c;
-	mISDN_head_t	*hh;
 	__u32		addr;
 	__u16		info = 0;
 	int		err = 0;
 
-	l3 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
-	if (l3->debug)
-		printk(KERN_DEBUG "%s: prim(%x) dinfo(%x) len(%d)\n", __FUNCTION__, hh->prim, hh->dinfo, skb->len);
 	if (skb->len < 4) {
 		printk(KERN_WARNING "%s: skb too short (%d)\n", __FUNCTION__, skb->len);
 		return(-EINVAL);
@@ -1223,6 +1199,55 @@ dte_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 			err = -EINVAL;
 	}
 	return(err);
+}
+
+static int
+dte_function(mISDNinstance_t *inst, struct sk_buff *skb)
+{
+	x25_l3_t	*l3;
+	mISDN_head_t	*hh;
+	int		ret = -EINVAL;
+
+	l3 = inst->privat;
+	hh = mISDN_HEAD_P(skb);
+	if (l3->debug)
+		printk(KERN_DEBUG "%s: addr(%08x) prim(%x) dinfo(%x) len(%d)\n", __FUNCTION__,
+			hh->addr, hh->prim, hh->dinfo, skb->len);
+	if (debug)
+		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
+	if (!l3)
+		return(ret);
+	
+	switch(hh->addr & MSG_DIR_MASK) {
+		case FLG_MSG_DOWN:
+			ret = dte_from_up(l3, skb, hh);
+			break;
+		case FLG_MSG_UP:
+			ret = dte_from_down(l3, skb, hh);
+			break;
+		case MSG_DIRECT:
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
+		default: /* broadcast */
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
+	}
+	return(ret);
+}
+
+static int
+new_l3(mISDNstack_t *st, mISDN_pid_t *pid) {
+	x25_l3_t	*n_l3;
+	int		err;
+
+	err = new_x25_l3(&n_l3, st, pid, &x25dte_obj, debug, dte_function);
+	if (err)
+		return(err);
+	n_l3->x25r.fsm = &dte_rfsm;
+	n_l3->x25r.state = ST_R0;
+	return(0);
 }
 
 

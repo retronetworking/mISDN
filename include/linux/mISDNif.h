@@ -106,6 +106,10 @@
 #define INFO3_P10	0x130a
 #define INFO4_P8	0x1408
 #define INFO4_P10	0x140a
+#define D_RX_MON0	0x1800
+#define D_TX_MON0	0x1801
+#define D_RX_MON1	0x1810
+#define D_TX_MON1	0x1811
 #define LOSTFRAMING	0x1f00
 #define ANYSIGNAL	0x1f01
 
@@ -461,13 +465,13 @@
 #define MSG_DIRECT	0x00000000
 
 #define CHILD_ID_INC	0x00010000
-#define CHILD_ID_MAX	0x00FF0000
+#define CHILD_ID_MAX	0x10FF0000
 #define CHILD_ID_MASK	0x00FF0000
 #define CLONE_ID_INC	0x00010000
-#define CLONE_ID_MAX	0x00FF0000
+#define CLONE_ID_MAX	0x20FF0000
 #define CLONE_ID_MASK	0x00FF0000
 #define STACK_ID_INC	0x00000100
-#define STACK_ID_MAX	0x0000FF00
+#define STACK_ID_MAX	0x00007F00
 #define STACK_ID_MASK	0x30FFFF00
 #define MASTER_ID_MASK	0x0000FF00
 #define LAYER_ID_INC	0x00000001
@@ -726,7 +730,7 @@ struct _mISDNinstance {
 	void			*privat;
 	mISDNinstance_t		*clone;
 	mISDNinstance_t		*parent;
-	if_func_t		*func;
+	if_func_t		*function;
 //	mISDNif_t		up;
 //	mISDNif_t		down;
 	lock_func_t		*lock;

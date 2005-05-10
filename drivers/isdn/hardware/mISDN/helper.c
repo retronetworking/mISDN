@@ -343,7 +343,7 @@ mISDN_DisConnectIF(mISDNinstance_t *inst, mISDNif_t *hif) {
 #endif
 
 void
-mISDN_init_instance(mISDNinstance_t *inst, mISDNobject_t *obj, void *data)
+mISDN_init_instance(mISDNinstance_t *inst, mISDNobject_t *obj, void *data, if_func_t *function)
 {
 	if (!obj) {
 		int_error();
@@ -355,6 +355,7 @@ mISDN_init_instance(mISDNinstance_t *inst, mISDNobject_t *obj, void *data)
 	}
 	inst->obj = obj;
 	inst->privat = data;
+	inst->function = function;
 }
 
 EXPORT_SYMBOL(mISDN_set_dchannel_pid);

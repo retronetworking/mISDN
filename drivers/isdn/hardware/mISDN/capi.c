@@ -368,8 +368,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    	break;
 	    case MGR_UNREGLAYER | REQUEST:
 		if (plink) {
-//			capi_obj.ctrl(plink->inst.down.peer, MGR_DISCONNECT | REQUEST,
-//				&plink->inst.down);
+			plink->inst.function = NULL;
 			capi_obj.ctrl(&plink->inst, MGR_UNREGLAYER | REQUEST, NULL);
 		}
 		break;

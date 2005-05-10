@@ -1880,25 +1880,14 @@ ph_data_indication(layer2_t *l2, mISDN_head_t *hh, struct sk_buff *skb) {
 }
 
 static int
-l2from_down(mISDNinstance_t *inst, struct sk_buff *askb)
+l2from_down(layer2_t *l2, struct sk_buff *askb, mISDN_head_t *hh)
 {
-	layer2_t	*l2;
 	int 		ret = -EINVAL;
 	struct sk_buff	*cskb = askb;
-	mISDN_head_t	*hh, sh;
 
-	l2 = inst->privat;
-	hh = mISDN_HEAD_P(askb);
 //	printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
-	if (!l2) {
-#ifdef FIXME
-		if (next && next->func)
-			ret = next->func(next, askb);
-#endif
-		return(ret);
-	}
 	if (hh->prim == (PH_DATA | CONFIRM))
-		return(ph_data_confirm(inst, hh, askb));
+		return(ph_data_confirm(&l2->inst, hh, askb));
 	if (hh->prim == (MDL_FINDTEI | REQUEST)) {
 		ret = -ESRCH;
 		if (test_bit(FLG_LAPD, &l2->flag)) {
@@ -1974,16 +1963,9 @@ l2from_down(mISDNinstance_t *inst, struct sk_buff *askb)
 }
 
 static int
-l2from_up(mISDNinstance_t *inst, struct sk_buff *skb) {
-	layer2_t	*l2;
-	mISDN_head_t	*hh;
+l2from_up(layer2_t *l2, struct sk_buff *skb, mISDN_head_t *hh) {
 	int		ret = -EINVAL;
 
-	l2 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
-//	printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
-	if (!l2)
-		return(ret);
 	switch (hh->prim) {
 		case (DL_DATA | REQUEST):
 			ret = mISDN_FsmEvent(&l2->l2m, EV_L2_DL_DATA, skb);
@@ -2028,6 +2010,39 @@ l2from_up(mISDNinstance_t *inst, struct sk_buff *skb) {
 		default:
 			if (l2->debug)
 				l2m_debug(&l2->l2m, "l2 unknown pr %04x", hh->prim);
+	}
+	return(ret);
+}
+
+static int
+l2_function(mISDNinstance_t *inst, struct sk_buff *skb)
+{
+	layer2_t	*l2;
+	mISDN_head_t	*hh;
+	int		ret = -EINVAL;
+
+	l2 = inst->privat;
+	hh = mISDN_HEAD_P(skb);
+	if (debug)
+		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
+	if (!l2)
+		return(ret);
+	
+	switch(hh->addr & MSG_DIR_MASK) {
+		case FLG_MSG_DOWN:
+			ret = l2from_up(l2, skb, hh);
+			break;
+		case FLG_MSG_UP:
+			ret = l2from_down(l2, skb, hh);
+			break;
+		case MSG_DIRECT:
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
+		default: /* broadcast */
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
 	}
 	return(ret);
 }
@@ -2136,7 +2151,7 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid, layer2_t **newl2) {
 	nl2->debug = debug;
 	nl2->next_id = 1;
 	nl2->down_id = MISDN_ID_NONE;
-	mISDN_init_instance(&nl2->inst, &isdnl2, nl2);
+	mISDN_init_instance(&nl2->inst, &isdnl2, nl2, l2_function);
 	nl2->inst.extentions = EXT_INST_CLONE;
 	memcpy(&nl2->inst.pid, pid, sizeof(mISDN_pid_t));
 	if (!mISDN_SetHandledPID(&isdnl2, &nl2->inst.pid)) {

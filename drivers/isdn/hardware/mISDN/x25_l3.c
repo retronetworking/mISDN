@@ -660,7 +660,7 @@ new_x25_channel(x25_l3_t *l3, x25_channel_t **ch_p, __u16 ch, int dlen, u_char *
 }
 
 int
-new_x25_l3(x25_l3_t **l3_p, mISDNstack_t *st, mISDN_pid_t *pid, mISDNobject_t *obj, int debug) {
+new_x25_l3(x25_l3_t **l3_p, mISDNstack_t *st, mISDN_pid_t *pid, mISDNobject_t *obj, int debug, if_func_t *function) {
 	x25_l3_t	*n_l3;
 	int		err;
 
@@ -676,7 +676,7 @@ new_x25_l3(x25_l3_t **l3_p, mISDNstack_t *st, mISDN_pid_t *pid, mISDNobject_t *o
 	n_l3->next_id = 1;
 	spin_lock_init(&n_l3->lock);
 	memcpy(&n_l3->inst.pid, pid, sizeof(mISDN_pid_t));
-	mISDN_init_instance(&n_l3->inst, obj, n_l3);
+	mISDN_init_instance(&n_l3->inst, obj, n_l3, function);
 	if (!mISDN_SetHandledPID(obj, &n_l3->inst.pid)) {
 		int_error();
 		kfree(n_l3);

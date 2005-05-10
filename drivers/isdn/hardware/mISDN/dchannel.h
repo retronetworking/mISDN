@@ -61,9 +61,11 @@ typedef struct _dchannel_t {
 	int			err_rx;
 	void			*hw;
 	struct timer_list	dbusytimer;
+#ifdef OBSOLATE
 	u_long			event;
 	struct sk_buff_head	rqueue; /* D-channel receive queue */
 	struct work_struct	work;
+#endif
 	void			(*hw_bh) (struct _dchannel_t *);
 } dchannel_t;
 
@@ -83,10 +85,11 @@ dch_set_para(dchannel_t *dch, mISDN_stPara_t *stp)
 	else
 		dch->up_headerlen = 0;
 }
-
+#ifdef OBSOLATE
 static inline void
 dchannel_sched_event(dchannel_t *dch, int event)
 {
 	test_and_set_bit(event, &dch->event);
 	schedule_work(&dch->work);
 }
+#endif

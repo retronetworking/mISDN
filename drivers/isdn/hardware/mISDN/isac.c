@@ -48,7 +48,7 @@ ph_command(dchannel_t *dch, unsigned int command)
 }
 
 static void
-isac_new_ph(dchannel_t *dch)
+isac_ph_state_change(dchannel_t *dch)
 {
 	u_int		prim = PH_SIGNAL | INDICATION;
 	u_int		para = 0;
@@ -56,9 +56,7 @@ isac_new_ph(dchannel_t *dch)
 	switch (dch->ph_state) {
 		case (ISAC_IND_RS):
 		case (ISAC_IND_EI):
-			dch->inst.lock(dch->inst.privat,0);
 			ph_command(dch, ISAC_CMD_DUI);
-			dch->inst.unlock(dch->inst.privat);
 			prim = PH_CONTROL | INDICATION;
 			para = HW_RESET;
 			break;
@@ -92,6 +90,7 @@ isac_new_ph(dchannel_t *dch)
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
 }
 
+#ifdef OBSOLATE
 static void
 isac_hwbh(dchannel_t *dch)
 {
@@ -119,6 +118,7 @@ isac_hwbh(dchannel_t *dch)
 		arcofi_fsm(dch, ARCOFI_TX_END, NULL);
 #endif
 }
+#endif
 
 void
 isac_empty_fifo(dchannel_t *dch, int count)
@@ -222,12 +222,13 @@ isac_rme_irq(dchannel_t *dch)
 		if (count == 0)
 			count = 32;
 		isac_empty_fifo(dch, count);
-		if (dch->rx_skb) {
-			skb_queue_tail(&dch->rqueue, dch->rx_skb);
-		}
+		if (dch->rx_skb)
+			if (unlikely(mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_IND, MISDN_ID_ANY, dch->rx_skb))) {
+				int_error();
+				dev_kfree_skb(dch->rx_skb);
+			}
 	}
 	dch->rx_skb = NULL;
-	dchannel_sched_event(dch, D_RCVBUFREADY);
 }
 
 static void
@@ -235,19 +236,28 @@ isac_xpr_irq(dchannel_t *dch)
 {
 	if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
 		del_timer(&dch->dbusytimer);
+#if 0
 	if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
 		dchannel_sched_event(dch, D_CLEARBUSY);
+#endif
 	if (dch->tx_idx < dch->tx_len) {
 		isac_fill_fifo(dch);
 	} else {
 		if (test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags)) {
-			if (dch->next_skb) {
-				dch->tx_len = dch->next_skb->len;
-				memcpy(dch->tx_buf,
-					dch->next_skb->data, dch->tx_len);
+			struct sk_buff	*skb;
+			mISDN_head_t	*hh;
+			if ((skb = dch->next_skb)) {
+				dch->next_skb = NULL;
+				dch->tx_len = skb->len;
+				memcpy(dch->tx_buf, skb->data, dch->tx_len);
 				dch->tx_idx = 0;
 				isac_fill_fifo(dch);
-				dchannel_sched_event(dch, D_XMTBUFREADY);
+				hh = mISDN_HEAD_P(skb);
+				skb_trim(skb, 0);
+				if (unlikely(mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb))) {
+					int_error();
+					dev_kfree_skb(skb);
+				}
 			} else {
 				printk(KERN_WARNING "isac tx irq TX_NEXT without skb\n");
 				test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
@@ -262,8 +272,10 @@ isac_retransmit(dchannel_t *dch)
 {
 	if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
 		del_timer(&dch->dbusytimer);
+#if 0
 	if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
 		dchannel_sched_event(dch, D_CLEARBUSY);
+#endif
 	if (test_bit(FLG_TX_BUSY, &dch->DFlags)) {
 		/* Restart frame */
 		dch->tx_idx = 0;
@@ -272,14 +284,20 @@ isac_retransmit(dchannel_t *dch)
 		printk(KERN_WARNING "mISDN: ISAC XDU no TX_BUSY\n");
 		mISDN_debugprint(&dch->inst, "ISAC XDU no TX_BUSY");
 		if (test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags)) {
-			if (dch->next_skb) {
-				dch->tx_len = dch->next_skb->len;
-				memcpy(dch->tx_buf,
-				dch->next_skb->data,
-				dch->tx_len);
+			struct sk_buff	*skb;
+			mISDN_head_t	*hh;
+			if ((skb = dch->next_skb)) {
+				dch->next_skb = NULL;
+				dch->tx_len = skb->len;
+				memcpy(dch->tx_buf, skb->data, dch->tx_len);
 				dch->tx_idx = 0;
 				isac_fill_fifo(dch);
-				dchannel_sched_event(dch, D_XMTBUFREADY);
+				hh = mISDN_HEAD_P(skb);
+				skb_trim(skb, 0);
+				if (unlikely(mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb))) {
+					int_error();
+					dev_kfree_skb(skb);
+				}
 			} else {
 				printk(KERN_WARNING "isac xdu irq TX_NEXT without skb\n");
 			}
@@ -360,14 +378,16 @@ afterMONR1:
 		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 		isac->mocr |= 0x0a;
 		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
-		dchannel_sched_event(dch, D_RX_MON0);
+		mISDN_queue_data(&dch->inst, 0, PH_SIGNAL | INDICATION, D_RX_MON0,
+			isac->mon_rxp, isac->mon_rx, 0);
 	}
 	if (val & 0x40) {
 		isac->mocr &= 0x0f;
 		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 		isac->mocr |= 0xa0;
 		dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
-		dchannel_sched_event(dch, D_RX_MON1);
+		mISDN_queue_data(&dch->inst, 0, PH_SIGNAL | INDICATION, D_RX_MON1,
+			isac->mon_rxp, isac->mon_rx, 0);
 	}
 	if (val & 0x02) {
 		if ((!isac->mon_tx) || (isac->mon_txc && 
@@ -377,11 +397,13 @@ afterMONR1:
 			isac->mocr |= 0x0a;
 			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc))
-				dchannel_sched_event(dch, D_TX_MON0);
+				mISDN_queue_data(&dch->inst, 0, PH_SIGNAL | INDICATION,
+					D_TX_MON0, 0, NULL, 0);
 			goto AfterMOX0;
 		}
 		if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc)) {
-			dchannel_sched_event(dch, D_TX_MON0);
+			mISDN_queue_data(&dch->inst, 0, PH_SIGNAL | INDICATION,
+				D_TX_MON0, 0, NULL, 0);
 			goto AfterMOX0;
 		}
 		dch->write_reg(dch->inst.privat, ISAC_MOX0,
@@ -398,11 +420,13 @@ AfterMOX0:
 			isac->mocr |= 0xa0;
 			dch->write_reg(dch->inst.privat, ISAC_MOCR, isac->mocr);
 			if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc))
-				dchannel_sched_event(dch, D_TX_MON1);
+				mISDN_queue_data(&dch->inst, 0, PH_SIGNAL | INDICATION,
+					D_TX_MON1, 0, NULL, 0);
 			goto AfterMOX1;
 		}
 		if (isac->mon_txc && (isac->mon_txp >= isac->mon_txc)) {
-			dchannel_sched_event(dch, D_TX_MON1);
+			mISDN_queue_data(&dch->inst, 0, PH_SIGNAL | INDICATION,
+				D_TX_MON1, 0, NULL, 0);
 			goto AfterMOX1;
 		}
 		dch->write_reg(dch->inst.privat, ISAC_MOX1,
@@ -427,7 +451,7 @@ isac_cisq_irq(dchannel_t *dch) {
 			mISDN_debugprint(&dch->inst, "ph_state change %x->%x",
 				dch->ph_state, (val >> 2) & 0xf);
 		dch->ph_state = (val >> 2) & 0xf;
-		dchannel_sched_event(dch, D_L1STATECHANGE);
+		isac_ph_state_change(dch);
 	}
 	if (val & 1) {
 		val = dch->read_reg(dch->inst.privat, ISAC_CIR1);
@@ -449,7 +473,7 @@ isacsx_cic_irq(dchannel_t *dch)
 			mISDN_debugprint(&dch->inst, "ph_state change %x->%x",
 				dch->ph_state, val >> 4);
 		dch->ph_state = val >> 4;
-		dchannel_sched_event(dch, D_L1STATECHANGE);
+		isac_ph_state_change(dch);
 	}
 }
 
@@ -483,11 +507,13 @@ isacsx_rme_irq(dchannel_t *dch)
 		isac_empty_fifo(dch, count);
 		if (dch->rx_skb) {
 			skb_trim(dch->rx_skb, dch->rx_skb->len - 1);
-			skb_queue_tail(&dch->rqueue, dch->rx_skb);
+			if (unlikely(mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_IND, MISDN_ID_ANY, dch->rx_skb))) {
+				int_error();
+				dev_kfree_skb(dch->rx_skb);
+			}
 		}
 	}
 	dch->rx_skb = NULL;
-	dchannel_sched_event(dch, D_RCVBUFREADY);
 }
 
 void
@@ -617,7 +643,6 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 		} else if (hh->dinfo == HW_POWERUP) {
 			ph_command(dch, ISAC_CMD_TIM);
 		} else if (hh->dinfo == HW_DEACTIVATE) {
-			discard_queue(&dch->rqueue);
 			if (dch->next_skb) {
 				dev_kfree_skb(dch->next_skb);
 				dch->next_skb = NULL;
@@ -626,8 +651,10 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
 			if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
 				del_timer(&dch->dbusytimer);
+#if 0
 			if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
 				dchannel_sched_event(dch, D_CLEARBUSY);
+#endif
 		} else if ((hh->dinfo & HW_TESTLOOP) == HW_TESTLOOP) {
 			u_char		tl;
 			if (dch->type & ISAC_TYPE_ISACSX) {
@@ -663,6 +690,17 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 			ret = -EINVAL;
 		}
 		dch->inst.unlock(dch->inst.privat);
+	} else if (hh->prim == (PH_SIGNAL | INDICATION)) {
+#if ARCOFI_USE
+		if ((ISAC_TYPE_ARCOFI & dch->type)) {
+			if (hh->dinfo == D_RX_MON1) {
+				arcofi_fsm(dch, ARCOFI_RX_END, skb);
+			} else if (hh->dinfo == D_TX_MON1) {
+				arcofi_fsm(dch, ARCOFI_TX_END, NULL);
+			}
+		}
+#endif
+		ret = 0;
 	} else {
 		if (dch->debug & L1_DEB_WARN)
 			mISDN_debugprint(&dch->inst, "isac_l1hw unknown prim %x",
@@ -748,7 +786,7 @@ mISDN_isac_init(dchannel_t *dch)
 
   	if (!isac)
   		return(-EINVAL);
-	dch->hw_bh = isac_hwbh;
+	dch->hw_bh = NULL;
 	isac->mon_tx = NULL;
 	isac->mon_rx = NULL;
 	dch->dbusytimer.function = (void *) dbusy_timer_handler;
@@ -767,7 +805,7 @@ mISDN_isac_init(dchannel_t *dch)
 		// unmask ICD, CID IRQs
 		dch->write_reg(dch->inst.privat, ISACSX_MASK, ~(ISACSX_ISTA_ICD | ISACSX_ISTA_CIC));
 		printk(KERN_INFO "mISDN_isac_init: ISACSX\n");
-		dchannel_sched_event(dch, D_L1STATECHANGE);
+		isac_ph_state_change(dch);		
 		ph_command(dch, ISAC_CMD_RS);
 	} else { /* old isac */
 	  	dch->write_reg(dch->inst.privat, ISAC_MASK, 0xff);
@@ -793,7 +831,7 @@ mISDN_isac_init(dchannel_t *dch)
 			dch->write_reg(dch->inst.privat, ISAC_TIMR, 0x00);
 			dch->write_reg(dch->inst.privat, ISAC_ADF1, 0x00);
 		}
-		dchannel_sched_event(dch, D_L1STATECHANGE);
+		isac_ph_state_change(dch);
 		ph_command(dch, ISAC_CMD_RS);
 		dch->write_reg(dch->inst.privat, ISAC_MASK, 0x0);
 	}

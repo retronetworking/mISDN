@@ -711,7 +711,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 				mISDN_queue_data(inst, FLG_MSG_UP, DL_ESTABLISH | INDICATION,
 					0, 0, NULL, 0);
 			else
-				mISDN_queue_data(inst->st, FLG_MSG_UP, PH_ACTIVATE | INDICATION,
+				mISDN_queue_data(inst, FLG_MSG_UP, PH_ACTIVATE | INDICATION,
 					0, 0, NULL, 0);
 		}
 		break;
@@ -740,13 +740,13 @@ static int __devinit setup_instance(sedl_fax *card)
 	card->dch.inst.unlock = unlock_dev;
 	card->dch.inst.pid.layermask = ISDN_LAYER(0);
 	card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
-	mISDN_init_instance(&card->dch.inst, &speedfax, card);
+	mISDN_init_instance(&card->dch.inst, &speedfax, card, mISDN_ISAC_l1hw);
 	sprintf(card->dch.inst.name, "SpeedFax%d", sedl_cnt+1);
 	mISDN_set_dchannel_pid(&pid, protocol[sedl_cnt], layermask[sedl_cnt]);
 	mISDN_init_dch(&card->dch);
 	for (i=0; i<2; i++) {
 		card->bch[i].channel = i;
-		mISDN_init_instance(&card->bch[i].inst, &speedfax, card);
+		mISDN_init_instance(&card->bch[i].inst, &speedfax, card, isar_down);
 		card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
 		card->bch[i].inst.lock = lock_dev;
 		card->bch[i].inst.unlock = unlock_dev;

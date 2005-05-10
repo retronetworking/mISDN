@@ -402,15 +402,18 @@ get_hdevice(mISDNdevice_t **dev, int *typ)
 		return(-EINVAL);
 	if (!typ)
 		return(-EINVAL);
+#ifdef FIXME
 	if (*typ == mISDN_RAW_DEVICE) {
 		*dev = get_free_rawdevice();
 		if (!(*dev))
 			return(-ENODEV);
 		return(0);
 	}
+#endif
 	return(-EINVAL);
 }
 
+#ifdef FIXME
 static int
 mgr_queue(void *data, u_int prim, struct sk_buff *skb)
 {
@@ -421,6 +424,8 @@ mgr_queue(void *data, u_int prim, struct sk_buff *skb)
 	wake_up_interruptible(&mISDN_thread.waitq);
 	return(0);
 }
+
+#endif
 
 static int central_manager(void *, u_int, void *);
 

@@ -491,18 +491,14 @@ static struct FsmNode L1BFnList[] =
 #define L1B_FN_COUNT (sizeof(L1BFnList)/sizeof(struct FsmNode))
 
 static int
-l1from_up(mISDNinstance_t *inst, struct sk_buff *skb)
+l1from_up(layer1_t *l1, struct sk_buff *skb, mISDN_head_t *hh)
 {
-	layer1_t	*l1;
-	mISDN_head_t	*hh;
 	int		err = 0;
 
-	l1 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
 	switch(hh->prim) {
 		case (PH_DATA | REQUEST):
 		case (PH_CONTROL | REQUEST):
-			return(mISDN_queue_down(inst, 0, skb));
+			return(mISDN_queue_down(&l1->inst, 0, skb));
 			break;
 		case (PH_ACTIVATE | REQUEST):
 			if (test_bit(FLG_L1_ACTIVATED, &l1->Flags))
@@ -513,7 +509,7 @@ l1from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 			}
 			break;
 		case (MDL_FINDTEI | REQUEST):
-			return(mISDN_queue_up(inst, 0, skb));
+			return(mISDN_queue_up(&l1->inst, 0, skb));
 			break;
 		default:
 			if (l1->debug)
@@ -528,20 +524,16 @@ l1from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 }
 
 static int
-l1from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
+l1from_down(layer1_t *l1, struct sk_buff *skb, mISDN_head_t *hh)
 {
-	layer1_t	*l1;
-	mISDN_head_t	*hh;
 	int		err = 0;
 
-	l1 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
 	if (hh->prim == PH_DATA_IND) {
 		if (test_bit(FLG_L1_ACTTIMER, &l1->Flags))
 			mISDN_FsmEvent(&l1->l1m, EV_TIMER_ACT, NULL);
-		return(mISDN_queue_up(inst, 0, skb));
+		return(mISDN_queue_up(&l1->inst, 0, skb));
 	} else if (hh->prim == PH_DATA_CNF) {
-		return(mISDN_queue_up(inst, 0, skb));
+		return(mISDN_queue_up(&l1->inst, 0, skb));
 	} else if (hh->prim == (PH_CONTROL | INDICATION)) {
 		if (hh->dinfo == HW_RESET)
 			mISDN_FsmEvent(&l1->l1m, EV_RESET_IND, NULL);
@@ -583,6 +575,39 @@ l1from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 	return(err);
 }
 
+static int
+l1_function(mISDNinstance_t *inst, struct sk_buff *skb)
+{
+	layer1_t	*l1;
+	mISDN_head_t	*hh;
+	int		ret = -EINVAL;
+
+	l1 = inst->privat;
+	hh = mISDN_HEAD_P(skb);
+	if (debug)
+		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
+	if (!l1)
+		return(ret);
+	
+	switch(hh->addr & MSG_DIR_MASK) {
+		case FLG_MSG_DOWN:
+			ret = l1from_up(l1, skb, hh);
+			break;
+		case FLG_MSG_UP:
+			ret = l1from_down(l1, skb, hh);
+			break;
+		case MSG_DIRECT:
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
+		default: /* broadcast */
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
+	}
+	return(ret);
+}
+
 static void
 release_l1(layer1_t *l1) {
 	mISDNinstance_t	*inst = &l1->inst;
@@ -616,7 +641,7 @@ new_l1(mISDNstack_t *st, mISDN_pid_t *pid) {
 	}
 	memset(nl1, 0, sizeof(layer1_t));
 	memcpy(&nl1->inst.pid, pid, sizeof(mISDN_pid_t));
-	mISDN_init_instance(&nl1->inst, &isdnl1, nl1);
+	mISDN_init_instance(&nl1->inst, &isdnl1, nl1, l1_function);
 	if (!mISDN_SetHandledPID(&isdnl1, &nl1->inst.pid)) {
 		int_error();
 		return(-ENOPROTOOPT);

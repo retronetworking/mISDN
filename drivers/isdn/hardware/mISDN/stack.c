@@ -65,22 +65,22 @@ get_stack_info(struct sk_buff *skb)
 }
 
 static int
-get_free_stackid(mISDNstack_t *mst, int flag) {
-	u_int		id=1, found;
+get_free_stackid(mISDNstack_t *mst, int flag)
+{
+	u_int		id = 0, found;
 	mISDNstack_t	*st;
 
 	if (!mst) {
-		while(id<127) {
+		while(id < STACK_ID_MAX) {
 			found = 0;
+			id += STACK_ID_INC;
 			list_for_each_entry(st, &mISDN_stacklist, list) {
 				if (st->id == id) {
 					found++;
 					break;
 				}
 			}
-			if (found)
-				id++;
-			else
+			if (!found)
 				return(id);
 		}
 	} else if (flag & FLG_CLONE_STACK) {
@@ -135,25 +135,21 @@ get_stack4id(u_int id)
 	return(NULL);
 }
 
-#ifdef OBSOLATE
-mISDNlayer_t *
+mISDNinstance_t *
 getlayer4lay(mISDNstack_t *st, int layermask)
 {
-	mISDNlayer_t	*layer;
-	mISDNinstance_t	*inst;
+	int	i;
 
 	if (!st) {
 		int_error();
 		return(NULL);
 	}
-	list_for_each_entry(layer, &st->layerlist, list) {
-		inst = layer->inst;
-		if(inst && (inst->pid.layermask & layermask))
-			return(layer);
+	for (i = 0; i <= MAX_LAYER_NR; i++) {
+		if (st->i_array[i] && (st->i_array[i]->pid.layermask & layermask))
+			return(st->i_array[i]);
 	}
 	return(NULL);
 }
-#endif
 
 static mISDNinstance_t *
 get_nextinstance(mISDNstack_t *st, u_int addr)
@@ -330,7 +326,7 @@ mISDNStackd(void *data)
 #ifdef CONFIG_SMP
 	unlock_kernel();
 #endif
-	printk(KERN_DEBUG "mISDNStackd started for id %x\n", st->id);
+	printk(KERN_DEBUG "mISDNStackd started for id(%08x)\n", st->id);
 	test_and_clear_bit(mISDN_STACK_INIT, &st->status);
 	for (;;) {
 		struct sk_buff	*skb;
@@ -350,12 +346,12 @@ mISDNStackd(void *data)
 				dev_kfree_skb(skb);
 				continue;
 			}
-			if (!inst->func) {
+			if (!inst->function) {
 				int_errtxt("%s: instance(%08x) no function", __FUNCTION__, inst->id);
 				dev_kfree_skb(skb);
 				continue;
 			}
-			err = inst->func(inst, skb);
+			err = inst->function(inst, skb);
 			if (err) {
 				int_errtxt("%s: instance(%08x)->function return(%d)", __FUNCTION__, inst->id, err);
 				dev_kfree_skb(skb);
@@ -368,7 +364,7 @@ mISDNStackd(void *data)
 			up(st->notify);
 		interruptible_sleep_on(&st->workq);
 	}
-	printk(KERN_DEBUG "mISDNStackd daemon for id %x killed now\n", st->id);
+	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) killed now\n", st->id);
 	test_and_set_bit(mISDN_STACK_KILLED, &st->status);
 	discard_queue(&st->msgq);
 	st->thread = NULL;

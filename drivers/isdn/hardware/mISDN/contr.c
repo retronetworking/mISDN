@@ -580,7 +580,7 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 	// FIXME ???
 	contr->addr = st->id;
 	sprintf(contr->inst.name, "CAPI %d", st->id);
-	mISDN_init_instance(&contr->inst, ocapi, contr);
+	mISDN_init_instance(&contr->inst, ocapi, contr, ControllerL3L4);
 	if (!mISDN_SetHandledPID(ocapi, &contr->inst.pid)) {
 		int_error();
 		ControllerDestr(contr);
@@ -596,7 +596,7 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 		memset(plink, 0, sizeof(PLInst_t));
 		plink->st = cst;
 		plink->inst.st = cst;
-		mISDN_init_instance(&plink->inst, ocapi, plink);
+		mISDN_init_instance(&plink->inst, ocapi, plink, NULL);
 		plink->inst.pid.layermask |= ISDN_LAYER(4);
 //		plink->inst.down.stat = IF_NOACTIV;
 		list_add_tail(&plink->list, &contr->linklist);

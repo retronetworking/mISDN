@@ -1374,7 +1374,6 @@ PL_l3l4(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	AppPlci_t		*aplci;
 	Ncci_t 			*ncci;
-	int			ret = -EINVAL;
 	mISDN_head_t		*hh;
 
 	hh = mISDN_HEAD_P(skb);
@@ -1403,7 +1402,6 @@ PL_l3l4mux(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	AppPlci_t	*aplci;
 	Ncci_t 		*ncci;
-	int		ret = -EINVAL;
 	mISDN_head_t	*hh;
 	__u32		addr;
 
@@ -1458,16 +1456,12 @@ PL_l3l4mux(mISDNinstance_t *inst, struct sk_buff *skb)
 int
 AppPlcimISDN_SetIF(AppPlci_t *aplci, u_int prim, void *arg)
 {
-	int ret;
-
-#ifdef FIXME
+	if (aplci->link->inst.function)
+		int_errtxt("id(%08x) overwrite function (%p)", aplci->link->inst.id, aplci->link->inst.function);
 	if (aplci->Bprotocol.B3 == 0) // transparent
-		ret = mISDN_SetIF(&aplci->link->inst, arg, prim, NULL, PL_l3l4, aplci);
+		aplci->link->inst.function = PL_l3l4;
 	else
-		ret = mISDN_SetIF(&aplci->link->inst, arg, prim, NULL, PL_l3l4mux, aplci);
-	if (ret)
-		return(ret);
-#endif	
+		aplci->link->inst.function = PL_l3l4mux;
 	if (!test_and_set_bit(PLCI_STATE_SENDDELAYED, &aplci->plci->state)) {
 		test_and_set_bit(PLCI_STATE_STACKREADY, &aplci->plci->state);
 		SendingDelayedMsg(aplci);

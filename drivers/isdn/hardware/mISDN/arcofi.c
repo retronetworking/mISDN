@@ -13,6 +13,7 @@
 #include "isac.h"
 #include "arcofi.h"
 #include "debug.h"
+#include "helper.h"
 
 #define ARCOFI_TIMER_VALUE	20
 
@@ -95,6 +96,13 @@ arcofi_fsm(dchannel_t *dch, int event, void *data) {
 			break;
 		case ARCOFI_RECEIVE:
 			if (event == ARCOFI_RX_END) {
+				struct sk_buff	*skb = data;
+				
+				// FIXME handle message
+				if (skb)
+					kfree_skb(skb);
+				else
+					int_error();
 				if (isac->arcofi_list->next) {
 					isac->arcofi_list =
 						isac->arcofi_list->next;

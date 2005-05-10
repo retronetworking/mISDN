@@ -397,6 +397,7 @@ dtmf_reset(dtmf_t *dtmf)
 	dtmf->idx = 0;
 }
 
+#ifdef OBSOLATE
 static int
 dtmf_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
@@ -432,9 +433,10 @@ dtmf_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 		dev_kfree_skb(skb);
 	return(err);
 }
+#endif
 
 static int
-dtmf_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
+dtmf_function(mISDNinstance_t *inst,  struct sk_buff *skb)
 {
 	dtmf_t		*dtmf;
 	mISDN_head_t	*hh;
@@ -451,6 +453,25 @@ dtmf_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 				isdn_audio_calc_dtmf(dtmf, skb);
 			hh->prim = DL_DATA_IND;
 			break;
+		case (PH_CONTROL | REQUEST):
+			if ((hh->dinfo == 0) && (skb->len >= sizeof(int))) {
+				int *data = (int *)skb->data;
+				if (dtmf->debug & DEBUG_DTMF_CTRL)
+					printk(KERN_DEBUG "DTMF: PH_CONTROL REQ data %04x\n",
+						*data);
+				if (*data == DTMF_TONE_START) {
+					test_and_set_bit(FLG_DTMF_ACTIV, &dtmf->Flags);
+					dtmf_reset(dtmf);
+					dev_kfree_skb(skb);
+					return(0);
+				} else if (*data == DTMF_TONE_STOP) {
+					test_and_clear_bit(FLG_DTMF_ACTIV, &dtmf->Flags);
+					dtmf_reset(dtmf);
+					dev_kfree_skb(skb);
+					return(0);
+				}
+			}
+			break;
 		case (PH_ACTIVATE | CONFIRM):
 			hh->prim = DL_ESTABLISH | CONFIRM;
 			break;
@@ -464,7 +485,7 @@ dtmf_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			hh->prim = DL_RELEASE | INDICATION;
 			break;
 	}
-	return(mISDN_queue_up(inst, 0, skb));
+	return(mISDN_queue_message(inst, hh->addr & MSG_DIR_MASK, skb));
 }
 
 static void
@@ -489,7 +510,7 @@ new_dtmf(mISDNstack_t *st, mISDN_pid_t *pid) {
 	}
 	memset(n_dtmf, 0, sizeof(dtmf_t));
 	memcpy(&n_dtmf->inst.pid, pid, sizeof(mISDN_pid_t));
-	mISDN_init_instance(&n_dtmf->inst, &dtmf_obj, n_dtmf);
+	mISDN_init_instance(&n_dtmf->inst, &dtmf_obj, n_dtmf, dtmf_function);
 	if (!mISDN_SetHandledPID(&dtmf_obj, &n_dtmf->inst.pid)) {
 		int_error();
 		kfree(n_dtmf);

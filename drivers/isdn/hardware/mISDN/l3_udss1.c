@@ -1932,22 +1932,14 @@ global_handler(layer3_t *l3, u_int mt, struct sk_buff *skb)
 }
 
 static int
-dss1_fromdown(mISDNinstance_t *inst, struct sk_buff *skb)
+dss1_fromdown(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 {
-	layer3_t	*l3;
 	u_int		i;
 	int		cause, callState, ret = -EINVAL;
 	char		*ptr;
 	l3_process_t	*proc;
-	mISDN_head_t	*hh;
 	Q931_info_t	*qi;
 
-	l3 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
-	if (debug)
-		printk(KERN_DEBUG "%s: prim(%x)\n", __FUNCTION__, hh->prim);
-	if (!l3)
-		return(ret);
 	switch (hh->prim) {
 		case (DL_DATA | INDICATION):
 		case (DL_UNITDATA | INDICATION):
@@ -2116,20 +2108,12 @@ dss1_fromdown(mISDNinstance_t *inst, struct sk_buff *skb)
 }
 
 static int
-dss1_fromup(mISDNinstance_t *inst, struct sk_buff *skb)
+dss1_fromup(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 {
-	layer3_t	*l3;
 	u_int		i;
 	int		cr, ret = -EINVAL;
 	l3_process_t	*proc;
-	mISDN_head_t	*hh;
 
-	l3 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
-	if (debug)
-		printk(KERN_DEBUG  "%s: prim(%x)\n", __FUNCTION__, hh->prim);
-	if (!l3)
-		return(ret);
 	if ((DL_ESTABLISH | REQUEST) == hh->prim) {
 		l3_msg(l3, hh->prim, 0, 0, NULL);
 		dev_kfree_skb(skb);
@@ -2210,6 +2194,39 @@ dss1man(l3_process_t *proc, u_int pr, void *arg)
 	return(0);
 }
 
+static int
+dss1_function(mISDNinstance_t *inst, struct sk_buff *skb)
+{
+	layer3_t	*l3;
+	int		ret = -EINVAL;
+	mISDN_head_t	*hh;
+
+	l3 = inst->privat;
+	hh = mISDN_HEAD_P(skb);
+	if (debug)
+		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
+	if (!l3)
+		return(ret);
+	
+	switch(hh->addr & MSG_DIR_MASK) {
+		case FLG_MSG_DOWN:
+			ret = dss1_fromup(l3, skb, hh);
+			break;
+		case FLG_MSG_UP:
+			ret = dss1_fromdown(l3, skb, hh);
+			break;
+		case MSG_DIRECT:
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
+		default: /* broadcast */
+			/* FIXME: must be handled depending on type */
+			int_errtxt("not implemented yet");
+			break;
+	}
+	return(ret);
+}
+
 static void
 release_udss1(layer3_t *l3)
 {
@@ -2250,7 +2267,7 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 	memset(nl3, 0, sizeof(layer3_t));
 	memcpy(&nl3->inst.pid, pid, sizeof(mISDN_pid_t));
 	nl3->debug = debug;
-	mISDN_init_instance(&nl3->inst, &u_dss1, nl3);
+	mISDN_init_instance(&nl3->inst, &u_dss1, nl3, dss1_function);
 	if (!mISDN_SetHandledPID(&u_dss1, &nl3->inst.pid)) {
 		int_error();
 		return(-ENOPROTOOPT);

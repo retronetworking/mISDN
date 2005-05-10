@@ -60,13 +60,15 @@ typedef struct _bchannel_t {
 	int             	tx_len;
 	u_char			*rx_buf;
 	int			rx_idx;
-	struct sk_buff_head	rqueue;	/* B-Channel receive Queue */
 	u_char			*blog;
 	u_char			*conmsg;
 	struct timer_list	transbusy;
+#ifdef OBSOLATE
+	struct sk_buff_head	rqueue;	/* B-Channel receive Queue */
 	struct work_struct	work;
-	void			(*hw_bh) (struct _bchannel_t *);
 	u_long			event;
+#endif
+	void			(*hw_bh) (struct _bchannel_t *);
 	int			maxdatasize;
 	int			up_headerlen;
 	int			err_crc;
@@ -90,9 +92,11 @@ bch_set_para(bchannel_t *bch, mISDN_stPara_t *stp)
 	}
 }
 
+#ifdef OBSOLATE
 static inline void
 bch_sched_event(bchannel_t *bch, int event)
 {
 	test_and_set_bit(event, &bch->event);
 	schedule_work(&bch->work);
 }
+#endif
