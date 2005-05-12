@@ -361,6 +361,10 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
 #endif
+	    case MGR_SETSTACK | CONFIRM:
+		if (!(&ctrl->inst == inst))
+			return(AppPlcimISDN_Active(inst->privat));
+		return(0);
 	    case MGR_RELEASE | INDICATION:
 		if (CAPI_DBG_INFO & debug)
 			printk(KERN_DEBUG "release_capi20 id %x\n", ctrl->inst.st->id);

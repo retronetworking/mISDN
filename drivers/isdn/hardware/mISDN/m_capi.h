@@ -371,7 +371,7 @@ int	AppPlciFacResumeReq(AppPlci_t *, FacReqParm_t *, FacConfParm_t *);
 void	AppPlciGetCmsg(AppPlci_t *, _cmsg *);
 Ncci_t	*getNCCI4addr(AppPlci_t *, __u32, int);
 int	ConnectB3Request(AppPlci_t *, struct sk_buff *);
-int	AppPlcimISDN_SetIF(AppPlci_t *, u_int, void *);
+int	AppPlcimISDN_Active(AppPlci_t *);
 
 #define	GET_NCCI_EXACT		1
 #define GET_NCCI_ONLY_PLCI	2

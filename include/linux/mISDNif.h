@@ -61,6 +61,7 @@
 #define MGR_SETSTACK_NW	0x0f1900
 #define MGR_ADDSTPARA	0x0f1A00
 #define MGR_CLRSTPARA	0x0f1B00
+#define MGR_ADDLAYER	0x0f1C00
 #define MGR_GETLAYER	0x0f2100
 #define MGR_GETLAYERID	0x0f2200
 #define MGR_NEWLAYER	0x0f2300
@@ -73,6 +74,7 @@
 //#define MGR_ADDIF	0x0f3500
 //#define MGR_QUEUEIF	0x0f3600
 #define MGR_CTRLREADY	0x0f4100
+#define MGR_STACKREADY	0x0f4200
 #define MGR_RELEASE	0x0f4500
 #define MGR_GETDEVICE	0x0f5100
 #define MGR_DELDEVICE	0x0f5200
@@ -759,7 +761,7 @@ struct _mISDNstack {
 	wait_queue_head_t	workq;
 	struct sk_buff_head	msgq;
 	mISDNinstance_t		*i_array[MAX_LAYER_NR + 1];
-//	struct list_head	layerlist;
+	struct list_head	prereg;
 	mISDNinstance_t		*mgr;
 	struct list_head	childlist;
 };

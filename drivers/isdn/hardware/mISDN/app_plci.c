@@ -1210,153 +1210,6 @@ AppPlciRelease(AppPlci_t *aplci)
 	mISDN_FsmEvent(&aplci->plci_m, EV_AP_RELEASE, NULL);
 }
 
-static int
-AppPlciLinkUp(AppPlci_t *aplci)
-{
-	mISDN_pid_t	pid;
-	mISDN_stPara_t	stpara;
-	int		retval;
-
-	if (aplci->channel == -1) {/* no valid channel set */
-		int_error();
-		return(-EINVAL);
-	}
-	memset(&pid, 0, sizeof(mISDN_pid_t));
-	pid.layermask = ISDN_LAYER(1) | ISDN_LAYER(2) | ISDN_LAYER(3) |
-		ISDN_LAYER(4);
-	if (test_bit(PLCI_STATE_OUTGOING, &aplci->plci->state))
-		pid.global = 1; // DTE, orginate
-	else
-		pid.global = 2; // DCE, answer
-	if (aplci->Bprotocol.B1 > 23) {
-		int_errtxt("wrong B1 prot %x", aplci->Bprotocol.B1);
-		return(0x3001);
-	}
-	pid.protocol[1] = (1 << aplci->Bprotocol.B1) |
-		ISDN_PID_LAYER(1) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B1cfg[0])
-		pid.param[1] = &aplci->Bprotocol.B1cfg[0];
-	if (aplci->Bprotocol.B2 > 23) {
-		int_errtxt("wrong B2 prot %x", aplci->Bprotocol.B2);
-		return(0x3002);
-	}
-	pid.protocol[2] = (1 << aplci->Bprotocol.B2) |
-		ISDN_PID_LAYER(2) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B2cfg[0])
-		pid.param[2] = &aplci->Bprotocol.B2cfg[0];
-	/* handle DTMF TODO */
-	if ((pid.protocol[2] == ISDN_PID_L2_B_TRANS) &&
-		(pid.protocol[1] == ISDN_PID_L1_B_64TRANS))
-		pid.protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
-	if (aplci->Bprotocol.B3 > 23) {
-		int_errtxt("wrong B3 prot %x", aplci->Bprotocol.B3);
-		return(0x3003);
-	}
-	pid.protocol[3] = (1 << aplci->Bprotocol.B3) |
-		ISDN_PID_LAYER(3) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B3cfg[0])
-		pid.param[3] = &aplci->Bprotocol.B3cfg[0];
-	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp B1(%x) B2(%x) B3(%x) global(%d) ch(%x)",
-   		pid.protocol[1], pid.protocol[2], pid.protocol[3], pid.global, 
-		aplci->channel);
-	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp ch(%d) aplci->contr->linklist(%p)",
-		aplci->channel & 3, aplci->contr->linklist);
-	pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
-	aplci->link = ControllerSelChannel(aplci->contr, aplci->channel);
-	if (!aplci->link) {
-		int_error();
-		return(-EBUSY);
-	}
-	capidebug(CAPI_DBG_NCCI, "AppPlciLinkUp aplci->link(%p)", aplci->link);
-	memset(&aplci->link->inst.pid, 0, sizeof(mISDN_pid_t));
-	aplci->link->inst.privat = aplci;
-	aplci->link->inst.pid.layermask = ISDN_LAYER(4);
-	aplci->link->inst.pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
-	if (pid.protocol[3] == ISDN_PID_L3_B_TRANS) {
-		aplci->link->inst.pid.protocol[3] = ISDN_PID_L3_B_TRANS;
-		aplci->link->inst.pid.layermask |= ISDN_LAYER(3);
-	}
-	retval = aplci->link->inst.obj->ctrl(aplci->link->st,
-		MGR_REGLAYER | INDICATION, &aplci->link->inst); 
-	if (retval) {
-		printk(KERN_WARNING "%s MGR_REGLAYER | INDICATION ret(%d)\n",
-			__FUNCTION__, retval);
-		return(retval);
-	}
-	stpara.maxdatalen = aplci->appl->reg_params.datablklen;
-	stpara.up_headerlen = CAPI_B3_DATA_IND_HEADER_SIZE;
-	stpara.down_headerlen = 0;
-                        
-	retval = aplci->link->inst.obj->ctrl(aplci->link->st,
-		MGR_ADDSTPARA | REQUEST, &stpara);
-	if (retval) {
-		printk(KERN_WARNING "%s MGR_SETSTACK | REQUEST ret(%d)\n",
-			__FUNCTION__, retval);
-	}
-	retval = aplci->link->inst.obj->ctrl(aplci->link->st,
-		MGR_SETSTACK | REQUEST, &pid);
-	if (retval) {
-		printk(KERN_WARNING "%s MGR_SETSTACK | REQUEST ret(%d)\n",
-			__FUNCTION__, retval);
-		return(retval);
-	}
-	return(0);
-}
-
-static int
-ReleaseLink(AppPlci_t *aplci)
-{
-	int retval = 0;
-
-	if (aplci->link) {
-#if 0
-		if (ncci->ncci_m.state != ST_NCCI_N_0)
-			ncciL4L3(ncci, DL_RELEASE | REQUEST, 0, 0, NULL, NULL);
-#endif
-		retval = aplci->link->inst.obj->ctrl(aplci->link->inst.st,
-			MGR_CLEARSTACK | REQUEST, NULL);
-		if (retval)
-			int_error();
-		aplci->link = NULL;
-		skb_queue_purge(&aplci->delayedq);
-		test_and_clear_bit(PLCI_STATE_STACKREADY, &aplci->plci->state);
-	}
-	return(retval);
-}
-
-Ncci_t	*
-getNCCI4addr(AppPlci_t *aplci, __u32 addr, int mode)
-{
-	Ncci_t			*ncci;
-	struct list_head	*item;
-	int			cnt = 0;
-
-	list_for_each(item, &aplci->Nccis) {
-		cnt++;
-		ncci = (Ncci_t *)item;
-		if (ncci->addr == addr)
-			return(ncci);
-		if (mode == GET_NCCI_ONLY_PLCI) {
-			if (ncci->addr == (addr & 0xffff))
-				return(ncci);
-		}
-	}
-	if (!cnt)
-		return(NULL);
-	if (mode != GET_NCCI_PLCI)
-		return(NULL);
-	if (1 == cnt) {
-		if (!(addr & 0xffff0000))
-			return(ncci);
-	}
-	return(NULL);
-}
-
-void
-AppPlciDelNCCI(Ncci_t *ncci) {
-	list_del_init(&ncci->head);
-}
-
 static __inline__ Ncci_t *
 get_single_NCCI(AppPlci_t *aplci)
 {
@@ -1453,15 +1306,166 @@ PL_l3l4mux(mISDNinstance_t *inst, struct sk_buff *skb)
 	return(ncci_l3l4_direct(ncci, hh, skb));
 }
 
-int
-AppPlcimISDN_SetIF(AppPlci_t *aplci, u_int prim, void *arg)
+static int
+AppPlciLinkUp(AppPlci_t *aplci)
 {
+	mISDN_pid_t	pid;
+	mISDN_stPara_t	stpara;
+	int		retval;
+
+	if (aplci->channel == -1) {/* no valid channel set */
+		int_error();
+		return(-EINVAL);
+	}
+	memset(&pid, 0, sizeof(mISDN_pid_t));
+	pid.layermask = ISDN_LAYER(1) | ISDN_LAYER(2) | ISDN_LAYER(3) |
+		ISDN_LAYER(4);
+	if (test_bit(PLCI_STATE_OUTGOING, &aplci->plci->state))
+		pid.global = 1; // DTE, orginate
+	else
+		pid.global = 2; // DCE, answer
+	if (aplci->Bprotocol.B1 > 23) {
+		int_errtxt("wrong B1 prot %x", aplci->Bprotocol.B1);
+		return(0x3001);
+	}
+	pid.protocol[1] = (1 << aplci->Bprotocol.B1) |
+		ISDN_PID_LAYER(1) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B1cfg[0])
+		pid.param[1] = &aplci->Bprotocol.B1cfg[0];
+	if (aplci->Bprotocol.B2 > 23) {
+		int_errtxt("wrong B2 prot %x", aplci->Bprotocol.B2);
+		return(0x3002);
+	}
+	pid.protocol[2] = (1 << aplci->Bprotocol.B2) |
+		ISDN_PID_LAYER(2) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B2cfg[0])
+		pid.param[2] = &aplci->Bprotocol.B2cfg[0];
+	/* handle DTMF TODO */
+	if ((pid.protocol[2] == ISDN_PID_L2_B_TRANS) &&
+		(pid.protocol[1] == ISDN_PID_L1_B_64TRANS))
+		pid.protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
+	if (aplci->Bprotocol.B3 > 23) {
+		int_errtxt("wrong B3 prot %x", aplci->Bprotocol.B3);
+		return(0x3003);
+	}
+	pid.protocol[3] = (1 << aplci->Bprotocol.B3) |
+		ISDN_PID_LAYER(3) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B3cfg[0])
+		pid.param[3] = &aplci->Bprotocol.B3cfg[0];
+	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp B1(%x) B2(%x) B3(%x) global(%d) ch(%x)",
+   		pid.protocol[1], pid.protocol[2], pid.protocol[3], pid.global, 
+		aplci->channel);
+	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp ch(%d) aplci->contr->linklist(%p)",
+		aplci->channel & 3, aplci->contr->linklist);
+	pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
+	aplci->link = ControllerSelChannel(aplci->contr, aplci->channel);
+	if (!aplci->link) {
+		int_error();
+		return(-EBUSY);
+	}
+	capidebug(CAPI_DBG_NCCI, "AppPlciLinkUp aplci->link(%p)", aplci->link);
+	memset(&aplci->link->inst.pid, 0, sizeof(mISDN_pid_t));
+	aplci->link->inst.privat = aplci;
+	aplci->link->inst.pid.layermask = ISDN_LAYER(4);
+	aplci->link->inst.pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
+	if (pid.protocol[3] == ISDN_PID_L3_B_TRANS) {
+		aplci->link->inst.pid.protocol[3] = ISDN_PID_L3_B_TRANS;
+		aplci->link->inst.pid.layermask |= ISDN_LAYER(3);
+	}
 	if (aplci->link->inst.function)
 		int_errtxt("id(%08x) overwrite function (%p)", aplci->link->inst.id, aplci->link->inst.function);
 	if (aplci->Bprotocol.B3 == 0) // transparent
 		aplci->link->inst.function = PL_l3l4;
 	else
 		aplci->link->inst.function = PL_l3l4mux;
+	retval = aplci->link->inst.obj->ctrl(aplci->link->st,
+		MGR_ADDLAYER | REQUEST, &aplci->link->inst); 
+	if (retval) {
+		printk(KERN_WARNING "%s MGR_ADDLAYER | REQUEST ret(%d)\n",
+			__FUNCTION__, retval);
+		return(retval);
+	}
+	stpara.maxdatalen = aplci->appl->reg_params.datablklen;
+	stpara.up_headerlen = CAPI_B3_DATA_IND_HEADER_SIZE;
+	stpara.down_headerlen = 0;
+                        
+	retval = aplci->link->inst.obj->ctrl(aplci->link->st,
+		MGR_ADDSTPARA | REQUEST, &stpara);
+	if (retval) {
+		printk(KERN_WARNING "%s MGR_SETSTACK | REQUEST ret(%d)\n",
+			__FUNCTION__, retval);
+	}
+	retval = aplci->link->inst.obj->ctrl(aplci->link->st,
+		MGR_SETSTACK | REQUEST, &pid);
+	if (retval) {
+		printk(KERN_WARNING "%s MGR_SETSTACK | REQUEST ret(%d)\n",
+			__FUNCTION__, retval);
+		return(retval);
+	}
+	return(0);
+}
+
+static int
+ReleaseLink(AppPlci_t *aplci)
+{
+	int retval = 0;
+
+	if (aplci->link) {
+#if 0
+		if (ncci->ncci_m.state != ST_NCCI_N_0)
+			ncciL4L3(ncci, DL_RELEASE | REQUEST, 0, 0, NULL, NULL);
+#endif
+		retval = aplci->link->inst.obj->ctrl(aplci->link->inst.st,
+			MGR_CLEARSTACK | REQUEST, NULL);
+		if (retval)
+			int_error();
+		aplci->link = NULL;
+		skb_queue_purge(&aplci->delayedq);
+		test_and_clear_bit(PLCI_STATE_STACKREADY, &aplci->plci->state);
+	}
+	return(retval);
+}
+
+Ncci_t	*
+getNCCI4addr(AppPlci_t *aplci, __u32 addr, int mode)
+{
+	Ncci_t			*ncci;
+	struct list_head	*item;
+	int			cnt = 0;
+
+	list_for_each(item, &aplci->Nccis) {
+		cnt++;
+		ncci = (Ncci_t *)item;
+		if (ncci->addr == addr)
+			return(ncci);
+		if (mode == GET_NCCI_ONLY_PLCI) {
+			if (ncci->addr == (addr & 0xffff))
+				return(ncci);
+		}
+	}
+	if (!cnt)
+		return(NULL);
+	if (mode != GET_NCCI_PLCI)
+		return(NULL);
+	if (1 == cnt) {
+		if (!(addr & 0xffff0000))
+			return(ncci);
+	}
+	return(NULL);
+}
+
+void
+AppPlciDelNCCI(Ncci_t *ncci) {
+	list_del_init(&ncci->head);
+}
+
+int
+AppPlcimISDN_Active(AppPlci_t *aplci)
+{
+	if (!aplci) {
+		int_error();
+		return(-EINVAL);
+	}
 	if (!test_and_set_bit(PLCI_STATE_SENDDELAYED, &aplci->plci->state)) {
 		test_and_set_bit(PLCI_STATE_STACKREADY, &aplci->plci->state);
 		SendingDelayedMsg(aplci);

@@ -565,6 +565,8 @@ static int central_manager(void *data, u_int prim, void *arg) {
 	if (!data)
 		return(-EINVAL);
 	switch(prim) {
+	    case MGR_ADDLAYER | REQUEST:
+		return(preregister_layer(st, arg));
 	    case MGR_SETSTACK | REQUEST:
 		/* can sleep in case of module reload */
 		return(set_stack_req(st, arg));

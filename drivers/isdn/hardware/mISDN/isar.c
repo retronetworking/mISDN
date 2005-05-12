@@ -782,6 +782,7 @@ send_frames(bchannel_t *bch)
 				bch->tx_idx = 0;
 				bch->tx_len = skb->len;
 				memcpy(bch->tx_buf, skb->data, bch->tx_len);
+				isar_fill_fifo(bch);
 				skb_trim(skb, 0);
 				if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
 					pr = DL_DATA | CONFIRM;

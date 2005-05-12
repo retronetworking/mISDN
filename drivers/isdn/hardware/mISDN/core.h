@@ -59,6 +59,7 @@ extern struct list_head	mISDN_objectlist;
 extern int core_debug;
 
 extern int		register_layer(mISDNstack_t *, mISDNinstance_t *);
+extern int		preregister_layer(mISDNstack_t *, mISDNinstance_t *);
 extern int		unregister_instance(mISDNinstance_t *);
 extern mISDNinstance_t	*get_next_instance(mISDNstack_t *, mISDN_pid_t *);
 extern mISDNobject_t	*get_object(int);

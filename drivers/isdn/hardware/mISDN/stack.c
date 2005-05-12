@@ -152,7 +152,7 @@ getlayer4lay(mISDNstack_t *st, int layermask)
 }
 
 static mISDNinstance_t *
-get_nextinstance(mISDNstack_t *st, u_int addr)
+get_nextlayer(mISDNstack_t *st, u_int addr)
 {
 	mISDNinstance_t	*inst=NULL;
 	int		layer = addr & LAYER_ID_MASK;
@@ -192,16 +192,32 @@ get_instance(mISDNstack_t *st, int layer_nr, int protocol)
 	mISDNinstance_t	*inst=NULL;
 	int		i;
 
-	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "get_instance st(%p) lnr(%d) prot(%x)\n",
-			st, layer_nr, protocol);
 	if (!st) {
 		int_error();
 		return(NULL);
 	}
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "get_instance st(%08x) lnr(%d) prot(%x)\n",
+			st->id, layer_nr, protocol);
 	if ((layer_nr < 0) || (layer_nr > MAX_LAYER_NR)) {
 		int_errtxt("lnr %d", layer_nr);
 		return(NULL);
+	}
+	list_for_each_entry(inst, &st->prereg, list) {
+		if (core_debug & DEBUG_CORE_FUNC)
+			printk(KERN_DEBUG "get_instance prereg(%p, %x) lm %x/%x prot %x/%x\n",
+				inst, inst->id, inst->pid.layermask, ISDN_LAYER(layer_nr),
+				inst->pid.protocol[layer_nr], protocol);
+		if ((inst->pid.layermask & ISDN_LAYER(layer_nr)) &&
+			(inst->pid.protocol[layer_nr] == protocol)) {
+			list_del_init(&inst->list);
+			i = register_layer(st, inst);
+			if (i) {
+				int_errtxt("error(%d) register preregistered inst(%08x) on st(%08x)", i, inst->id, st->id);
+				return(NULL);
+			}
+			return(inst);
+		}
 	}
 	for (i = 0; i <= MAX_LAYER_NR; i++) {
 		if ((inst = st->i_array[i])) {
@@ -273,6 +289,9 @@ mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 	mISDNstack_t	*st = inst->st;
 	u_int		id;
 
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "%s(%08x, %x, prim(%x))\n", __FUNCTION__,
+			inst->id, aflag, hh->prim);
 	if (aflag && ((aflag & MSG_DIR_MASK) == MSG_DIRECT)) {
 		id = aflag;
 	} else {
@@ -340,9 +359,10 @@ mISDNStackd(void *data)
 				do_broadcast(st, skb);
 				continue;
 			}
-			inst = get_nextinstance(st, hh->addr);
+			inst = get_nextlayer(st, hh->addr);
 			if (!inst) {
-				int_errtxt("%s: st(%08x) no instance for id(%08x)", __FUNCTION__, st->id, hh->addr);
+				int_errtxt("%s: st(%08x) no instance for addr(%08x) prim(%x) dinfo(%x)", __FUNCTION__,
+					st->id, hh->addr, hh->prim, hh->dinfo);
 				dev_kfree_skb(skb);
 				continue;
 			}
@@ -387,6 +407,7 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 	}
 	memset(newst, 0, sizeof(mISDNstack_t));
 	INIT_LIST_HEAD(&newst->childlist);
+	INIT_LIST_HEAD(&newst->prereg);
 	init_waitqueue_head(&newst->workq);
 	skb_queue_head_init(&newst->msgq);
 	test_and_set_bit(mISDN_STACK_INIT, &newst->status);
@@ -497,7 +518,16 @@ delete_stack(mISDNstack_t *st)
 	int	err;
 
 	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "%s: st(%p)\n", __FUNCTION__, st);
+		printk(KERN_DEBUG "%s: st(%p:%08x)\n", __FUNCTION__, st, st->id);
+	if (!list_empty(&st->prereg)) {
+		mISDNinstance_t	*inst, *ni;
+
+		int_errtxt("st(%08x)->prereg not empty\n", st->id);
+		list_for_each_entry_safe(inst, ni, &st->prereg, list) {
+			int_errtxt("inst(%p:%08x) preregistered", inst, inst->id);
+			list_del(&inst->list);
+		}
+	}
 	if (st->thread) {
 		st->notify = &sem;
 		test_and_set_bit(mISDN_STACK_ABORT, &st->status);
@@ -593,7 +623,8 @@ get_free_instid(mISDNstack_t *st, mISDNinstance_t *inst) {
 #endif
 
 int
-register_layer(mISDNstack_t *st, mISDNinstance_t *inst) {
+register_layer(mISDNstack_t *st, mISDNinstance_t *inst)
+{
 	int		idx;
 	mISDNinstance_t	*dup;
 
@@ -603,7 +634,7 @@ register_layer(mISDNstack_t *st, mISDNinstance_t *inst) {
 		printk(KERN_DEBUG "%s:st(%p) inst(%p/%p) lmask(%x) id(%x)\n",
 			__FUNCTION__, st, inst, inst->obj,
 			inst->pid.layermask, inst->id);
-	if (inst->id) { /* allready registered */
+	if (inst->id) { /* already registered */
 		// if (inst->st || !st) {
 			int_errtxt("register duplicate %08x %p %p",
 				inst->id, inst->st, st);
@@ -642,6 +673,25 @@ register_layer(mISDNstack_t *st, mISDNinstance_t *inst) {
 			inst, inst->obj, inst->id);
 	inst->st = st;
 	list_add_tail(&inst->list, &mISDN_instlist);
+	return(0);
+}
+
+int
+preregister_layer(mISDNstack_t *st, mISDNinstance_t *inst)
+{
+	if (!inst || !st)
+		return(-EINVAL);
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "%s:st(%08x) inst(%p:%08x) lmask(%x)\n",
+			__FUNCTION__, st->id, inst, inst->id, inst->pid.layermask);
+	if (inst->id) {
+		/* already registered */
+		int_errtxt("register duplicate %08x %p %p",
+			inst->id, inst->st, st);
+		return(-EBUSY);
+	}
+	inst->st = st;
+	list_add_tail(&inst->list, &st->prereg);
 	return(0);
 }
 
@@ -707,7 +757,7 @@ copy_pid(mISDN_pid_t *dpid, mISDN_pid_t *spid, u_char *pbuf)
 int
 set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 {
-	int 		err;
+	int 		err, i;
 	u_char		*pbuf = NULL;
 	mISDNinstance_t	*inst;
 //	mISDNlayer_t	*hl, *hln;
@@ -746,28 +796,23 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 		}
 		mISDN_RemoveUsedPID(pid, &inst->pid);
 	}
+	if (!list_empty(&st->prereg))
+		int_errtxt("st(%08x)->prereg not empty\n", st->id);
 
-#ifdef FIXME
-	list_for_each_entry_safe(hl, hln, &st->layerlist, list) {
-		if (hl->list.next == &st->layerlist)
+	for (i = 0; i <= MAX_LAYER_NR; i++) {
+		inst = st->i_array[i];
+		if (!inst)
 			break;
-		if (!hl->inst) {
+		if (!inst->obj) {
 			int_error();
-			return(-EINVAL);
+			continue;
 		}
-		if (!hl->inst->obj) {
+		if (!inst->obj->own_ctrl) {
 			int_error();
-			return(-EINVAL);
+			continue;
 		}
-		if (!hl->inst->obj->own_ctrl) {
-			int_error();
-			return(-EINVAL);
-		}
-		hl->inst->obj->own_ctrl(hl->inst, MGR_CONNECT | REQUEST,
-			hln->inst);
+		inst->obj->own_ctrl(inst, MGR_SETSTACK |CONFIRM, NULL);
 	}
-#endif
-	st->mgr->obj->own_ctrl(st->mgr, MGR_SETSTACK |CONFIRM, NULL);
 	return(0);
 }
 
