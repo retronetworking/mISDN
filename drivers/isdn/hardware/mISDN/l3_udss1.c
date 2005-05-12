@@ -2215,7 +2215,7 @@ dss1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		case FLG_MSG_UP:
 			ret = dss1_fromdown(l3, skb, hh);
 			break;
-		case MSG_DIRECT:
+		case MSG_TO_OWNER:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;

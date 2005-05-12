@@ -1225,7 +1225,7 @@ dte_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		case FLG_MSG_UP:
 			ret = dte_from_down(l3, skb, hh);
 			break;
-		case MSG_DIRECT:
+		case MSG_TO_OWNER:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;

@@ -160,29 +160,30 @@ get_nextlayer(mISDNstack_t *st, u_int addr)
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%08x) addr(%08x)\n", __FUNCTION__, st->id, addr);
 
-	switch(addr & MSG_DIR_MASK) {
-		case FLG_MSG_DOWN:
-			if (addr & FLG_MSG_CLONED) {
-				
-			} else
-				layer -= LAYER_ID_INC;
-			break;
-		case FLG_MSG_UP:
-			layer += LAYER_ID_INC;
-			break;
-		case MSG_DIRECT:
-			break;
-		default: /* broadcast */
-			int_errtxt("st(%08x) addr(%08x) wrong address", st->id, addr);
-			return(NULL);
-	}
-		
+	if (!(addr & FLG_MSG_TARGET)) {
+		switch(addr & MSG_DIR_MASK) {
+			case FLG_MSG_DOWN:
+				if (addr & FLG_MSG_CLONED) {
+					
+				} else
+					layer -= LAYER_ID_INC;
+				break;
+			case FLG_MSG_UP:
+				layer += LAYER_ID_INC;
+				break;
+			case MSG_TO_OWNER:
+				break;
+			default: /* broadcast */
+				int_errtxt("st(%08x) addr(%08x) wrong address", st->id, addr);
+				return(NULL);
+		}
+	}	
 	if ((layer < 0) || (layer > MAX_LAYER_NR)) {
 		int_errtxt("st(%08x) addr(%08x) layer %d out of range", st->id, addr, layer);
 		return(NULL);
 	}
 	inst = st->i_array[layer];
-	/* more checks, refcnt locking */
+	/* maybe more checks */
 	return(inst);
 }
 
@@ -292,7 +293,7 @@ mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s(%08x, %x, prim(%x))\n", __FUNCTION__,
 			inst->id, aflag, hh->prim);
-	if (aflag && ((aflag & MSG_DIR_MASK) == MSG_DIRECT)) {
+	if (aflag & FLG_MSG_TARGET) {
 		id = aflag;
 	} else {
 		id = (inst->id & INST_ID_MASK) | aflag;
