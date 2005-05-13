@@ -698,7 +698,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	    case MGR_LOADFIRM | CONFIRM:
 		speedfax.ctrl(card->dch.inst.st, MGR_CTRLREADY | INDICATION, NULL);
 		break;
-	    case MGR_SETSTACK | CONFIRM:
+	    case MGR_SETSTACK | INDICATION:
 		if ((channel!=2) && (inst->pid.global == 2)) {
 //			inst->down.fdata = &card->bch[channel];
 			if ((skb = create_link_skb(PH_ACTIVATE | REQUEST,

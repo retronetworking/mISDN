@@ -1719,12 +1719,16 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 				return(0);
 		} else if (hh->dinfo == HW_FIRM_DATA) {
 			len = *val++;
+			if (!fw_p)
+				return(-EINVAL);
 			memcpy(fw_p, val, len);
 			fw_p += len;
 			skb_trim(skb, 0);
 			if(!mISDN_queueup_newhead(inst, 0, PH_CONTROL | CONFIRM, 0, skb))
 				return(0);
 		} else if (hh->dinfo == HW_FIRM_END) {
+			if (!fw_p)
+				return(-EINVAL);
 			if ((fw_p - firmware) == firmwaresize)
 				ret = isar_load_firmware(bch, firmware, firmwaresize);
 			else {
@@ -1738,6 +1742,10 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 			skb_trim(skb, 0);
 			if(!mISDN_queueup_newhead(inst, 0, PH_CONTROL | CONFIRM, 0, skb))
 				return(0);
+		} else {
+			printk(KERN_WARNING "isar_down unknown (PH_CONTROL | REQUEST) %x\n",
+				hh->dinfo);
+			ret = -EINVAL;
 		}
 	} else {
 		printk(KERN_WARNING "isar_down unknown prim(%x)\n", hh->prim);

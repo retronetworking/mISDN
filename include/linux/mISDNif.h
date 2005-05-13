@@ -448,7 +448,8 @@
  * FFFF FFFF CCCC CCCC SSSS SSSS RRRR LLLL
  *
  * L (bit 03-00) Layer ID
- * R (bit 07-04) reserved (0)
+ * R (bit 06-04) reserved (0)
+ * U (bit 07)    user device id
  * S (bit 15-08) Stack ID/controller number
  * C (bit 23-16) Child/Clone ID
  * F (bit 31-24) Flags as defined below
@@ -480,6 +481,7 @@
 #define LAYER_ID_INC	0x00000001
 #define LAYER_ID_MAX	MAX_LAYER_NR
 #define LAYER_ID_MASK	0x0000000F
+#define FLG_ID_USER	0x00000080
 #define INST_ID_MASK	0x70FFFFFF
 
 #define DUMMY_CR_FLAG	0x7FFFFF00
@@ -593,13 +595,14 @@ typedef struct _layer_info {
 	mISDN_pid_t	pid;
 } layer_info_t;
 
-
+#ifdef OBSOLATE
 typedef struct _interface_info {
 	int		extentions;
 	u_int		owner;
 	u_int		peer;
 	int		stat;
 } interface_info_t;
+#endif
 
 typedef struct _channel_info {
 	u_int		channel;
@@ -705,7 +708,7 @@ struct _mISDNobject {
 	struct module		*owner;
 };
 
-#if 0
+#ifdef OBSOLATE
 /* the interface between two mISDNinstances */
 struct _mISDNif {
 	if_func_t		*func;
@@ -739,7 +742,8 @@ struct _mISDNinstance {
 	lock_func_t		*lock;
 	unlock_func_t		*unlock;
 };
-#if 0
+
+#ifdef OBSOLATE
 /* a list of parallel (horizontal) mISDNinstances in the same layer
  * normally here is only one instance per layer only if the information
  * will be splitted here are more instances */

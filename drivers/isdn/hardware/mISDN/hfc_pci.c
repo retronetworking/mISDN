@@ -2402,7 +2402,7 @@ HFC_manager(void *data, u_int prim, void *arg) {
 			return(-EINVAL);
 		}
 		return(SelFreeBChannel(card, arg));
-	    case MGR_SETSTACK | CONFIRM:
+	    case MGR_SETSTACK | INDICATION:
 		if ((channel!=2) && (inst->pid.global == 2)) {
 			if ((skb = create_link_skb(PH_ACTIVATE | REQUEST, 0, 0, NULL, 0))) {
 				if (hfcpci_l2l1(inst, skb))

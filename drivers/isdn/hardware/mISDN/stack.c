@@ -31,10 +31,25 @@ get_stack_info(struct sk_buff *skb)
 	int		i;
 
 	hp = mISDN_HEAD_P(skb);
-	st = get_stack4id(hp->addr);
-	if (!st)
+	if (hp->addr == 0) {
+		hp->dinfo = get_stack_cnt();
 		hp->len = 0;
-	else {
+		return;
+	} else if (hp->addr <= 127 && hp->addr <= get_stack_cnt()) {
+		/* stack nr */
+		i = 1;
+		list_for_each_entry(st, &mISDN_stacklist, list) {
+			if (i == hp->addr)
+				break;
+			i++;
+		}
+	} else
+		st = get_stack4id(hp->addr);
+	printk(KERN_DEBUG "%s: addr(%08x) st(%p)\n", __FUNCTION__, hp->addr, st);
+	if (!st) {
+		hp->len = -ENODEV;
+		return;
+	} else {
 		si = (stack_info_t *)skb->data;
 		memset(si, 0, sizeof(stack_info_t));
 		si->id = st->id;
@@ -211,7 +226,6 @@ get_instance(mISDNstack_t *st, int layer_nr, int protocol)
 				inst->pid.protocol[layer_nr], protocol);
 		if ((inst->pid.layermask & ISDN_LAYER(layer_nr)) &&
 			(inst->pid.protocol[layer_nr] == protocol)) {
-			list_del_init(&inst->list);
 			i = register_layer(st, inst);
 			if (i) {
 				int_errtxt("error(%d) register preregistered inst(%08x) on st(%08x)", i, inst->id, st->id);
@@ -672,6 +686,13 @@ register_layer(mISDNstack_t *st, mISDNinstance_t *inst)
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: inst(%p/%p) id(%x)\n", __FUNCTION__,
 			inst, inst->obj, inst->id);
+
+	if (!list_empty(&inst->list)) {
+		if (core_debug & DEBUG_CORE_FUNC)
+			printk(KERN_DEBUG "%s: register preregistered instance st(%p/%p)",
+				__FUNCTION__, st, inst->st);
+		list_del_init(&inst->list);
+	}
 	inst->st = st;
 	list_add_tail(&inst->list, &mISDN_instlist);
 	return(0);
@@ -724,7 +745,10 @@ unregister_instance(mISDNinstance_t *inst) {
 		if (inst->st && (inst->st->mgr != inst))
 			inst->st = NULL;
 	}
-	list_del_init(&inst->list);
+	if (inst->list.prev && inst->list.next)
+		list_del_init(&inst->list);
+	else
+		int_errtxt("uninitialized list inst(%08x)", inst->id);
 	inst->id = 0;
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: mISDN_instlist(%p<-%p->%p)\n", __FUNCTION__,
@@ -812,7 +836,7 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 			int_error();
 			continue;
 		}
-		inst->obj->own_ctrl(inst, MGR_SETSTACK |CONFIRM, NULL);
+		inst->obj->own_ctrl(inst, MGR_SETSTACK | INDICATION, NULL);
 	}
 	return(0);
 }

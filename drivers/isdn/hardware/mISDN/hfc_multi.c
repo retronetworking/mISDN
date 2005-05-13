@@ -3176,7 +3176,7 @@ HFC_manager(void *data, u_int prim, void *arg)
 		return(SelFreeBChannel(hc, ch, arg));
 		//break;
 
-		case MGR_SETSTACK | CONFIRM:
+		case MGR_SETSTACK | INDICATION:
 		if (debug & DEBUG_HFCMULTI_MGR)
 			printk(KERN_DEBUG "%s: MGR_SETSTACK\n", __FUNCTION__);
 		if (bch && inst->pid.global==2) {

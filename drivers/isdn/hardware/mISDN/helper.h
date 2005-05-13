@@ -217,6 +217,7 @@ static inline struct sk_buff *
 __mid_create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve, char *fn, int line)
 {
 	struct sk_buff	*skb;
+	mISDN_head_t	*hh;
 
 	if (!(skb = __mid_alloc_skb(len + reserve, GFP_ATOMIC, fn, line))) {
 #else
@@ -224,6 +225,7 @@ static inline struct sk_buff *
 create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve)
 {
 	struct sk_buff	*skb;
+	mISDN_head_t	*hh;
 
 	if (!(skb = alloc_skb(len + reserve, GFP_ATOMIC))) {
 #endif
@@ -234,7 +236,10 @@ create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve)
 		skb_reserve(skb, reserve);
 	if (len)
 		memcpy(skb_put(skb, len), dp, len);
-	mISDN_sethead(prim, dinfo, skb);
+	hh = mISDN_HEAD_P(skb);
+	hh->prim = prim;
+	hh->dinfo = dinfo;
+	hh->len = len;
 	return(skb);
 }
 

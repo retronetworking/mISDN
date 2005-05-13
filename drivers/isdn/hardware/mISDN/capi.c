@@ -361,7 +361,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
 #endif
-	    case MGR_SETSTACK | CONFIRM:
+	    case MGR_SETSTACK | INDICATION:
 		if (!(&ctrl->inst == inst))
 			return(AppPlcimISDN_Active(inst->privat));
 		return(0);

@@ -20,6 +20,7 @@
 #define FLG_MGR_TIMER_INIT	1
 #define	FLG_MGR_TIMER_RUNING	2
 
+#define MAX_USERDEVICE_ID	MAX_LAYER_NR
 
 typedef struct _devicelayer {
 	struct list_head	list;
@@ -28,8 +29,8 @@ typedef struct _devicelayer {
 	mISDNinstance_t		*slave;
 //	mISDNif_t		s_up;
 //	mISDNif_t		s_down;
-	int			iaddr;
-	int			lm_st;
+	u_int			id;
+	u_int			lm_st;
 	u_long			Flags;
 } devicelayer_t;
 
@@ -44,7 +45,7 @@ typedef struct _mISDNtimer {
 	struct list_head	list;
 	struct _mISDNdevice	*dev;
 	struct timer_list	tl;
-	int			id;
+	u_int			id;
 	u_long			Flags;
 } mISDNtimer_t;
 
@@ -201,19 +202,43 @@ error_answer(mISDNdevice_t *dev, struct sk_buff *skb, int err)
 }
 
 static devicelayer_t
-*get_devlayer(mISDNdevice_t *dev, int addr) {
+*get_devlayer(mISDNdevice_t *dev, u_int addr)
+{
 	devicelayer_t *dl;
 
 	if (device_debug & DEBUG_MGR_FUNC)
 		printk(KERN_DEBUG "%s: addr:%x\n", __FUNCTION__, addr);
 	list_for_each_entry(dl, &dev->layerlist, list) {
 //		if (device_debug & DEBUG_MGR_FUNC)
-//			printk(KERN_DEBUG "%s: dl(%p) iaddr:%x\n",
-//				__FUNCTION__, dl, dl->iaddr);
-		if ((u_int)dl->iaddr == (INST_ID_MASK & addr))
+//			printk(KERN_DEBUG "%s: dl(%p) id:%x\n",
+//				__FUNCTION__, dl, dl->id);
+		if (dl->id == (INST_ID_MASK & addr))
+			return(dl);
+		if (dl->inst.id == (INST_ID_MASK & addr))
+			return(dl);
+		if (dl->slave && (dl->slave->id == (INST_ID_MASK & addr)))
 			return(dl);
 	}
 	return(NULL);
+}
+
+static u_int
+get_new_devicelayer_id(mISDNdevice_t *dev, u_int addr)
+{
+	devicelayer_t	*dl;
+	u_int		i, found;
+
+	addr |= (FLG_INSTANCE | FLG_ID_USER);
+	for (i=0; i<= MAX_USERDEVICE_ID; i++) {
+		found = 0;
+		list_for_each_entry(dl, &dev->layerlist, list) {
+			if (dl->id == (addr | i))
+				found++;
+		}
+		if (!found)
+			return(addr | i);
+	}
+	return(0);
 }
 
 static devicestack_t
@@ -324,6 +349,24 @@ sel_channel(u_int addr, u_int channel)
 }
 
 static int
+from_up_down(mISDNinstance_t *inst, struct sk_buff *skb) {
+	
+	devicelayer_t	*dl;
+	mISDN_head_t	*hh; 
+	int		retval = -EINVAL;
+
+	dl = inst->privat;
+	hh = mISDN_HEAD_P(skb);
+	hh->len = skb->len;
+//	hh->addr = dl->iaddr;
+	if (device_debug & DEBUG_RDATA)
+		printk(KERN_DEBUG "from_up_down: %x(%x) dinfo:%x len:%d\n",
+			hh->prim, hh->addr, hh->dinfo, hh->len);
+	retval = mISDN_rdata(dl->dev, skb);
+	return(retval);
+}
+
+static int
 create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 {
 	layer_info_t	*linfo;
@@ -337,6 +380,7 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 	hp = mISDN_HEAD_P(skb);
 	linfo = (layer_info_t *)skb->data;
 	if (!(st = get_stack4id(linfo->st))) {
+		/* should be changed */
 		int_error();
 		return(-ENODEV);
 	}
@@ -371,11 +415,21 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 		return(-ENOMEM);
 	}
 	memset(nl, 0, sizeof(devicelayer_t));
+	if (st)
+		nl->id = get_new_devicelayer_id(dev, st->id);
+	else
+		nl->id = get_new_devicelayer_id(dev, 0);
+	if (!nl->id) {
+		int_errtxt("overflow devicelayer ids");
+		kfree(nl);
+		return(-EBUSY);
+	}
 	if (device_debug & DEBUG_MGR_FUNC)
 		printk(KERN_DEBUG
-			"mISDN create_layer LM(%x) nl(%p) nl inst(%p)\n",
-			linfo->pid.layermask, nl, &nl->inst);
+			"mISDN create_layer LM(%x) nl(%p:%08x) nl inst(%p)\n",
+			linfo->pid.layermask, nl, nl->id, &nl->inst);
 	nl->dev = dev;
+	mISDN_init_instance(&nl->inst, &udev_obj, nl, from_up_down);
 	memcpy(&nl->inst.pid, &linfo->pid, sizeof(mISDN_pid_t));
 	strcpy(nl->inst.name, linfo->name);
 	nl->inst.extentions = linfo->extentions;
@@ -391,18 +445,16 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 		st->mgr = &nl->inst;
 		test_and_set_bit(FLG_MGR_OWNSTACK, &nl->Flags);
 	}
-	nl->inst.obj = &udev_obj;
-	nl->inst.privat = nl;
 	list_add_tail(&nl->list, &dev->layerlist);
-	nl->inst.obj->ctrl(st, MGR_REGLAYER | INDICATION, &nl->inst);
-	nl->iaddr = nl->inst.id;
+	if (st)
+		nl->inst.obj->ctrl(st, MGR_ADDLAYER | REQUEST, &nl->inst);
 	skb_trim(skb, 0);
-	memcpy(skb_put(skb, sizeof(nl->iaddr)), &nl->iaddr, sizeof(nl->iaddr));
+	memcpy(skb_put(skb, sizeof(nl->id)), &nl->id, sizeof(nl->id));
 	if (inst) {
 		nl->slave = inst;
 		memcpy(skb_put(skb, sizeof(inst->id)), &inst->id, sizeof(inst->id));
 	} else {
-		memset(skb_put(skb, sizeof(nl->iaddr)), 0, sizeof(nl->iaddr));
+		memset(skb_put(skb, sizeof(nl->id)), 0, sizeof(nl->id));
 	}
 	return(8);
 }
@@ -443,8 +495,8 @@ del_layer(devicelayer_t *dl)
 	if (device_debug & DEBUG_MGR_FUNC) {
 		printk(KERN_DEBUG "%s: dl(%p) inst(%p) LM(%x) dev(%p)\n", 
 			__FUNCTION__, dl, inst, inst->pid.layermask, dev);
-		printk(KERN_DEBUG "%s: iaddr %x inst %s slave %p\n",
-			__FUNCTION__, dl->iaddr, inst->name, dl->slave);
+		printk(KERN_DEBUG "%s: iaddr %x inst(%08x) %s slave %p\n",
+			__FUNCTION__, dl->id, inst->id, inst->name, dl->slave);
 	}
 	if (dl->slave) {
 		if (dl->slave->obj)
@@ -467,7 +519,7 @@ del_layer(devicelayer_t *dl)
 				inst->st->id);
 		udev_obj.ctrl(inst->st, MGR_CLEARSTACK | REQUEST, NULL);
 	}
-	dl->iaddr = 0;
+	dl->id = 0;
 	list_del(&dl->list);
 	udev_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (test_and_clear_bit(FLG_MGR_OWNSTACK, &dl->Flags)) {
@@ -1145,6 +1197,27 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 		hp->prim = MGR_NEWLAYER | CONFIRM;
 		hp->len = create_layer(dev, skb);
 		break;	
+	    case (MGR_REGLAYER | REQUEST):
+		lay = hp->dinfo;
+		hp->dinfo = 0;
+		if (!(st = get_stack4id(hp->addr)))
+			return(error_answer(dev, skb, -ENODEV));
+		if (!(dl = get_devlayer(dev, lay)))
+			return(error_answer(dev, skb, -ENODEV));
+		hp->prim = MGR_REGLAYER | CONFIRM;
+		hp->len = udev_obj.ctrl(st, MGR_REGLAYER | REQUEST, &dl->inst);
+		printk(KERN_DEBUG "MGR_REGLAYER | REQUEST: ret(%d)\n", hp->len);
+		break;	
+	    case (MGR_UNREGLAYER | REQUEST):
+		lay = hp->dinfo;
+		hp->dinfo = 0;
+		if (!(st = get_stack4id(hp->addr)))
+			return(error_answer(dev, skb, -ENODEV));
+		if (!(dl = get_devlayer(dev, lay)))
+			return(error_answer(dev, skb, -ENODEV));
+		hp->prim = MGR_UNREGLAYER | CONFIRM;
+		hp->len = udev_obj.ctrl(st, MGR_UNREGLAYER | REQUEST, &dl->inst);
+		break;	
 	    case (MGR_DELLAYER | REQUEST):
 		hp->prim = MGR_DELLAYER | CONFIRM;
 		hp->dinfo = 0;
@@ -1614,8 +1687,9 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 			wake_up(&dev->wport.procq);
 		}
 		test_and_clear_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag);
-#ifdef FIXME
 	} else { /* raw device */
+		len = 0;
+#ifdef FIXME
 		skb = alloc_stack_skb(count, PORT_SKB_RESERVE);
 		if (skb) {
 			spin_unlock_irqrestore(&dev->wport.lock, flags);
@@ -1626,7 +1700,6 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 			spin_unlock_irqrestore(&dev->wport.lock, flags);
 			return(-EFAULT);
 		}
-		len = 0;
 		skb_queue_tail(&dev->wport.queue, skb);
 		if (test_and_set_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag)) {
 			spin_unlock_irqrestore(&dev->wport.lock, flags);
@@ -1723,23 +1796,6 @@ static struct file_operations mISDN_fops =
 	release:	mISDN_close,
 };
 
-static int
-from_up_down(mISDNinstance_t *inst, struct sk_buff *skb) {
-	
-	devicelayer_t	*dl;
-	mISDN_head_t	*hh; 
-	int		retval = -EINVAL;
-
-	dl = inst->privat;
-	hh = mISDN_HEAD_P(skb);
-	hh->len = skb->len;
-	hh->addr = dl->iaddr;
-	if (device_debug & DEBUG_RDATA)
-		printk(KERN_DEBUG "from_up_down: %x(%x) dinfo:%x len:%d\n",
-			hh->prim, hh->addr, hh->dinfo, hh->len);
-	retval = mISDN_rdata(dl->dev, skb);
-	return(retval);
-}
 
 #ifdef OBSOLATE
 static int
@@ -1751,6 +1807,19 @@ set_if(devicelayer_t *dl, u_int prim, mISDNif_t *hif)
 	return(err);
 }
 #endif
+
+static void setstack_conf(devicelayer_t *dl)
+{
+	struct sk_buff	*skb = create_link_skb(MGR_SETSTACK | INDICATION, 0, 0, NULL, 16);
+	mISDN_head_t	*hh;
+
+	if (!skb)
+		return;
+	hh = mISDN_HEAD_P(skb);
+	hh->addr = dl->id;
+	if (mISDN_rdata(dl->dev, skb))
+		kfree_skb(skb);
+}
 
 static int
 udev_manager(void *data, u_int prim, void *arg) {
@@ -1793,6 +1862,13 @@ udev_manager(void *data, u_int prim, void *arg) {
 	    	err = mISDN_DisConnectIF(inst, arg);
 	    	break;
 #endif
+	    case MGR_REGLAYER | CONFIRM:
+		err = 0;
+		break;
+	    case MGR_SETSTACK | INDICATION:
+	    	setstack_conf(dl);
+		err = 0;
+		break;
 	    case MGR_RELEASE | INDICATION:
 		if (device_debug & DEBUG_MGR_FUNC)
 			printk(KERN_DEBUG "release_dev id %x\n",
