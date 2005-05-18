@@ -2153,19 +2153,21 @@ SelFreeBChannel(hfc_pci_t *hc, channel_info_t *ci)
 #define MAX_CARDS	8
 #define MODULE_PARM_T	"1-8i"
 static int HFC_cnt;
-static u_int protocol[MAX_CARDS];
-static int layermask[MAX_CARDS];
+static uint protocol[MAX_CARDS];
+static uint layermask[MAX_CARDS];
+static uint debug;
 
 static mISDNobject_t	HFC_obj;
-static int debug;
 
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
-MODULE_PARM(debug, "1i");
-MODULE_PARM(protocol, MODULE_PARM_T);
+module_param (debug, uint, 0);
+MODULE_PARM_DESC (debug, "hfcpci debug mask");
+module_param_array(protocol, uint, NULL, 0);
+MODULE_PARM_DESC (protocol, "hfcpci protcol (DSS1 := 2)");
 
 /* short description of protocol
  * protocol=<p1>[,p2,p3...]
@@ -2191,7 +2193,8 @@ MODULE_PARM(protocol, MODULE_PARM_T);
  * bit 10 - 15     reserved
  */
  
-MODULE_PARM(layermask, MODULE_PARM_T);
+module_param_array(layermask, uint, NULL, 0);
+MODULE_PARM_DESC(layermask, "hfcpci layer mask");
 #endif
 
 static char HFCName[] = "HFC_PCI";
@@ -2256,9 +2259,9 @@ setup_hfcpci(hfc_pci_t *hc)
 	pci_write_config_dword(hc->hw.dev, 0x80, (u_int) virt_to_bus(hc->hw.fifos));
 	hc->hw.pci_io = ioremap((ulong) hc->hw.pci_io, 256);
 	printk(KERN_INFO
-		"HFC-PCI: defined at mem %#x fifo %#x(%#x) IRQ %d HZ %d\n",
-		(u_int) hc->hw.pci_io, (u_int) hc->hw.fifos,
-		(u_int) virt_to_bus(hc->hw.fifos),
+		"HFC-PCI: defined at mem %#lx fifo %#lx(%#lx) IRQ %d HZ %d\n",
+		(u_long) hc->hw.pci_io, (u_long) hc->hw.fifos,
+		(u_long) virt_to_bus(hc->hw.fifos),
 		hc->irq, HZ);
 	pci_write_config_word(hc->hw.dev, PCI_COMMAND, PCI_ENA_MEMIO);	/* enable memory mapped ports, disable busmaster */
 	hc->hw.int_m2 = 0;	/* disable alle interrupts */
@@ -2468,6 +2471,7 @@ static int __init HFC_init(void)
 		mISDN_init_dch(&card->dch);
 		for (i=0; i<2; i++) {
 			card->bch[i].channel = i + 1;
+			card->bch[i].hw = card;
 			mISDN_init_instance(&card->bch[i].inst, &HFC_obj, card, hfcpci_l2l1);
 			card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
 			card->bch[i].inst.lock = lock_dev;

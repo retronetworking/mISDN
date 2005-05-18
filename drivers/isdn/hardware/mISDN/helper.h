@@ -43,14 +43,14 @@ discard_queue(struct sk_buff_head *q)
 #ifdef MISDN_MEMDEBUG
 #define alloc_stack_skb(s, r)	__mid_alloc_stack_skb(s, r, __FILE__, __LINE__)
 static inline struct sk_buff *
-__mid_alloc_stack_skb(size_t size, size_t reserve, char *fn, int line)
+__mid_alloc_stack_skb(u_int size, u_int reserve, char *fn, int line)
 {
 	struct sk_buff *skb;
 
 	if (!(skb = __mid_alloc_skb(size + reserve, GFP_ATOMIC, fn, line)))
 #else
 static inline struct sk_buff *
-alloc_stack_skb(size_t size, size_t reserve)
+alloc_stack_skb(u_int size, u_int reserve)
 {
 	struct sk_buff *skb;
 
@@ -214,7 +214,7 @@ mISDN_queuedown_newhead(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinf
 #ifdef MISDN_MEMDEBUG
 #define create_link_skb(p, d, l, dp, r)	__mid_create_link_skb(p, d, l, dp, r, __FILE__, __LINE__)
 static inline struct sk_buff *
-__mid_create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve, char *fn, int line)
+__mid_create_link_skb(u_int prim, int dinfo, u_int len, void *dp, u_int reserve, char *fn, int line)
 {
 	struct sk_buff	*skb;
 	mISDN_head_t	*hh;
@@ -222,7 +222,7 @@ __mid_create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve, cha
 	if (!(skb = __mid_alloc_skb(len + reserve, GFP_ATOMIC, fn, line))) {
 #else
 static inline struct sk_buff *
-create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve)
+create_link_skb(u_int prim, int dinfo, u_int len, void *dp, u_int reserve)
 {
 	struct sk_buff	*skb;
 	mISDN_head_t	*hh;
@@ -250,7 +250,7 @@ create_link_skb(u_int prim, int dinfo, int len, void *dp, int reserve)
 #ifdef MISDN_MEMDEBUG
 #define mISDN_queue_data(i, a, p, d, l, dp, r)	__mid_queue_data(i, a, p, d, l, dp, r, __FILE__, __LINE__)
 static inline int
-__mid_queue_data(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, int len, void *dp, int reserve, char *fn, int line)
+__mid_queue_data(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, u_int len, void *dp, u_int reserve, char *fn, int line)
 {
 	struct sk_buff	*skb;
 	int		err;
@@ -258,7 +258,7 @@ __mid_queue_data(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, int 
 	if (!(skb = __mid_create_link_skb(prim, dinfo, len, dp, reserve, fn, line)))
 #else
 static inline int
-mISDN_queue_data(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, int len, void *dp, int reserve)
+mISDN_queue_data(mISDNinstance_t *inst, u_int aflag, u_int prim, int dinfo, u_int len, void *dp, u_int reserve)
 {
 	struct sk_buff	*skb;
 	int		err;

@@ -476,18 +476,21 @@ static int init_card(sedl_fax *sf)
 #define MODULE_PARM_T	"1-4i"
 static int sedl_cnt;
 static mISDNobject_t	speedfax;
-static int debug;
-static u_int protocol[MAX_CARDS];
-static int layermask[MAX_CARDS];
+static uint debug;
+static uint protocol[MAX_CARDS];
+static uint layermask[MAX_CARDS];
 
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
-MODULE_PARM(debug, "1i");
-MODULE_PARM(protocol, MODULE_PARM_T);
-MODULE_PARM(layermask, MODULE_PARM_T);
+module_param (debug, uint, 0);
+MODULE_PARM_DESC (debug, "sedlfax debug mask");
+module_param_array(protocol, uint, NULL, 0);
+MODULE_PARM_DESC (protocol, "sedlfax protcol (DSS1 := 2)");
+module_param_array(layermask, uint, NULL, 0);
+MODULE_PARM_DESC(layermask, "sedlfax layer mask");
 #endif
 
 static char SpeedfaxName[] = "Speedfax";
@@ -993,7 +996,9 @@ static int __init Speedfax_init(void)
 #endif
 #endif
 #endif
+#if defined(CONFIG_PNP)
  out_unregister_pci:
+#endif
 	pci_unregister_driver(&sedlpci_driver);
  out:
  	return err;
