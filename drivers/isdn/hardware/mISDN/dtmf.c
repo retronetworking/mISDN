@@ -583,9 +583,10 @@ dtmf_manager(void *data, u_int prim, void *arg) {
 	}
 	switch(prim) {
 	    case MGR_CLRSTPARA | INDICATION:
-	    case MGR_CLONELAYER | REQUEST:
 		break;
 #ifdef OBSOLATE
+	    case MGR_CLONELAYER | REQUEST:
+		break;
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:

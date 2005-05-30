@@ -19,7 +19,10 @@
 
 /* debugging */
 #define DEBUG_CORE_FUNC		0x0001
-#define DEBUG_DUMMY_FUNC	0x0002
+//#define DEBUG_DUMMY_FUNC	0x0002
+#define DEBUG_MSG_THREAD_ERR	0x0010
+#define DEBUG_MSG_THREAD_INFO	0x0020
+#define DEBUG_QUEUE_FUNC	0x0040
 #define DEBUG_DEV_OP		0x0100
 #define DEBUG_MGR_FUNC		0x0200
 #define DEBUG_DEV_TIMER		0x0400
@@ -42,6 +45,7 @@ extern void		get_stack_info(struct sk_buff *);
 extern int		get_stack_cnt(void);
 extern mISDNstack_t	*get_stack4id(u_int);
 extern mISDNstack_t	*new_stack(mISDNstack_t *, mISDNinstance_t *);
+extern int		mISDN_start_stop(mISDNstack_t *, int);
 extern int		release_stack(mISDNstack_t *);
 extern int		do_for_all_layers(void *, u_int, void *);
 extern int		change_stack_para(mISDNstack_t *, u_int, mISDN_stPara_t *);

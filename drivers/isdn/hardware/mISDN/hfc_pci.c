@@ -1929,7 +1929,7 @@ hfcpci_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 		return(mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, ret, skb));
 	} else if ((hh->prim == (PH_DEACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_RELEASE | REQUEST)) ||
-		(hh->prim == (MGR_DISCONNECT | REQUEST))) {
+		((hh->prim == (PH_CONTROL | REQUEST) && (hh->dinfo == HW_DEACTIVATE)))) {
 		bch->inst.lock(hc, 0);
 		if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 			dev_kfree_skb(bch->next_skb);
@@ -1940,7 +1940,7 @@ hfcpci_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 		test_and_clear_bit(BC_FLG_ACTIV, &bch->Flag);
 		bch->inst.unlock(hc);
 		skb_trim(skb, 0);
-		if (hh->prim != (MGR_DISCONNECT | REQUEST)) {
+		if (hh->prim != (PH_CONTROL | REQUEST)) {
 #ifdef FIXME
 			if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_RAWDEV)
 				if (bch->dev)
@@ -2360,8 +2360,8 @@ HFC_manager(void *data, u_int prim, void *arg) {
 					dev_kfree_skb(skb);
 			}
 		} else {
-			if ((skb = create_link_skb(MGR_DISCONNECT | REQUEST,
-				0, 0, NULL, 0))) {
+			if ((skb = create_link_skb(PH_CONTROL | REQUEST,
+				HW_DEACTIVATE, 0, NULL, 0))) {
 				if (hfcpci_l2l1(inst, skb))
 					dev_kfree_skb(skb);
 			}
@@ -2574,6 +2574,7 @@ static int __init HFC_init(void)
 			}
 			dst = card->dch.inst.st;
 		}
+		HFC_obj.ctrl(dst, MGR_STOPSTACK | REQUEST, NULL);
 		for (i = 0; i < 2; i++) {
 			if ((err = HFC_obj.ctrl(dst,
 				MGR_NEWSTACK | REQUEST, &card->bch[i].inst))) {
@@ -2609,6 +2610,7 @@ static int __init HFC_init(void)
 				err = 0;
 			return(err);
 		}
+		HFC_obj.ctrl(dst, MGR_STARTSTACK | REQUEST, NULL);
 		HFC_obj.ctrl(dst, MGR_CTRLREADY | INDICATION, NULL);
 	}
 	printk(KERN_INFO "HFC %d cards installed\n", HFC_cnt);

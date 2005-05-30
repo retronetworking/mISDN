@@ -1300,9 +1300,9 @@ dte_manager(void *data, u_int prim, void *arg) {
 	    	}
 	    	break;
 	    case MGR_CLRSTPARA | INDICATION:
+#ifdef OBSOLATE
 	    case MGR_CLONELAYER | REQUEST:
 		break;
-#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:

@@ -578,6 +578,10 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		return(release_stack(st));
 	    case MGR_SELCHANNEL | REQUEST:
 		return(sel_channel(st, arg));
+	    case MGR_STOPSTACK | REQUEST:
+		return(mISDN_start_stop(st, 0));
+	    case MGR_STARTSTACK | REQUEST:
+		return(mISDN_start_stop(st, 1));
 #ifdef FIXME
 	    case MGR_ADDIF | REQUEST:
 		return(add_if(data, prim, arg));

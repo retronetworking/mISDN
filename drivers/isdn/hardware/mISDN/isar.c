@@ -1645,7 +1645,7 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		return(mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, ret, skb));
 	} else if ((hh->prim == (PH_DEACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_RELEASE | REQUEST)) ||
-		(hh->prim == (MGR_DISCONNECT | REQUEST))) {
+		((hh->prim == (PH_CONTROL | REQUEST) && (hh->dinfo == HW_DEACTIVATE)))) {
 		bch->inst.lock(bch->inst.privat, 0);
 		if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 			dev_kfree_skb(bch->next_skb);
@@ -1656,7 +1656,7 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		test_and_clear_bit(BC_FLG_ACTIV, &bch->Flag);
 		bch->inst.unlock(bch->inst.privat);
 		skb_trim(skb, 0);
-		if (hh->prim != (MGR_DISCONNECT | REQUEST))
+		if (hh->prim != (PH_CONTROL | REQUEST))
 			if (!mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, 0, skb))
 				return(0);
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {

@@ -45,7 +45,9 @@ get_stack_info(struct sk_buff *skb)
 		}
 	} else
 		st = get_stack4id(hp->addr);
-	printk(KERN_DEBUG "%s: addr(%08x) st(%p)\n", __FUNCTION__, hp->addr, st);
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "%s: addr(%08x) st(%p) id(%08x)\n", __FUNCTION__, hp->addr, st,
+			st ? st->id : 0);
 	if (!st) {
 		hp->len = -ENODEV;
 		return;
@@ -60,6 +62,14 @@ get_stack_info(struct sk_buff *skb)
 			si->mgr = 0;
 		memcpy(&si->pid, &st->pid, sizeof(mISDN_pid_t));
 		memcpy(&si->para, &st->para, sizeof(mISDN_stPara_t));
+		if (st->clone)
+			si->clone = st->clone->id;
+		else
+			si->clone = 0;
+		if (st->master)
+			si->master = st->master->id;
+		else
+			si->master = 0;
 		si->instcnt = 0;
 		for (i = 0; i <= MAX_LAYER_NR; i++) {
 			if (st->i_array[i]) {
@@ -103,11 +113,13 @@ get_free_stackid(mISDNstack_t *mst, int flag)
 		while(id < CLONE_ID_MAX) {
 			found = 0;
 			id += CLONE_ID_INC;
-			list_for_each_entry(st, &mISDN_stacklist, list) {
+			st = mst->clone;
+			while (st) {
 				if (st->id == id) {
 					found++;
 					break;
 				}
+				st = st->clone;
 			}
 			if (!found)
 				return(id);
@@ -142,9 +154,19 @@ get_stack4id(u_int id)
 	list_for_each_entry(st, &mISDN_stacklist, list) {	
 		if (id == st->id)
 			return(st);
-		list_for_each_entry(cst, &st->childlist, list) {
-			if (cst->id == id)
-				return(cst);
+		if ((id & FLG_CHILD_STACK) && ((id & MASTER_ID_MASK) == st->id)) {
+			list_for_each_entry(cst, &st->childlist, list) {
+				if (cst->id == id)
+					return(cst);
+			}
+		}
+		if ((id & FLG_CLONE_STACK) && ((id & MASTER_ID_MASK) == st->id)) {
+			cst = st->clone;
+			while (cst) {
+				if (cst->id == id)
+					return(cst);
+				cst = cst->clone;
+			}
 		}
 	}
 	return(NULL);
@@ -172,19 +194,19 @@ get_nextlayer(mISDNstack_t *st, u_int addr)
 	mISDNinstance_t	*inst=NULL;
 	int		layer = addr & LAYER_ID_MASK;
 
-	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "%s: st(%08x) addr(%08x)\n", __FUNCTION__, st->id, addr);
-
 	if (!(addr & FLG_MSG_TARGET)) {
 		switch(addr & MSG_DIR_MASK) {
 			case FLG_MSG_DOWN:
 				if (addr & FLG_MSG_CLONED) {
-					
+					/* OK */
 				} else
 					layer -= LAYER_ID_INC;
 				break;
 			case FLG_MSG_UP:
-				layer += LAYER_ID_INC;
+				if (addr & FLG_MSG_CLONED) {
+					/* OK */
+				} else
+					layer += LAYER_ID_INC;
 				break;
 			case MSG_TO_OWNER:
 				break;
@@ -198,7 +220,9 @@ get_nextlayer(mISDNstack_t *st, u_int addr)
 		return(NULL);
 	}
 	inst = st->i_array[layer];
-	/* maybe more checks */
+	if (core_debug & DEBUG_QUEUE_FUNC)
+		printk(KERN_DEBUG "%s: st(%08x) addr(%08x) -> inst(%08x)\n",
+			__FUNCTION__, st->id, addr, inst ? inst->id : 0);
 	return(inst);
 }
 
@@ -304,7 +328,7 @@ mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 	mISDNstack_t	*st = inst->st;
 	u_int		id;
 
-	if (core_debug & DEBUG_CORE_FUNC)
+	if (core_debug & DEBUG_QUEUE_FUNC)
 		printk(KERN_DEBUG "%s(%08x, %x, prim(%x))\n", __FUNCTION__,
 			inst->id, aflag, hh->prim);
 	if (aflag & FLG_MSG_TARGET) {
@@ -314,24 +338,31 @@ mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 	}
 	if ((aflag & MSG_DIR_MASK) == FLG_MSG_DOWN) {
 		if (inst->parent) {
-			st = inst->parent->st;
-			id = id | FLG_MSG_CLONED;
+			inst = inst->parent;
+			st = inst->st;
+			id = (inst->id & INST_ID_MASK) | FLG_MSG_TARGET | FLG_MSG_CLONED | FLG_MSG_DOWN;
 		}
 	}
 	if (!st)
 		return(-EINVAL);
 	if (st->id == 0 || test_bit(mISDN_STACK_ABORT, &st->status))
 		return(-EBUSY);
+	if (inst->id == 0) { /* instance is not initialised */
+		if (!(aflag & FLG_MSG_TARGET)) {
+			id &= INST_ID_MASK;
+			id |= (st->id & INST_ID_MASK) | aflag | FLG_INSTANCE;
+		}
+	}
 	if (test_bit(mISDN_STACK_KILLED, &st->status))
 		return(-EBUSY);
-	if (test_bit(mISDN_STACK_STOPPED, &st->status))
-		return(-EBUSY);
 	if ((st->id & STACK_ID_MASK) != (id & STACK_ID_MASK)) {
-		int_errtxt("stack id not match st(%08x) id(%08x)", st->id, id);
+		int_errtxt("stack id not match st(%08x) id(%08x) inst(%08x) aflag(%08x) prim(%x)", 
+			st->id, id, inst->id, aflag, hh->prim);
 	}
 	hh->addr = id;
 	skb_queue_tail(&st->msgq, skb);
-	wake_up_interruptible(&st->workq);
+	if (!test_bit(mISDN_STACK_STOPPED, &st->status))
+		wake_up_interruptible(&st->workq);
 	return(0);
 }
 
@@ -363,12 +394,16 @@ mISDNStackd(void *data)
 	printk(KERN_DEBUG "mISDNStackd started for id(%08x)\n", st->id);
 	test_and_clear_bit(mISDN_STACK_INIT, &st->status);
 	for (;;) {
-		struct sk_buff	*skb;
+		struct sk_buff	*skb, *c_skb;
 		mISDN_head_t	*hh;
 
-		while ((skb = skb_dequeue(&st->msgq))) {
+		while ((!test_bit(mISDN_STACK_STOPPED, &st->status)) &&
+			((skb = skb_dequeue(&st->msgq)))) {
 			mISDNinstance_t	*inst;
 
+#ifdef MISDN_MSG_STATS
+			st->msg_cnt++;
+#endif
 			hh = mISDN_HEAD_P(skb);
 			if ((hh->addr & MSG_DIR_MASK) == MSG_BROADCAST) {
 				do_broadcast(st, skb);
@@ -376,19 +411,50 @@ mISDNStackd(void *data)
 			}
 			inst = get_nextlayer(st, hh->addr);
 			if (!inst) {
-				int_errtxt("%s: st(%08x) no instance for addr(%08x) prim(%x) dinfo(%x)", __FUNCTION__,
-					st->id, hh->addr, hh->prim, hh->dinfo);
+				if (core_debug & DEBUG_MSG_THREAD_ERR)
+					printk(KERN_DEBUG "%s: st(%08x) no instance for addr(%08x) prim(%x) dinfo(%x)\n",
+						__FUNCTION__, st->id, hh->addr, hh->prim, hh->dinfo);
 				dev_kfree_skb(skb);
 				continue;
 			}
+			if (inst->clone && ((hh->addr & MSG_DIR_MASK) == FLG_MSG_UP)) {
+				u_int	id = (inst->clone->id & INST_ID_MASK) | FLG_MSG_TARGET | FLG_MSG_CLONED | FLG_MSG_UP;
+
+#ifdef MISDN_MSG_STATS
+				st->clone_cnt++;
+#endif
+				c_skb = skb_copy(skb, GFP_KERNEL);
+				if (c_skb) {
+					if (core_debug & DEBUG_MSG_THREAD_INFO)
+						printk(KERN_DEBUG "%s: inst(%08x) msg clone msg to(%08x) caddr(%08x) prim(%x)\n",
+							__FUNCTION__, inst->id, inst->clone->id, id, hh->prim);
+					err = mISDN_queue_message(inst->clone, id, c_skb);
+					if (err) {
+						if (core_debug & DEBUG_MSG_THREAD_ERR)
+							printk(KERN_DEBUG "%s: clone instance(%08x) cannot queue msg(%08x) err(%d)\n",
+								__FUNCTION__, inst->clone->id, id, err);
+						dev_kfree_skb(c_skb);
+					}
+				} else {
+					printk(KERN_WARNING "%s OOM on msg cloning inst(%08x) caddr(%08x) prim(%x) len(%d)\n",
+						__FUNCTION__, inst->id, id, hh->prim, skb->len);
+				}
+			}
+			if (core_debug & DEBUG_MSG_THREAD_INFO)
+				printk(KERN_DEBUG "%s: inst(%08x) msg call addr(%08x) prim(%x)\n",
+					__FUNCTION__, inst->id, hh->addr, hh->prim);
 			if (!inst->function) {
-				int_errtxt("%s: instance(%08x) no function", __FUNCTION__, inst->id);
+				if (core_debug & DEBUG_MSG_THREAD_ERR)
+					printk(KERN_DEBUG "%s: instance(%08x) no function\n",
+						__FUNCTION__, inst->id);
 				dev_kfree_skb(skb);
 				continue;
 			}
 			err = inst->function(inst, skb);
 			if (err) {
-				int_errtxt("%s: instance(%08x)->function return(%d)", __FUNCTION__, inst->id, err);
+				if (core_debug & DEBUG_MSG_THREAD_ERR)
+					printk(KERN_DEBUG "%s: instance(%08x)->function return(%d)\n",
+						__FUNCTION__, inst->id, err);
 				dev_kfree_skb(skb);
 				continue;
 			}
@@ -397,8 +463,22 @@ mISDNStackd(void *data)
 			break;
 		if (st->notify != NULL)
 			up(st->notify);
-		interruptible_sleep_on(&st->workq);
+#ifdef MISDN_MSG_STATS
+		st->sleep_cnt++;
+#endif
+		wait_event_interruptible(st->workq, ((!skb_queue_empty(&st->msgq)) ||
+			test_bit(mISDN_STACK_ABORT, &st->status)));
+		if (test_bit(mISDN_STACK_STOPPED, &st->status)) {
+			wait_event_interruptible(st->workq, (!test_bit(mISDN_STACK_STOPPED, &st->status)));
+#ifdef MISDN_MSG_STATS
+			st->stopped_cnt++;
+#endif
+		}
 	}
+#ifdef MISDN_MSG_STATS
+	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) proceed %d msg %d clone %d sleep %d stopped\n",
+		st->id, st->msg_cnt, st->clone_cnt, st->sleep_cnt, st->stopped_cnt);
+#endif
 	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) killed now\n", st->id);
 	test_and_set_bit(mISDN_STACK_KILLED, &st->status);
 	discard_queue(&st->msgq);
@@ -421,6 +501,7 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 		return(NULL);
 	}
 	memset(newst, 0, sizeof(mISDNstack_t));
+	INIT_LIST_HEAD(&newst->list);
 	INIT_LIST_HEAD(&newst->childlist);
 	INIT_LIST_HEAD(&newst->prereg);
 	init_waitqueue_head(&newst->workq);
@@ -428,7 +509,13 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 	test_and_set_bit(mISDN_STACK_INIT, &newst->status);
 	if (!master) {
 		if (inst && inst->st) {
+			master = inst->st;
+			while(master->clone)
+				master = master->clone;
 			newst->id = get_free_stackid(inst->st, FLG_CLONE_STACK);
+			newst->master = master;
+			master->clone = newst;
+			master = NULL;
 		} else {
 			newst->id = get_free_stackid(NULL, 0);
 		}
@@ -438,17 +525,30 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 	newst->mgr = inst;
 	if (master) {
 		list_add_tail(&newst->list, &master->childlist);
-	} else {
+	} else if (!(newst->id & FLG_CLONE_STACK)) {
 		list_add_tail(&newst->list, &mISDN_stacklist);
 	}
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "Stack id %x added\n", newst->id);
-	if (inst)
+	if (inst) {
 		inst->st = newst;
+	}
 	kernel_thread(mISDNStackd, (void *)newst, 0);	
 	return(newst);
 }
 
+int
+mISDN_start_stop(mISDNstack_t *st, int start)
+{
+	int	ret;
+
+	if (start) {
+		ret = test_and_clear_bit(mISDN_STACK_STOPPED, &st->status);
+		wake_up_interruptible(&st->workq);
+	} else
+		ret = test_and_set_bit(mISDN_STACK_STOPPED, &st->status);
+	return(ret);
+}
 
 static int
 release_layers(mISDNstack_t *st, u_int prim)
@@ -546,7 +646,7 @@ delete_stack(mISDNstack_t *st)
 	if (st->thread) {
 		st->notify = &sem;
 		test_and_set_bit(mISDN_STACK_ABORT, &st->status);
-		wake_up_interruptible(&st->workq);
+		mISDN_start_stop(st, 1);
 		down(&sem);
 		st->notify = NULL;
 	}
@@ -572,7 +672,15 @@ release_stack(mISDNstack_t *st) {
 			return(err);
 		}
 	}
-
+	if (st->clone) {
+		st->clone->master = st->master;
+	}
+	if (st->master) {
+		st->master->clone = st->clone;
+	} else if (st->clone) { /* no master left -> delete clone too */
+		delete_stack(st->clone);
+		st->clone = NULL;
+	}
 	if ((err = delete_stack(st)))
 		return(err);
 
@@ -745,6 +853,19 @@ unregister_instance(mISDNinstance_t *inst) {
 		if (inst->st && (inst->st->mgr != inst))
 			inst->st = NULL;
 	}
+	if (inst->parent) { /*we are cloned */
+		inst->parent->clone = inst->clone;
+		if (inst->clone)
+			inst->clone->parent = inst->parent;
+		inst->clone = NULL;
+		inst->parent = NULL;
+	} else if (inst->clone) {
+		/* deleting the top level master of a clone */
+		/* FIXME: should be handled somehow, maybe unregister the clone */
+		int_errtxt("removed master(%08x) of clone(%08x)", inst->id, inst->clone->id);
+		inst->clone->parent = NULL;
+		inst->clone = NULL;
+	}
 	if (inst->list.prev && inst->list.next)
 		list_del_init(&inst->list);
 	else
@@ -762,7 +883,7 @@ copy_pid(mISDN_pid_t *dpid, mISDN_pid_t *spid, u_char *pbuf)
 	u_int	i, off;
 
 	memcpy(dpid, spid, sizeof(mISDN_pid_t));
-	if (spid->pbuf) {
+	if (spid->pbuf && spid->maxplen) {
 		if (!pbuf) {
 			int_error();
 			return(-ENOMEM);

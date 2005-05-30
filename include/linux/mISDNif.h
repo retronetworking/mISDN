@@ -9,16 +9,6 @@
 #include <linux/types.h>
 #include <linux/errno.h>
 
-/* primitives for information exchange
- * generell format
- * <8 bit reserved>
- * <4 bit flags>
- * <4 bit layer>
- * <8 bit command>
- * <8 bit subcommand>
- *
- */
- 
 /*
  * ABI Version 32 bit
  *
@@ -36,6 +26,19 @@
 #define MISDN_REVISION		"$Revision$"
 #define MISDN_DATE		"$Date$"
 
+/* collect some statistics about the message queues */
+#define MISDN_MSG_STATS
+
+/* primitives for information exchange
+ * generell format
+ * <8 bit reserved>
+ * <4 bit flags>
+ * <4 bit layer>
+ * <8 bit command>
+ * <8 bit subcommand>
+ *
+ */
+ 
 /* SUBCOMMANDS */
 #define REQUEST		0x80
 #define CONFIRM		0x81
@@ -66,15 +69,17 @@
 #define MGR_GETLAYERID	0x0f2200
 #define MGR_NEWLAYER	0x0f2300
 #define MGR_DELLAYER	0x0f2400
-#define MGR_CLONELAYER	0x0f2500
+//#define MGR_CLONELAYER	0x0f2500
 //#define MGR_GETIF	0x0f3100
 //#define MGR_CONNECT	0x0f3200
-#define MGR_DISCONNECT	0x0f3300
+//#define MGR_DISCONNECT	0x0f3300
 //#define MGR_SETIF	0x0f3400
 //#define MGR_ADDIF	0x0f3500
 //#define MGR_QUEUEIF	0x0f3600
 #define MGR_CTRLREADY	0x0f4100
 #define MGR_STACKREADY	0x0f4200
+#define MGR_STOPSTACK	0x0f4300
+#define MGR_STARTSTACK	0x0f4400
 #define MGR_RELEASE	0x0f4500
 #define MGR_GETDEVICE	0x0f5100
 #define MGR_DELDEVICE	0x0f5200
@@ -498,15 +503,16 @@
 #define CHANNEL_EXT_PCM	0x01000000
 #define CHANNEL_EXT_REV	0x02000000
 
-/* interface extentions */
+/* instance/stack extentions */
 #define EXT_STACK_CLONE 0x00000001
 #define EXT_INST_CLONE	0x00000100
 #define EXT_INST_MGR	0x00000200
 #define EXT_INST_MIDDLE	0x00000400
-#define EXT_IF_CHAIN	0x00010000
-#define EXT_IF_EXCLUSIV	0x00020000
-#define EXT_IF_CREATE	0x00040000
-#define EXT_IF_SPLIT	0x00080000
+#define EXT_INST_UNUSED 0x00000800
+//#define EXT_IF_CHAIN	0x00010000
+//#define EXT_IF_EXCLUSIV	0x00020000
+//#define EXT_IF_CREATE	0x00040000
+//#define EXT_IF_SPLIT	0x00080000
 
 /* stack status flag (bit position) */
 #define mISDN_STACK_INIT	0
@@ -580,6 +586,8 @@ typedef struct _stack_info {
 	mISDN_stPara_t	para;
 	u_int		extentions;
 	u_int		mgr;
+	u_int		master;
+	u_int		clone;
 	int		instcnt;
 	int		inst[MAX_LAYER_NR +1];
 	int		childcnt;
@@ -592,6 +600,8 @@ typedef struct _layer_info {
 	int		extentions;
 	u_int		id;
 	u_int		st;
+	u_int		clone;
+	u_int		parent;
 	mISDN_pid_t	pid;
 } layer_info_t;
 
@@ -765,9 +775,17 @@ struct _mISDNstack {
 	struct semaphore	*notify;
 	wait_queue_head_t	workq;
 	struct sk_buff_head	msgq;
+#ifdef MISDN_MSG_STATS
+	u_int			msg_cnt;
+	u_int			sleep_cnt;
+	u_int			clone_cnt;
+	u_int			stopped_cnt;
+#endif
 	mISDNinstance_t		*i_array[MAX_LAYER_NR + 1];
 	struct list_head	prereg;
 	mISDNinstance_t		*mgr;
+	mISDNstack_t		*master;
+	mISDNstack_t		*clone;
 	struct list_head	childlist;
 };
 

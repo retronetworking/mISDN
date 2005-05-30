@@ -2313,7 +2313,7 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 	nl3->dummy->l3 = nl3;
 	nl3->dummy->t303skb = NULL;
 	L3InitTimer(nl3->dummy, &nl3->dummy->timer);
-	sprintf(nl3->inst.name, "DSS1 %d", st->id);
+	sprintf(nl3->inst.name, "DSS1 %x", st->id >> 8);
 	nl3->p_mgr = dss1man;
 	list_add_tail(&nl3->list, &u_dss1.ilist);
 	err = u_dss1.ctrl(&nl3->inst, MGR_NEWENTITY | REQUEST, NULL);
@@ -2354,7 +2354,7 @@ udss1_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t *inst = data;
 	layer3_t *l3l;
 
-	if (debug & 0x1000)
+	if (debug & MISDN_DEBUG_MANAGER)
 		printk(KERN_DEBUG "udss1_manager data:%p prim:%x arg:%p\n", data, prim, arg);
 	if (!data)
 		return(-EINVAL);
@@ -2391,7 +2391,7 @@ udss1_manager(void *data, u_int prim, void *arg) {
 #endif
 	    case MGR_RELEASE | INDICATION:
 	    case MGR_UNREGLAYER | REQUEST:
-	    	if (debug & 0x1000)
+	    	if (debug & MISDN_DEBUG_MANAGER)
 			printk(KERN_DEBUG "release_udss1 id %x\n", l3l->inst.st->id);
 	    	release_udss1(l3l);
 	    	break;

@@ -543,8 +543,8 @@ setup_speedfax(sedl_fax *sf)
 	sf->bch[1].Write_Reg = &WriteISAR;
 	lock_dev(sf, 0);
 #ifdef SPIN_DEBUG
-	printk(KERN_ERR "spin_lock_adr=%p now(%p)\n", &sf->lock.spin_adr, sf->lock.spin_adr);
-	printk(KERN_ERR "busy_lock_adr=%p now(%p)\n", &sf->lock.busy_adr, sf->lock.busy_adr);
+	printk(KERN_DEBUG "spin_lock_adr=%p now(%p)\n", &sf->lock.spin_adr, sf->lock.spin_adr);
+	printk(KERN_DEBUG "busy_lock_adr=%p now(%p)\n", &sf->lock.busy_adr, sf->lock.busy_adr);
 #endif
 	writereg(sf->addr, sf->isar, ISAR_IRQBIT, 0);
 	writereg(sf->addr, sf->isac, ISAC_MASK, 0xFF);
@@ -606,8 +606,9 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	int		channel = -1;
 	struct sk_buff	*skb;
 
-	printk(KERN_DEBUG "%s: data:%p prim:%x arg:%p\n",
-		__FUNCTION__, data, prim, arg);
+	if (debug & MISDN_DEBUG_MANAGER)
+		printk(KERN_DEBUG "%s: data:%p prim:%x arg:%p\n",
+			__FUNCTION__, data, prim, arg);
 	if (!data) {
 		MGR_HASPROTOCOL_HANDLER(prim,arg,&speedfax)
 		printk(KERN_ERR "speedfax_manager no data prim %x arg %p\n",
@@ -641,22 +642,17 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			bch_set_para(&card->bch[channel], &inst->st->para);
 		break;
 	    case MGR_UNREGLAYER | REQUEST:
-		if (channel == 2) {
-//			inst->down.fdata = &card->dch;
-			if ((skb = create_link_skb(PH_CONTROL | REQUEST,
-				HW_DEACTIVATE, 0, NULL, 0))) {
+		if ((skb = create_link_skb(PH_CONTROL | REQUEST,
+			HW_DEACTIVATE, 0, NULL, 0))) {
+			if (channel == 2) {
 				if (mISDN_ISAC_l1hw(inst, skb))
 					dev_kfree_skb(skb);
-			}
-		} else {
-//			inst->down.fdata = &card->bch[channel];
-			if ((skb = create_link_skb(MGR_DISCONNECT | REQUEST,
-				0, 0, NULL, 0))) {
+			} else {
 				if (isar_down(inst, skb))
 					dev_kfree_skb(skb);
 			}
-		}
-//		speedfax.ctrl(inst->up.peer, MGR_DISCONNECT | REQUEST, &inst->up);
+		} else
+			printk(KERN_WARNING "no SKB in %s MGR_UNREGLAYER | REQUEST\n", __FUNCTION__);
 		speedfax.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 		break;
 	    case MGR_CLRSTPARA | INDICATION:
@@ -774,6 +770,7 @@ static int __devinit setup_instance(sedl_fax *card)
 		release_card(card);
 		return(err);
 	}
+	speedfax.ctrl(card->dch.inst.st, MGR_STOPSTACK | REQUEST, NULL);
 	for (i=0; i<2; i++) {
 		err = speedfax.ctrl(card->dch.inst.st, MGR_NEWSTACK | REQUEST, &card->bch[i].inst);
 		if (err) {
@@ -793,6 +790,7 @@ static int __devinit setup_instance(sedl_fax *card)
 		speedfax.ctrl(card->dch.inst.st, MGR_DELSTACK | REQUEST, NULL);
 		return(err);
 	}
+	speedfax.ctrl(card->dch.inst.st, MGR_STARTSTACK | REQUEST, NULL);
 	printk(KERN_INFO "SpeedFax %d cards installed\n", sedl_cnt);
 	return(0);
 }

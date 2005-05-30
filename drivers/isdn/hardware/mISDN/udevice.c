@@ -375,13 +375,13 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 	devicelayer_t	*nl;
 	mISDNobject_t	*obj;
 	mISDNinstance_t *inst = NULL;
-	mISDN_head_t		*hp;
+	mISDN_head_t	*hp;
 
 	hp = mISDN_HEAD_P(skb);
 	linfo = (layer_info_t *)skb->data;
 	if (!(st = get_stack4id(linfo->st))) {
 		/* should be changed */
-		int_error();
+		printk(KERN_WARNING "%s: no stack found for id(%08x)\n", __FUNCTION__, linfo->st);
 		return(-ENODEV);
 	}
 	if (linfo->object_id != -1) {
@@ -402,7 +402,64 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 			printk(KERN_WARNING "%s: no inst found\n", __FUNCTION__);
 			return(-EINVAL);
 		}
-	} else if ((inst = getlayer4lay(st, linfo->pid.layermask))) {
+	} else if (linfo->extentions & EXT_INST_CLONE) {
+		mISDN_pid_t	*pid;
+
+		inst = get_instance4id(linfo->parent);
+		if (!inst) {
+			printk(KERN_WARNING "%s: no parent inst found\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		if (!(inst->extentions & EXT_INST_CLONE)) {
+			printk(KERN_WARNING "%s: inst(%08x) ext(%x) is not cloneable\n",
+				__FUNCTION__, inst->id, inst->extentions);
+			return(-ENOSYS);
+		}
+		for(i=0; i<=MAX_LAYER_NR; i++)
+			if (!st->i_array[i])
+				break;
+		if (i > MAX_LAYER_NR) {
+			printk(KERN_WARNING "%s: no free instance slot in stack id(%08x)\n",
+				__FUNCTION__, st->id);
+			return(-EBUSY);
+		}
+		pid = kmalloc(sizeof(mISDN_pid_t), GFP_ATOMIC);
+		if (!pid) {
+			printk(KERN_ERR "kmalloc pid failed\n");
+			return(-ENOMEM);
+		}
+		memset(pid, 0, sizeof(mISDN_pid_t));
+		if (inst->pid.pbuf && inst->pid.maxplen) {
+			pid->pbuf = kmalloc(inst->pid.maxplen, GFP_ATOMIC);
+			if (!pid->pbuf) {
+				kfree(pid);
+				printk(KERN_ERR "kmalloc pid->pbuf failed\n");
+				return(-ENOMEM);
+			}
+			memset(pid->pbuf, 0, inst->pid.maxplen);
+		}
+		copy_pid(pid, &inst->pid, pid->pbuf);
+		ret = inst->obj->own_ctrl(st, MGR_NEWLAYER | REQUEST, pid);
+		if (pid->pbuf)
+			kfree(pid->pbuf);
+		kfree(pid);
+		if (ret) {
+			printk(KERN_WARNING "%s: MGR_NEWLAYER | REQUEST for clone returns %d\n", __FUNCTION__, ret);
+			return(ret);
+		}
+		if (!st->i_array[i]) {
+			int_error();
+			return(-EINVAL);
+		} else {
+			while (inst->clone)
+				inst = inst->clone;
+			inst->clone = st->i_array[i];
+			st->i_array[i]->parent = inst;
+			inst = st->i_array[i];
+		}	
+	}
+#if 0
+	else if ((inst = getlayer4lay(st, linfo->pid.layermask))) {
 		if (!(linfo->extentions & EXT_INST_MIDDLE)) {
 			printk(KERN_WARNING
 				"mISDN create_layer st(%x) LM(%x) inst not empty(%08x)\n",
@@ -410,12 +467,15 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 			return(-EBUSY);
 		}
 	}
+#endif
 	if (!(nl = kmalloc(sizeof(devicelayer_t), GFP_ATOMIC))) {
 		printk(KERN_ERR "kmalloc devicelayer failed\n");
 		return(-ENOMEM);
 	}
 	memset(nl, 0, sizeof(devicelayer_t));
-	if (st)
+	if (inst)
+		nl->id = get_new_devicelayer_id(dev, inst->id);
+	else if (st)
 		nl->id = get_new_devicelayer_id(dev, st->id);
 	else
 		nl->id = get_new_devicelayer_id(dev, 0);
@@ -426,36 +486,39 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 	}
 	if (device_debug & DEBUG_MGR_FUNC)
 		printk(KERN_DEBUG
-			"mISDN create_layer LM(%x) nl(%p:%08x) nl inst(%p)\n",
-			linfo->pid.layermask, nl, nl->id, &nl->inst);
+			"mISDN create_layer LM(%x) nl(%p:%08x) nl->inst(%p) inst(%p)\n",
+			linfo->pid.layermask, nl, nl->id, &nl->inst, inst);
 	nl->dev = dev;
-	mISDN_init_instance(&nl->inst, &udev_obj, nl, from_up_down);
-	memcpy(&nl->inst.pid, &linfo->pid, sizeof(mISDN_pid_t));
-	strcpy(nl->inst.name, linfo->name);
-	nl->inst.extentions = linfo->extentions;
-	for (i=0; i<= MAX_LAYER_NR; i++) {
-		if (linfo->pid.layermask & ISDN_LAYER(i)) {
-			if (st && (st->pid.protocol[i] == ISDN_PID_NONE)) {
-				st->pid.protocol[i] = linfo->pid.protocol[i];
-				nl->lm_st |= ISDN_LAYER(i);
+	list_add_tail(&nl->list, &dev->layerlist);
+	if (!inst) {
+		mISDN_init_instance(&nl->inst, &udev_obj, nl, from_up_down);
+		memcpy(&nl->inst.pid, &linfo->pid, sizeof(mISDN_pid_t));
+		strcpy(nl->inst.name, linfo->name);
+		nl->inst.extentions = linfo->extentions;
+		for (i=0; i<= MAX_LAYER_NR; i++) {
+			if (linfo->pid.layermask & ISDN_LAYER(i)) {
+				if (st && (st->pid.protocol[i] == ISDN_PID_NONE)) {
+					st->pid.protocol[i] = linfo->pid.protocol[i];
+					nl->lm_st |= ISDN_LAYER(i);
+				}
 			}
 		}
+		if (st && (linfo->extentions & EXT_INST_MGR)) {
+			st->mgr = &nl->inst;
+			test_and_set_bit(FLG_MGR_OWNSTACK, &nl->Flags);
+		}
+		if (st)
+			nl->inst.obj->ctrl(st, MGR_ADDLAYER | REQUEST, &nl->inst);
+	} else {
+		nl->slave = inst;
+		nl->inst.extentions |= EXT_INST_UNUSED;
 	}
-	if (st && (linfo->extentions & EXT_INST_MGR)) {
-		st->mgr = &nl->inst;
-		test_and_set_bit(FLG_MGR_OWNSTACK, &nl->Flags);
-	}
-	list_add_tail(&nl->list, &dev->layerlist);
-	if (st)
-		nl->inst.obj->ctrl(st, MGR_ADDLAYER | REQUEST, &nl->inst);
 	skb_trim(skb, 0);
 	memcpy(skb_put(skb, sizeof(nl->id)), &nl->id, sizeof(nl->id));
-	if (inst) {
-		nl->slave = inst;
+	if (inst)
 		memcpy(skb_put(skb, sizeof(inst->id)), &inst->id, sizeof(inst->id));
-	} else {
+	else
 		memset(skb_put(skb, sizeof(nl->id)), 0, sizeof(nl->id));
-	}
 	return(8);
 }
 
@@ -521,7 +584,9 @@ del_layer(devicelayer_t *dl)
 	}
 	dl->id = 0;
 	list_del(&dl->list);
-	udev_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
+	if (!(inst->extentions & EXT_INST_UNUSED)) {
+		udev_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
+	}
 	if (test_and_clear_bit(FLG_MGR_OWNSTACK, &dl->Flags)) {
 		if (dl->inst.st) {
 			del_stack(get_devstack(dev, dl->inst.st->id));
@@ -531,6 +596,7 @@ del_layer(devicelayer_t *dl)
 	return(0);
 }
 
+#ifdef OBSOLATE
 static mISDNinstance_t *
 clone_instance(devicelayer_t *dl, mISDNstack_t  *st, mISDNinstance_t *peer)
 {
@@ -556,7 +622,6 @@ clone_instance(devicelayer_t *dl, mISDNstack_t  *st, mISDNinstance_t *peer)
 	return(dl->slave);
 }
 
-#ifdef OBSOLATE
 static int
 remove_if(devicelayer_t *dl, int stat) {
 	mISDNif_t *hif,*phif,*shif;
@@ -1046,6 +1111,10 @@ get_layer_info(struct sk_buff *skb)
 	li->id = inst->id;
 	if (inst->st)
 		li->st = inst->st->id;
+	if (inst->parent)
+		li->parent = inst->parent->id;
+	if (inst->clone)
+		li->clone = inst->clone->id;		
 	memcpy(&li->pid, &inst->pid, sizeof(mISDN_pid_t));
 	hp->len = sizeof(layer_info_t);
 	skb_put(skb, hp->len);

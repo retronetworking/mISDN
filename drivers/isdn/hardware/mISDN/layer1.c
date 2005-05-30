@@ -648,7 +648,7 @@ new_l1(mISDNstack_t *st, mISDN_pid_t *pid) {
 	}
 	switch(pid->protocol[1]) {
 	    case ISDN_PID_L1_TE_S0:
-	    	sprintf(nl1->inst.name, "l1TES0 %d", st->id);
+	    	sprintf(nl1->inst.name, "l1TES0 %x", st->id >> 8);
 		nl1->l1m.fsm = &l1fsm_s;
 		nl1->l1m.state = ST_L1_F3;
 		nl1->Flags = 0;

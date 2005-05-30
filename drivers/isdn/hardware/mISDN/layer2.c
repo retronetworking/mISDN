@@ -187,10 +187,12 @@ l2down_create(layer2_t *l2, u_int prim, int dinfo, int len, void *arg)
 	return(err);
 }
 
+#ifdef OBSOLATE
 static int
 l2_chain_down(mISDNinstance_t *inst, struct sk_buff *skb) {
 	return(l2down_raw(inst->privat, skb));
 }
+#endif
 
 static int
 ph_data_confirm(mISDNinstance_t *inst, mISDN_head_t *hh, struct sk_buff *skb) {
@@ -1833,15 +1835,24 @@ ph_data_indication(layer2_t *l2, mISDN_head_t *hh, struct sk_buff *skb) {
 		}
 		psapi >>= 2;
 		ptei >>= 1;
-		if ((psapi != l2->sapi) && (psapi != TEI_SAPI))
-			return(ret);
+		if ((psapi != l2->sapi) && (psapi != TEI_SAPI)) {
+			/* not our bussiness */
+			printk(KERN_DEBUG "%s: sapi %d/%d sapi mismatch\n", __FUNCTION__,
+				psapi, l2->sapi);
+			dev_kfree_skb(skb);
+			return(0);
+		}
 		if (ptei == GROUP_TEI) {
 			if (psapi == TEI_SAPI) {
 				hh->prim = MDL_UNITDATA | INDICATION;
 				return(l2_tei(l2->tm, skb));
 			}
 		} else if ((ptei != l2->tei) || (psapi == TEI_SAPI)) {
-			return(ret);
+			/* not our bussiness */
+			printk(KERN_DEBUG "%s: tei %d/%d sapi %d mismatch\n", __FUNCTION__,
+				ptei, l2->tei, psapi);
+			dev_kfree_skb(skb);
+			return(0);
 		}
 	} else
 		datap += l;
@@ -1966,6 +1977,8 @@ static int
 l2from_up(layer2_t *l2, struct sk_buff *skb, mISDN_head_t *hh) {
 	int		ret = -EINVAL;
 
+	if (hh->addr & FLG_MSG_CLONED)
+		return(l2down_raw(l2, skb));
 	switch (hh->prim) {
 		case (DL_DATA | REQUEST):
 			ret = mISDN_FsmEvent(&l2->l2m, EV_L2_DL_DATA, skb);
@@ -2135,7 +2148,7 @@ release_l2(layer2_t *l2)
 }
 
 static int
-new_l2(mISDNstack_t *st, mISDN_pid_t *pid, layer2_t **newl2) {
+new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
 	layer2_t *nl2;
 	int err;
 	u_char *p;
@@ -2160,7 +2173,7 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid, layer2_t **newl2) {
 	}
 	switch(pid->protocol[2] & ~ISDN_PID_FEATURE_MASK) {
 	    case ISDN_PID_L2_LAPD_NET:
-	    	sprintf(nl2->inst.name, "lapdn %x", st->id);
+	    	sprintf(nl2->inst.name, "lapdn %x", st->id>>8);
 		test_and_set_bit(FLG_LAPD, &nl2->flag);
 		test_and_set_bit(FLG_LAPD_NET, &nl2->flag);
 		test_and_set_bit(FLG_FIXED_TEI, &nl2->flag);
@@ -2178,7 +2191,7 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid, layer2_t **newl2) {
 		}
 		break;
 	    case ISDN_PID_L2_LAPD:
-	    	sprintf(nl2->inst.name, "lapd %x", st->id);
+	    	sprintf(nl2->inst.name, "lapd %x", st->id>>8);
 		test_and_set_bit(FLG_LAPD, &nl2->flag);
 		test_and_set_bit(FLG_MOD128, &nl2->flag);
 		test_and_set_bit(FLG_ORIG, &nl2->flag);
@@ -2201,7 +2214,7 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid, layer2_t **newl2) {
 		break;
 	    case ISDN_PID_L2_B_X75SLP:
 		test_and_set_bit(FLG_LAPB, &nl2->flag);
-		sprintf(nl2->inst.name, "lapb %x", st->id);
+		sprintf(nl2->inst.name, "lapb %x", st->id >> 8);
 		nl2->window = 7;
 		nl2->maxlen = MAX_DATA_SIZE;
 		nl2->T200 = 1000;
@@ -2272,11 +2285,10 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid, layer2_t **newl2) {
 		stp.down_headerlen = l2headersize(nl2, 0);
 		isdnl2.ctrl(st, MGR_ADDSTPARA | REQUEST, &stp);
 	}
-	if (newl2)
-		*newl2 = nl2;
 	return(err);
 }
 
+#ifdef OBSOLATE
 static int
 clone_l2(layer2_t *l2, mISDNinstance_t **new_ip) {
 	int err;
@@ -2295,7 +2307,6 @@ clone_l2(layer2_t *l2, mISDNinstance_t **new_ip) {
 		printk(KERN_ERR "clone l2 failed err(%d)\n", err);
 		return(err);
 	}
-#ifdef FIXME
 	nl2->cloneif = nif;
 	nif->func = l2from_down;
 	nif->fdata = nl2;
@@ -2311,10 +2322,10 @@ clone_l2(layer2_t *l2, mISDNinstance_t **new_ip) {
 	nl2->inst.down.func = l2_chain_down;
 	nl2->inst.down.fdata = l2;
 	nl2->inst.down.stat = IF_UP;
-#endif
 	*new_ip = &nl2->inst;
 	return(err);
 }
+#endif
 
 static int
 l2_status(layer2_t *l2, status_info_l2_t *si)
@@ -2383,7 +2394,7 @@ l2_manager(void *data, u_int prim, void *arg) {
 		}
 	}
 	if (prim == (MGR_NEWLAYER | REQUEST))
-		return(new_l2(data, arg, NULL));
+		return(new_l2(data, arg));
 	if (err) {
 		if (debug & 0x1)
 			printk(KERN_WARNING "l2_manager prim(%x) l2 no instance\n", prim);
@@ -2398,9 +2409,9 @@ l2_manager(void *data, u_int prim, void *arg) {
 		    	l2l->maxlen = ((mISDN_stPara_t *)arg)->maxdatalen;
 	    case MGR_CLRSTPARA | INDICATION:
 		break;
+#ifdef OBSOLATE
 	    case MGR_CLONELAYER | REQUEST:
 		return(clone_l2(l2l, arg));
-#ifdef OBSOLATE
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:

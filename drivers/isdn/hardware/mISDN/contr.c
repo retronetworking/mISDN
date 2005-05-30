@@ -577,9 +577,8 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 		ControllerDestr(contr);
 		return -ENOMEM;
 	}
-	// FIXME ???
-	contr->addr = st->id;
-	sprintf(contr->inst.name, "CAPI %d", st->id);
+	contr->addr = (st->id >> 8) & 0xff;
+	sprintf(contr->inst.name, "CAPI %d", contr->addr);
 	mISDN_init_instance(&contr->inst, ocapi, contr, ControllerL3L4);
 	if (!mISDN_SetHandledPID(ocapi, &contr->inst.pid)) {
 		int_error();
@@ -613,14 +612,14 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 	{
 		char	tmp[10];
 
-		sprintf(tmp, "mISDN%d", st->id);
+		sprintf(tmp, "mISDN%d", (st->id >> 8) & 0xff);
 		contr->ctrl = cdrv_if->attach_ctr(&mISDN_driver, tmp, contr);
 		if (!contr->ctrl)
 			retval = -ENODEV;
 	}
 #else
 	contr->ctrl->owner = THIS_MODULE;
-	sprintf(contr->ctrl->name, "mISDN%d", st->id);
+	sprintf(contr->ctrl->name, "mISDN%d", contr->addr);
 	contr->ctrl->driver_name = "mISDN";
 	contr->ctrl->driverdata = contr;
 	contr->ctrl->register_appl = RegisterApplication;
@@ -633,6 +632,8 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 	retval = attach_capi_ctr(contr->ctrl);
 #endif
 	if (!retval) {
+		printk(KERN_DEBUG "contr->addr(%02x) cnr(%02x) st(%08x)\n",
+			contr->addr, contr->ctrl->cnr, st->id);
 		contr->addr = contr->ctrl->cnr;
 		plciInit(contr);
 		ocapi->ctrl(st, MGR_REGLAYER | INDICATION, &contr->inst);
