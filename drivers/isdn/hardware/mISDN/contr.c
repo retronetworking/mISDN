@@ -232,15 +232,85 @@ SendMessage(struct capi_ctr *ctrl, struct sk_buff *skb)
 	Controller_t	*contr = ctrl->driverdata;
 	Application_t	*appl;
 	int		ApplId;
-	int		err;
+	int		err = CAPI_NOERROR;
+	u16		cmd;
+	AppPlci_t	*aplci;
+	Ncci_t		*ncci;
+	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
 
 	ApplId = CAPIMSG_APPID(skb->data);
 	appl = getApplication4Id(contr, ApplId);
 	if (!appl) {
 		int_error();
 		err = CAPI_ILLAPPNR;
-	} else
-		err = ApplicationSendMessage(appl, skb);
+		goto end;
+	}
+
+	hh->prim = CAPI_MESSAGE_REQUEST;
+	hh->dinfo = ApplId;
+	cmd = CAPICMD(CAPIMSG_COMMAND(skb->data), CAPIMSG_SUBCOMMAND(skb->data));
+	contrDebug(contr, CAPI_DBG_CONTR_MSG, "SendMessage: %s", 
+		capi_cmd2str(CAPIMSG_COMMAND(skb->data), CAPIMSG_SUBCOMMAND(skb->data)));
+	switch (cmd) {
+		// for NCCI state machine
+		case CAPI_DATA_B3_REQ:
+		case CAPI_DATA_B3_RESP:
+		case CAPI_CONNECT_B3_RESP:
+		case CAPI_CONNECT_B3_ACTIVE_RESP:
+		case CAPI_DISCONNECT_B3_REQ:
+		case CAPI_RESET_B3_REQ:
+		case CAPI_RESET_B3_RESP:
+			aplci = getAppPlci4addr(appl, CAPIMSG_CONTROL(skb->data));
+			if (!aplci) {
+				AnswerMessage2Application(appl, skb, CapiIllContrPlciNcci);
+				dev_kfree_skb(skb);
+				break;
+			}
+			ncci = getNCCI4addr(aplci, CAPIMSG_NCCI(skb->data), GET_NCCI_EXACT);
+			if ((!ncci) || (!ncci->link)) {
+				int_error();
+				AnswerMessage2Application(appl, skb, CapiIllContrPlciNcci);
+				dev_kfree_skb(skb);
+				break;
+			}
+			err = mISDN_queue_message(&ncci->link->inst, 0, skb);
+			if (err) {
+				int_errtxt("mISDN_queue_message return(%d)", err);
+				err = CAPI_MSGBUSY;
+			}
+			break;
+		// new NCCI
+		case CAPI_CONNECT_B3_REQ:
+		// maybe already down NCCI
+		case CAPI_DISCONNECT_B3_RESP:
+		// for PLCI state machine
+		case CAPI_INFO_REQ:
+		case CAPI_ALERT_REQ:
+		case CAPI_CONNECT_RESP:
+		case CAPI_CONNECT_ACTIVE_RESP:
+		case CAPI_DISCONNECT_REQ:
+		case CAPI_DISCONNECT_RESP:
+		case CAPI_SELECT_B_PROTOCOL_REQ:
+		// for LISTEN state machine
+		case CAPI_LISTEN_REQ:
+		// other
+		case CAPI_FACILITY_REQ:
+		case CAPI_FACILITY_RESP:
+		case CAPI_MANUFACTURER_REQ:
+		case CAPI_INFO_RESP:
+			err = mISDN_queue_message(&contr->inst, 0, skb);
+			if (err) {
+				int_errtxt("mISDN_queue_message return(%d)", err);
+				err = CAPI_MSGBUSY;
+			}
+			break;
+		default:
+			contrDebug(contr, CAPI_DBG_WARN, "SendMessage: %#x %#x not handled!", 
+				CAPIMSG_COMMAND(skb->data), CAPIMSG_SUBCOMMAND(skb->data));
+			err = CAPI_ILLCMDORSUBCMDORMSGTOSMALL;
+			break;
+	}
+end:
 #ifndef OLDCAPI_DRIVER_INTERFACE
 	return(err);
 #endif
@@ -470,8 +540,8 @@ SSProcess_t
 	return(sp);
 }
 
-int
-ControllerL3L4(mISDNinstance_t *inst, struct sk_buff *skb)
+static int
+Controller_function(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	Controller_t	*contr;
 	Plci_t		*plci;
@@ -482,7 +552,15 @@ ControllerL3L4(mISDNinstance_t *inst, struct sk_buff *skb)
 	contr = inst->privat;
 	contrDebug(contr, CAPI_DBG_CONTR_INFO, "%s: prim(%x) id(%x)",
 		__FUNCTION__, hh->prim, hh->dinfo);
-	if (hh->prim == (CC_NEW_CR | INDICATION)) {
+	if (hh->prim == CAPI_MESSAGE_REQUEST) {
+		Application_t	*appl = getApplication4Id(contr, hh->dinfo);
+		if (!appl) {
+			int_error();
+			return(ret);
+		}
+		ApplicationSendMessage(appl, skb);
+		return(0);
+	} else if (hh->prim == (CC_NEW_CR | INDICATION)) {
 		ret = ControllerNewPlci(contr, &plci, hh->dinfo);
 		if(!ret)
 			dev_kfree_skb(skb);
@@ -579,7 +657,7 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 	}
 	contr->addr = (st->id >> 8) & 0xff;
 	sprintf(contr->inst.name, "CAPI %d", contr->addr);
-	mISDN_init_instance(&contr->inst, ocapi, contr, ControllerL3L4);
+	mISDN_init_instance(&contr->inst, ocapi, contr, Controller_function);
 	if (!mISDN_SetHandledPID(ocapi, &contr->inst.pid)) {
 		int_error();
 		ControllerDestr(contr);

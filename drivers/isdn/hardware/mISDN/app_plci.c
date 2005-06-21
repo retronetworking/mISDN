@@ -818,7 +818,7 @@ plci_cc_disconnect_ind(struct FsmInst *fi, int event, void *arg)
 	if (aplci->appl->InfoMask & CAPI_INFOMASK_EARLYB3)
 		return;
 
-	AppPlciLinkDown(aplci);
+//	AppPlciLinkDown(aplci);
 	plciL4L3(aplci->plci, CC_RELEASE | REQUEST, NULL);
 }
 
@@ -1236,6 +1236,14 @@ PL_l3l4(mISDNinstance_t *inst, struct sk_buff *skb)
 	ncci = get_single_NCCI(aplci);
 	capidebug(CAPI_DBG_NCCI_L3, "%s: prim(%x) dinfo (%x) skb(%p) APLCI(%x) ncci(%p)",
 		__FUNCTION__, hh->prim, hh->dinfo, skb, aplci->addr, ncci);
+	if (hh->prim == CAPI_MESSAGE_REQUEST) {
+		if (!ncci) {
+			int_error();
+			return(-EINVAL);
+		}
+		ncciSendMessage(ncci, skb);
+		return(0);
+	}
 	if (!ncci) {
 		if ((hh->prim != (DL_ESTABLISH | INDICATION)) && (hh->prim != (DL_ESTABLISH | CONFIRM))) {
 			int_error();
@@ -1268,6 +1276,15 @@ PL_l3l4mux(mISDNinstance_t *inst, struct sk_buff *skb)
 	if (skb->len < 4) {
 		int_error();
 		return(-EINVAL);
+	}
+	if (hh->prim == CAPI_MESSAGE_REQUEST) {
+		ncci = getNCCI4addr(aplci, CAPIMSG_NCCI(skb->data), GET_NCCI_EXACT);
+		if (!ncci) {
+			int_error();
+			return(-EINVAL);
+		}
+		ncciSendMessage(ncci, skb);
+		return(0);
 	}
 	addr = CAPIMSG_U32(skb->data, 0);
 	ncci = getNCCI4addr(aplci, addr, GET_NCCI_ONLY_PLCI);
@@ -1704,17 +1721,53 @@ AppPlciSendMessage(AppPlci_t *aplci, struct sk_buff *skb)
 	return(ret);
 }
 
-int
+void
 ConnectB3Request(AppPlci_t *aplci, struct sk_buff *skb)
 {
 	Ncci_t	*ncci = ncciConstr(aplci);
+	int	err;
 
 	if (!ncci) {
 		int_error();
-		return(-ENOMEM);
+		dev_kfree_skb(skb);
+		return;
 	}
-	ncciSendMessage(ncci, skb);
-	return(0);
+	if (!ncci->link) {
+		int_error();
+		dev_kfree_skb(skb);
+		return;
+	}
+	err = mISDN_queue_message(&ncci->link->inst, 0, skb);
+	if (err) {
+		int_errtxt("mISDN_queue_message return(%d)", err);
+		dev_kfree_skb(skb);
+	}
+}
+
+void
+DisconnectB3Request(AppPlci_t *aplci, struct sk_buff *skb)
+{
+	Ncci_t	*ncci;
+	int	err;
+
+	ncci = getNCCI4addr(aplci, CAPIMSG_NCCI(skb->data), GET_NCCI_EXACT);
+	if ((!ncci) || (!ncci->link)) {
+		int_error();
+		if (aplci->appl)
+			AnswerMessage2Application(aplci->appl, skb, CapiIllContrPlciNcci);
+		dev_kfree_skb(skb);
+		return;
+	}
+	if (ncci->link->inst.id == 0) {
+		/* stack is already cleared and so we cannot handle this via the stack */
+		ncciSendMessage(ncci, skb);
+		return;
+	}
+	err = mISDN_queue_message(&ncci->link->inst, 0, skb);
+	if (err) {
+		int_errtxt("mISDN_queue_message return(%d)", err);
+		dev_kfree_skb(skb);
+	}
 }
 
 static int

@@ -328,7 +328,7 @@ int		ControllerNextId(Controller_t *);
 int		ApplicationConstr(Controller_t *, __u16, capi_register_params *);
 int		ApplicationDestr(Application_t *, int);
 void		ApplicationDebug(Application_t *appl, __u32 level, char *fmt, ...);
-__u16		ApplicationSendMessage(Application_t *appl, struct sk_buff *skb);
+void		ApplicationSendMessage(Application_t *appl, struct sk_buff *skb);
 void		SendCmsg2Application(Application_t *, _cmsg *);
 void		SendCmsgAnswer2Application(Application_t *, _cmsg *, __u16);
 void		AnswerMessage2Application(Application_t *, struct sk_buff *, __u16);
@@ -370,7 +370,8 @@ int	AppPlciFacSuspendReq(AppPlci_t *, FacReqParm_t *, FacConfParm_t *);
 int	AppPlciFacResumeReq(AppPlci_t *, FacReqParm_t *, FacConfParm_t *);
 void	AppPlciGetCmsg(AppPlci_t *, _cmsg *);
 Ncci_t	*getNCCI4addr(AppPlci_t *, __u32, int);
-int	ConnectB3Request(AppPlci_t *, struct sk_buff *);
+void	ConnectB3Request(AppPlci_t *, struct sk_buff *);
+void	DisconnectB3Request(AppPlci_t *, struct sk_buff *);
 int	AppPlcimISDN_Active(AppPlci_t *);
 
 #define	GET_NCCI_EXACT		1
@@ -385,7 +386,7 @@ Ncci_t	*ncciConstr(AppPlci_t *);
 void	ncciDestr(Ncci_t *);
 void	ncciApplRelease(Ncci_t *);
 void	ncciDelAppPlci(Ncci_t *);
-__u16	ncciSendMessage(Ncci_t *, struct sk_buff *);
+void	ncciSendMessage(Ncci_t *, struct sk_buff *);
 int	ncci_l3l4(Ncci_t *, mISDN_head_t *, struct sk_buff *);
 void	ncciGetCmsg(Ncci_t *, _cmsg *);
 int	ncci_l3l4_direct(Ncci_t *, mISDN_head_t *, struct sk_buff *);
