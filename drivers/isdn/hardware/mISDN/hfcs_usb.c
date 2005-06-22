@@ -20,12 +20,18 @@
  * along with this program; if not, write to the Free Software
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
+ * DISCLAIMER
+ *   This driver is for ISDN USB TAs with HFC-S USB chips only.
+ *   Please verify your TA's Vendor/Product IDs in the usb_device_id
+ *   list below to make sure your hardware is supported by this driver.
+ *   You might possibly have a device with the same device name
+ *   but different IDs which are not supported by this driver due to a
+ *   different chipset.
+ *
  * TODO
  *   - hotplug disconnect the USB TA does not unregister mISDN Controller
  *     /proc/capi/controller is still "ready"...
  *     --> use rmmod before disconnecting the TA
- *   - E channel features
- *   
  */
 
 #include <linux/config.h>
