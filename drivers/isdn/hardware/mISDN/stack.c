@@ -376,6 +376,34 @@ do_broadcast(mISDNstack_t *st, struct sk_buff *skb)
 	dev_kfree_skb(skb);
 }
 
+static void
+release_layers(mISDNstack_t *st, u_int prim)
+{
+	int	i;
+
+	for (i = 0; i <= MAX_LAYER_NR; i++) {
+		if (st->i_array[i]) {
+			if (core_debug & DEBUG_CORE_FUNC)
+				printk(KERN_DEBUG  "%s: st(%p) inst%d(%p):%x %s lm(%x)\n",
+					__FUNCTION__, st, i, st->i_array[i], st->i_array[i]->id,
+					st->i_array[i]->name, st->i_array[i]->pid.layermask);
+			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, NULL);
+		}
+	}
+}
+
+static void
+do_clear_stack(mISDNstack_t *st) {
+
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "%s: st(%08x)\n", __FUNCTION__, st->id);
+	if (st->pid.pbuf)
+		kfree(st->pid.pbuf);
+	memset(&st->pid, 0, sizeof(mISDN_pid_t));
+	memset(&st->para, 0, sizeof(mISDN_stPara_t));
+	release_layers(st, MGR_UNREGLAYER | REQUEST);
+}
+
 static int
 mISDNStackd(void *data)
 {
@@ -405,6 +433,22 @@ mISDNStackd(void *data)
 			st->msg_cnt++;
 #endif
 			hh = mISDN_HEAD_P(skb);
+			if (hh->prim == (MGR_CLEARSTACK | REQUEST)) {
+				mISDN_headext_t	*hhe = (mISDN_headext_t *)hh;
+
+				if (test_and_set_bit(mISDN_STACK_CLEARING, &st->status)) {
+					int_errtxt("double clearing");
+				} 
+				if (hhe->data[0]) {
+					if (st->notify) {
+						int_errtxt("notify already set");
+						up(st->notify);
+					}
+					st->notify = hhe->data[0];
+				}
+				dev_kfree_skb(skb);
+				continue;
+			}
 			if ((hh->addr & MSG_DIR_MASK) == MSG_BROADCAST) {
 				do_broadcast(st, skb);
 				continue;
@@ -459,10 +503,16 @@ mISDNStackd(void *data)
 				continue;
 			}
 		}
+		if (test_bit(mISDN_STACK_CLEARING, &st->status)) {
+			do_clear_stack(st);
+			test_and_clear_bit(mISDN_STACK_CLEARING, &st->status);
+		}
 		if (test_bit(mISDN_STACK_ABORT, &st->status))
 			break;
-		if (st->notify != NULL)
+		if (st->notify != NULL) {
 			up(st->notify);
+			st->notify = NULL;
+		}
 #ifdef MISDN_MSG_STATS
 		st->sleep_cnt++;
 #endif
@@ -478,13 +528,17 @@ mISDNStackd(void *data)
 #ifdef MISDN_MSG_STATS
 	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) proceed %d msg %d clone %d sleep %d stopped\n",
 		st->id, st->msg_cnt, st->clone_cnt, st->sleep_cnt, st->stopped_cnt);
+	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) utime(%ld) stime(%ld)\n", st->id, st->thread->utime, st->thread->stime);
+	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) nvcsw(%ld) nivcsw(%ld)\n", st->id, st->thread->nvcsw, st->thread->nivcsw);                
 #endif
 	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) killed now\n", st->id);
 	test_and_set_bit(mISDN_STACK_KILLED, &st->status);
 	discard_queue(&st->msgq);
 	st->thread = NULL;
-	if (st->notify != NULL)
+	if (st->notify != NULL) {
 		up(st->notify);
+		st->notify = NULL;
+	}
 	return(0);
 }
 
@@ -550,23 +604,6 @@ mISDN_start_stop(mISDNstack_t *st, int start)
 	return(ret);
 }
 
-static int
-release_layers(mISDNstack_t *st, u_int prim)
-{
-	int	i;
-
-	for (i = 0; i <= MAX_LAYER_NR; i++) {
-		if (st->i_array[i]) {
-			if (core_debug & DEBUG_CORE_FUNC)
-				printk(KERN_DEBUG  "%s: st(%p) inst%d(%p):%x %s lm(%x)\n",
-					__FUNCTION__, st, i, st->i_array[i], st->i_array[i]->id,
-					st->i_array[i]->name, st->i_array[i]->pid.layermask);
-			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, NULL);
-		}
-	}
-	return(0);
-}
-
 int
 do_for_all_layers(void *data, u_int prim, void *arg)
 {
@@ -630,7 +667,6 @@ static int
 delete_stack(mISDNstack_t *st)
 {
 	DECLARE_MUTEX_LOCKED(sem);
-	int	err;
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%p:%08x)\n", __FUNCTION__, st, st->id);
@@ -644,16 +680,19 @@ delete_stack(mISDNstack_t *st)
 		}
 	}
 	if (st->thread) {
-		st->notify = &sem;
+		if (st->thread != current) {
+			if (st->notify) {
+				int_error();
+				up(st->notify);
+			}
+			st->notify = &sem;
+		}
 		test_and_set_bit(mISDN_STACK_ABORT, &st->status);
 		mISDN_start_stop(st, 1);
-		down(&sem);
-		st->notify = NULL;
+		if (st->thread != current) /* we cannot wait for us */
+			down(&sem);
 	}
-	if ((err = release_layers(st, MGR_RELEASE | INDICATION))) {
-		printk(KERN_WARNING "%s: err(%d)\n", __FUNCTION__, err);
-		return(err);
-	}
+	release_layers(st, MGR_RELEASE | INDICATION);
 	list_del(&st->list);
 	kfree(st);
 	return(0);
@@ -937,7 +976,7 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 		inst = get_next_instance(st, pid);
 		if (!inst) {
 			int_error();
-			st->mgr->obj->ctrl(st, MGR_CLEARSTACK| REQUEST, NULL);
+			st->mgr->obj->ctrl(st, MGR_CLEARSTACK| REQUEST, (void *)1);
 			return(-ENOPROTOOPT);
 		}
 		mISDN_RemoveUsedPID(pid, &inst->pid);
@@ -963,17 +1002,40 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 }
 
 int
-clear_stack(mISDNstack_t *st) {
+clear_stack(mISDNstack_t *st, int wait) {
+	struct sk_buff	*skb;
+	mISDN_headext_t	*hhe;
 
 	if (!st)
 		return(-EINVAL);
 	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "%s: st(%p)\n", __FUNCTION__, st);
-	if (st->pid.pbuf)
-		kfree(st->pid.pbuf);
-	memset(&st->pid, 0, sizeof(mISDN_pid_t));
-	memset(&st->para, 0, sizeof(mISDN_stPara_t));
-	return(release_layers(st, MGR_UNREGLAYER | REQUEST));
+		printk(KERN_DEBUG "%s: st(%08x)\n", __FUNCTION__, st->id);
+
+	if (!(skb = alloc_skb(8, GFP_ATOMIC)))
+		return(-ENOMEM);
+	hhe = mISDN_HEADEXT_P(skb);
+	hhe->prim = MGR_CLEARSTACK | REQUEST;
+	hhe->addr = st->id;
+
+	if (wait) {
+		DECLARE_MUTEX_LOCKED(sem);
+
+		hhe->data[0] = &sem;
+		skb_queue_tail(&st->msgq, skb);
+		if (!test_bit(mISDN_STACK_STOPPED, &st->status))
+			wake_up_interruptible(&st->workq);
+		if (st->thread == current) {/* we cannot wait for us */
+			int_error();
+			return(-EBUSY);
+		}
+		down(&sem);
+	} else {
+		hhe->data[0] = NULL;
+		skb_queue_tail(&st->msgq, skb);
+		if (!test_bit(mISDN_STACK_STOPPED, &st->status))
+			wake_up_interruptible(&st->workq);
+	}
+	return(0);
 }
 
 static int
@@ -983,7 +1045,7 @@ test_stack_protocol(mISDNstack_t *st, u_int l1prot, u_int l2prot, u_int l3prot)
 	mISDN_pid_t	pid;
 	mISDNinstance_t	*inst;
 	
-	clear_stack(st);
+	clear_stack(st,1);
 	memset(&pid, 0, sizeof(mISDN_pid_t));
 	pid.layermask = ISDN_LAYER(1);
 	if (!(((l2prot == 2) || (l2prot == 0x40)) && (l3prot == 1)))
@@ -1010,20 +1072,20 @@ test_stack_protocol(mISDNstack_t *st, u_int l1prot, u_int l2prot, u_int l3prot)
 	}
 	ret = st->mgr->obj->ctrl(st, MGR_REGLAYER | REQUEST, st->mgr);
 	if (ret) {
-		clear_stack(st);
+		clear_stack(st, 1);
 		return(ret);
 	}
 	while (pid.layermask && cnt--) {
 		inst = get_next_instance(st, &pid);
 		if (!inst) {
-			st->mgr->obj->ctrl(st, MGR_CLEARSTACK| REQUEST, NULL);
-			return(-ENOPROTOOPT);
+			ret = -ENOPROTOOPT;
+			break;
 		}
 		mISDN_RemoveUsedPID(&pid, &inst->pid);
 	}
 	if (!cnt)
 		ret = -ENOPROTOOPT;
-	clear_stack(st);
+	clear_stack(st, 1);
 	return(ret);
 }
 
@@ -1099,6 +1161,7 @@ evaluate_stack_pids(mISDNstack_t *st, mISDN_pid_t *pid)
 			}
 		}
 	}
+	clear_stack(st, 1);
 	return(0);
 }
 

@@ -52,7 +52,7 @@ extern int		change_stack_para(mISDNstack_t *, u_int, mISDN_stPara_t *);
 extern void		release_stacks(mISDNobject_t *);
 extern int		copy_pid(mISDN_pid_t *, mISDN_pid_t *, u_char *);
 extern int		set_stack(mISDNstack_t *, mISDN_pid_t *);
-extern int		clear_stack(mISDNstack_t *);
+extern int		clear_stack(mISDNstack_t *, int);
 extern int		evaluate_stack_pids(mISDNstack_t *, mISDN_pid_t *);
 extern mISDNinstance_t	*getlayer4lay(mISDNstack_t *, int);
 extern mISDNinstance_t	*get_instance(mISDNstack_t *, int, int);

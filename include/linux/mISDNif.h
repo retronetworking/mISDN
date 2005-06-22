@@ -521,6 +521,7 @@
 #define mISDN_STACK_STOPPED	1
 #define mISDN_STACK_ABORT	2
 #define mISDN_STACK_KILLED	3
+#define mISDN_STACK_CLEARING	4
 
 /* special packet type */
 #define PACKET_NOACK	250

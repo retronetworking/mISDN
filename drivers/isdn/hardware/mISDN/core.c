@@ -49,10 +49,10 @@ typedef struct _mISDN_thread {
 	struct sk_buff_head	workq;
 } mISDN_thread_t;
 
-#define	mISDN_TFLAGS_STARTED	1
-#define mISDN_TFLAGS_RMMOD	2
-#define mISDN_TFLAGS_ACTIV	3
-#define mISDN_TFLAGS_TEST	4
+#define	mISDN_TFLAGS_STARTED	0
+#define mISDN_TFLAGS_RMMOD	1
+#define mISDN_TFLAGS_ACTIV	2
+#define mISDN_TFLAGS_TEST	3
 
 static mISDN_thread_t	mISDN_thread;
 
@@ -97,7 +97,7 @@ mISDNd(void *data)
 			break;
 		if (hkt->notify != NULL)
 			up(hkt->notify);
-		interruptible_sleep_on(&hkt->waitq);
+		wait_event_interruptible(hkt->waitq, ((!skb_queue_empty(&hkt->workq)) || (hkt->Flags & 0xfffffffe)));
 		if (test_and_clear_bit(mISDN_TFLAGS_RMMOD, &hkt->Flags))
 			break;
 		while ((skb = skb_dequeue(&hkt->workq))) {
@@ -573,7 +573,7 @@ static int central_manager(void *data, u_int prim, void *arg) {
 	    case MGR_SETSTACK_NW | REQUEST:
 		return(set_stack(st, arg));
 	    case MGR_CLEARSTACK | REQUEST:
-		return(clear_stack(st));
+		return(clear_stack(st, arg ? 1 : 0));
 	    case MGR_DELSTACK | REQUEST:
 		return(release_stack(st));
 	    case MGR_SELCHANNEL | REQUEST:

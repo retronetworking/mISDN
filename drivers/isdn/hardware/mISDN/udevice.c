@@ -1590,7 +1590,7 @@ do_mISDN_read(struct file *file, char *buf, size_t count, loff_t * off)
 {
 	mISDNdevice_t	*dev = file->private_data;
 	size_t		len;
-	u_long		flags;
+//	u_long		flags;
 	struct sk_buff	*skb;
 
 	if (*off != file->f_pos)
@@ -1604,16 +1604,14 @@ do_mISDN_read(struct file *file, char *buf, size_t count, loff_t * off)
 	if (device_debug & DEBUG_DEV_OP)
 		printk(KERN_DEBUG "mISDN_read: file(%d) %p max %d\n",
 			dev->minor, file, count);
-	spin_lock_irqsave(&dev->rport.lock, flags);
-	while (skb_queue_empty(&dev->rport.queue)) {
-		spin_unlock_irqrestore(&dev->rport.lock, flags);
+	if (skb_queue_empty(&dev->rport.queue)) {
 		if (file->f_flags & O_NONBLOCK)
 			return(-EAGAIN);
-		interruptible_sleep_on(&(dev->rport.procq));
+		wait_event_interruptible(dev->rport.procq, (!skb_queue_empty(&dev->rport.queue)));
 		if (signal_pending(current))
 			return(-ERESTARTSYS);
-		spin_lock_irqsave(&dev->rport.lock, flags);
 	}
+//	spin_lock_irqsave(&dev->rport.lock, flags);
 	len = 0;
 	while ((skb = skb_dequeue(&dev->rport.queue))) {
 		if (dev->minor == mISDN_CORE_DEVICE) {
@@ -1629,7 +1627,7 @@ do_mISDN_read(struct file *file, char *buf, size_t count, loff_t * off)
 				skb_queue_head(&dev->rport.queue, skb);
 				if (len)
 					break;
-				spin_unlock_irqrestore(&dev->rport.lock, flags);
+//				spin_unlock_irqrestore(&dev->rport.lock, flags);
 				return(-ENOSPC);
 			}
 		}
@@ -1637,7 +1635,7 @@ do_mISDN_read(struct file *file, char *buf, size_t count, loff_t * off)
 			if (copy_to_user(buf, skb->data, skb->len)) {
 			    efault:
 				skb_queue_head(&dev->rport.queue, skb);
-				spin_unlock_irqrestore(&dev->rport.lock, flags);
+//				spin_unlock_irqrestore(&dev->rport.lock, flags);
 				return(-EFAULT);
 			}
 			len += skb->len;
@@ -1648,7 +1646,7 @@ do_mISDN_read(struct file *file, char *buf, size_t count, loff_t * off)
 			break;
 	}
 	*off += len;
-	spin_unlock_irqrestore(&dev->rport.lock, flags);
+//	spin_unlock_irqrestore(&dev->rport.lock, flags);
 	if (device_debug & DEBUG_DEV_OP)
 		printk(KERN_DEBUG "mISDN_read: file(%d) %d\n",
 			dev->minor, len);
@@ -1680,7 +1678,7 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 {
 	mISDNdevice_t	*dev = file->private_data;
 	size_t		len;
-	u_long		flags;
+//	u_long		flags;
 	struct sk_buff	*skb;
 	mISDN_head_t	head;
 
@@ -1695,21 +1693,19 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 		if (count < mISDN_HEADER_LEN)
 			return(-EINVAL);
 	}
-	spin_lock_irqsave(&dev->wport.lock, flags);
-	while (skb_queue_len(&dev->wport.queue) >= dev->wport.maxqlen) {
-		spin_unlock_irqrestore(&dev->wport.lock, flags);
+	if (skb_queue_len(&dev->wport.queue) >= dev->wport.maxqlen) {
 		if (file->f_flags & O_NONBLOCK)
 			return(-EAGAIN);
-		interruptible_sleep_on(&(dev->wport.procq));
+		wait_event_interruptible(dev->wport.procq, (skb_queue_len(&dev->wport.queue) < dev->wport.maxqlen));
 		if (signal_pending(current))
 			return(-ERESTARTSYS);
-		spin_lock_irqsave(&dev->wport.lock, flags);
 	}
+//	spin_lock_irqsave(&dev->wport.lock, flags);
 	if (dev->minor == mISDN_CORE_DEVICE) {
 		len = count;
 		while (len >= mISDN_HEADER_LEN) {
 			if (copy_from_user(&head.addr, buf, mISDN_HEADER_LEN)) {
-				spin_unlock_irqrestore(&dev->rport.lock, flags);
+//				spin_unlock_irqrestore(&dev->rport.lock, flags);
 				return(-EFAULT);
 			}
 			if (head.len > 0)
@@ -1727,14 +1723,14 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 					/* since header is complete we can handle this later */
 					if (copy_from_user(skb_put(skb, len), buf, len)) {
 						dev_kfree_skb(skb);
-						spin_unlock_irqrestore(&dev->rport.lock, flags);
+//						spin_unlock_irqrestore(&dev->rport.lock, flags);
 						return(-EFAULT);
 					}
 					len = 0;
 				} else {
 					if (copy_from_user(skb_put(skb, head.len), buf, head.len)) {
 						dev_kfree_skb(skb);
-						spin_unlock_irqrestore(&dev->rport.lock, flags);
+//						spin_unlock_irqrestore(&dev->rport.lock, flags);
 						return(-EFAULT);
 					}
 					len -= head.len;
@@ -1746,10 +1742,10 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 		if (len)
 			printk(KERN_WARNING "%s: incomplete frame data (%d/%d)\n", __FUNCTION__, len, count);
 		if (test_and_set_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag)) {
-			spin_unlock_irqrestore(&dev->wport.lock, flags);
+//			spin_unlock_irqrestore(&dev->wport.lock, flags);
 			return(count-len);
 		}
-		spin_unlock_irqrestore(&dev->wport.lock, flags);
+//		spin_unlock_irqrestore(&dev->wport.lock, flags);
 		while ((skb = skb_dequeue(&dev->wport.queue))) {
 			if (mISDN_wdata_if(dev, skb))
 				dev_kfree_skb(skb);
@@ -1760,18 +1756,18 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 		len = 0;
 #ifdef FIXME
 		skb = alloc_stack_skb(count, PORT_SKB_RESERVE);
-		if (skb) {
-			spin_unlock_irqrestore(&dev->wport.lock, flags);
+		if (!skb) {
+//			spin_unlock_irqrestore(&dev->wport.lock, flags);
 			return(0);
 		}
 		if (copy_from_user(skb_put(skb, count), buf, count)) {
 			dev_kfree_skb(skb);
-			spin_unlock_irqrestore(&dev->wport.lock, flags);
+//			spin_unlock_irqrestore(&dev->wport.lock, flags);
 			return(-EFAULT);
 		}
 		skb_queue_tail(&dev->wport.queue, skb);
 		if (test_and_set_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag)) {
-			spin_unlock_irqrestore(&dev->wport.lock, flags);
+//			spin_unlock_irqrestore(&dev->wport.lock, flags);
 			return(count);
 		}
 		while ((skb = skb_dequeue(&dev->wport.queue))) {
@@ -1783,9 +1779,9 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 			}
 			if (test_bit(FLG_mISDNPORT_ENABLED, &dev->wport.Flag)) {
 				int ret;
-				spin_unlock_irqrestore(&dev->wport.lock, flags);
+//				spin_unlock_irqrestore(&dev->wport.lock, flags);
 				ret = if_newhead(&dev->wport.pif, PH_DATA | REQUEST, (int)skb, skb);
-				spin_lock_irqsave(&dev->wport.lock, flags);
+//				spin_lock_irqsave(&dev->wport.lock, flags);
 				if (ret) {
 					printk(KERN_WARNING "%s: dev(%d) down err(%d)\n",
 						__FUNCTION__, dev->minor, ret);
@@ -1800,7 +1796,7 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 			wake_up(&dev->wport.procq);
 		}
 		test_and_clear_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag);
-		spin_unlock_irqrestore(&dev->wport.lock, flags);
+//		spin_unlock_irqrestore(&dev->wport.lock, flags);
 #endif
 	}
 	return(count - len);
