@@ -22,8 +22,9 @@
 
 /* hfcsusb Layer1 commands */
 #define HFC_L1_ACTIVATE_TE      0x01
-#define HFC_L1_ACTIVATE_NT      0x02
-#define HFC_L1_DEACTIVATE_NT    0x03
+#define HFC_L1_DEACTIVATE_TE	0x02
+#define HFC_L1_ACTIVATE_NT      0x03
+#define HFC_L1_DEACTIVATE_NT    0x04
 
 /* bits in STATES */
 #define HFCUSB_LOAD_STATE	0x10

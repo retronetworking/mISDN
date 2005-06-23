@@ -771,6 +771,14 @@ hfcsusb_ph_command(hfcsusb_t * card, u_char command)
 					      HFCUSB_STATES, 0x04);
 			break;
 
+		case HFC_L1_DEACTIVATE_TE:
+			queued_Write_hfc(card,
+					      HFCUSB_STATES, 0x10);
+
+			queued_Write_hfc(card,
+					      HFCUSB_STATES, 0x03);
+			break;
+
 		case HFC_L1_ACTIVATE_NT:
 			queued_Write_hfc(card,
 					      HFCUSB_STATES,
@@ -802,6 +810,7 @@ hfcsusb_l1hwD(mISDNif_t * hif, struct sk_buff *skb)
 		return (ret);
 	hh = mISDN_HEAD_P(skb);
 	dch = hif->fdata;
+	mISDNif_t *upif = &dch->inst.up;
 	card = dch->hw;
 	ret = 0;
 	
@@ -837,6 +846,13 @@ hfcsusb_l1hwD(mISDNif_t * hif, struct sk_buff *skb)
 			if (dch->ph_state != 0)
 				hfcsusb_ph_command(dch->hw,
 						   HFC_L1_ACTIVATE_TE);
+				while (upif) {
+					if_link(upif, PH_CONTROL | INDICATION,
+					        HW_POWERUP, 0, NULL, 0);
+					upif = upif->clone;
+				}
+		} else if (hh->dinfo == HW_POWERUP) {
+			hfcsusb_ph_command(dch->hw, HFC_L1_DEACTIVATE_TE);
 		} else if (hh->dinfo == HW_DEACTIVATE) {
 			discard_queue(&dch->rqueue);
 			if (dch->next_skb) {
