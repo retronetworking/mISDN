@@ -10,6 +10,7 @@
 #include <linux/vmalloc.h>
 #include <linux/config.h>
 #include <linux/timer.h>
+#include <linux/devfs_fs_kernel.h>
 #include "core.h"
 
 #define MAX_HEADER_LEN	4
@@ -56,6 +57,8 @@ typedef struct entity_item {
 
 static LIST_HEAD(mISDN_devicelist);
 static rwlock_t	mISDN_device_lock = RW_LOCK_UNLOCKED;
+
+static struct class_simple	*mISDN_class;
 
 static mISDNobject_t	udev_obj;
 static char MName[] = "UserDevice";
@@ -1966,8 +1969,21 @@ int init_mISDNdev (int debug) {
 		printk(KERN_WARNING "mISDN: Could not register devices\n");
 		return(-EIO);
 	}
+	mISDN_class = class_simple_create(THIS_MODULE, "mISDN");
+	if (IS_ERR(mISDN_class)) {
+		unregister_chrdev(mISDN_MAJOR, "mISDN");
+		return PTR_ERR(mISDN_class);
+	}
+
+	class_simple_device_add(mISDN_class, MKDEV(mISDN_MAJOR, 0), NULL, "mISDN");
+	devfs_mk_cdev(MKDEV(mISDN_MAJOR, 0), S_IFCHR | S_IRUSR | S_IWUSR, "mISDN");
+
 	if ((err = mISDN_register(&udev_obj))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
+		class_simple_device_remove(MKDEV(mISDN_MAJOR, 0));
+		class_simple_destroy(mISDN_class);
+		unregister_chrdev(mISDN_MAJOR, "mISDN");
+		devfs_remove("mISDN");
 	}
 	return(err);
 }
@@ -1986,8 +2002,11 @@ int free_mISDNdev(void) {
 	if ((err = mISDN_unregister(&udev_obj))) {
 		printk(KERN_ERR "Can't unregister UserDevice(%d)\n", err);
 	}
+	class_simple_device_remove(MKDEV(mISDN_MAJOR, 0));
+	class_simple_destroy(mISDN_class);
 	if ((err = unregister_chrdev(mISDN_MAJOR, "mISDN"))) {
 		printk(KERN_WARNING "mISDN: devices busy on remove\n");
 	}
+	devfs_remove("mISDN");
 	return(err);
 }
