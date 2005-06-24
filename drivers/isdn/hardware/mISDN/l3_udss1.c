@@ -784,6 +784,14 @@ l3dss1_progress_req(l3_process_t *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_facility_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	if (arg) {
+		SendMsg(pc, arg, -1);
+	}
+}
+
+static void
 l3dss1_release_cmpl(l3_process_t *pc, u_char pr, void *arg)
 {
 	struct sk_buff	*skb = arg;
@@ -2157,9 +2165,16 @@ dss1_fromup(mISDNif_t *hif, struct sk_buff *skb)
 		}
 		return(ret);
 	} 
+	if (!proc && hh->dinfo == MISDN_ID_DUMMY) {
+		if (hh->prim == (CC_FACILITY | REQUEST)) {
+			l3dss1_facility_req(l3->dummy, hh->prim, skb->len ? skb : NULL);
+			ret = 0;
+		}
+		return(ret);
+	}
 	if (!proc) {
-		printk(KERN_ERR "mISDN dss1 fromup without proc pr=%04x\n",
-			hh->prim);
+		printk(KERN_ERR "mISDN dss1 fromup without proc pr=%04x dinfo(%x)\n",
+			hh->prim, hh->dinfo);
 				return(-EINVAL);
 	}
 	for (i = 0; i < DOWNSLLEN; i++)
