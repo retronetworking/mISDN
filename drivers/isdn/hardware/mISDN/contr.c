@@ -249,8 +249,9 @@ SendMessage(struct capi_ctr *ctrl, struct sk_buff *skb)
 	hh->prim = CAPI_MESSAGE_REQUEST;
 	hh->dinfo = ApplId;
 	cmd = CAPICMD(CAPIMSG_COMMAND(skb->data), CAPIMSG_SUBCOMMAND(skb->data));
-	contrDebug(contr, CAPI_DBG_CONTR_MSG, "SendMessage: %s", 
-		capi_cmd2str(CAPIMSG_COMMAND(skb->data), CAPIMSG_SUBCOMMAND(skb->data)));
+	contrDebug(contr, CAPI_DBG_CONTR_MSG, "SendMessage: %s caddr(%x)", 
+		capi_cmd2str(CAPIMSG_COMMAND(skb->data), CAPIMSG_SUBCOMMAND(skb->data)),
+		CAPIMSG_CONTROL(skb->data));
 	switch (cmd) {
 		// for NCCI state machine
 		case CAPI_DATA_B3_REQ:
@@ -295,7 +296,6 @@ SendMessage(struct capi_ctr *ctrl, struct sk_buff *skb)
 		case CAPI_LISTEN_REQ:
 		// other
 		case CAPI_FACILITY_REQ:
-		case CAPI_FACILITY_RESP:
 		case CAPI_MANUFACTURER_REQ:
 		case CAPI_INFO_RESP:
 			err = mISDN_queue_message(&contr->inst, 0, skb);
@@ -303,6 +303,12 @@ SendMessage(struct capi_ctr *ctrl, struct sk_buff *skb)
 				int_errtxt("mISDN_queue_message return(%d)", err);
 				err = CAPI_MSGBUSY;
 			}
+			break;
+		/* need not further action currently, so it can be released here too avoid
+		 * overlap with a release application
+		 */
+		case CAPI_FACILITY_RESP:
+			dev_kfree_skb(skb);
 			break;
 		default:
 			contrDebug(contr, CAPI_DBG_WARN, "SendMessage: %#x %#x not handled!", 
