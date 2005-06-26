@@ -209,8 +209,6 @@ l1_power_up_s(struct FsmInst *fi, int event, void *arg)
 	if (test_bit(FLG_L1_ACTIVATING, &l1->Flags)) {
 		mISDN_FsmChangeState(fi, ST_L1_F4);
 		l1down(l1, PH_SIGNAL | REQUEST, INFO3_P8, 0, NULL);
-		mISDN_FsmRestartTimer(&l1->timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
-		test_and_set_bit(FLG_L1_T3RUN, &l1->Flags);
 	} else
 		mISDN_FsmChangeState(fi, ST_L1_F3);
 }
@@ -316,6 +314,8 @@ l1_activate_s(struct FsmInst *fi, int event, void *arg)
 {
 	layer1_t *l1 = fi->userdata;
 
+	mISDN_FsmRestartTimer(&l1->timer, TIMER3_VALUE, EV_TIMER3, NULL, 2);
+	test_and_set_bit(FLG_L1_T3RUN, &l1->Flags);
 	l1down(l1, PH_CONTROL | REQUEST, HW_RESET, 0, NULL);
 }
 

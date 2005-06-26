@@ -7,6 +7,7 @@
 #include "asn1_enc.h"
 #include "dss1.h"
 #include "helper.h"
+#include "debug.h"
 
 #define T_ACTIVATE    4000
 #define T_DEACTIVATE  4000
@@ -27,7 +28,7 @@ encodeInvokeComponentHead(__u8 *p)
 static void
 encodeInvokeComponentLength(__u8 *msg, __u8 *p)
 {
-	msg[3] = p - &msg[5];
+	msg[3] = p - &msg[4];
 	msg[0] = p - &msg[1];
 }
 
@@ -651,8 +652,14 @@ SSProcessFacility(Controller_t *contr, Q931_info_t *qi)
 			SendSSFacilityInd(appl, sspc->addr, tmp);
 			SSProcessDestr(sspc);
 			break;
-		default:
-			int_error();
+		default: {
+				static char logbuf[512];
+
+				int_errtxt("component %x not handled", parm.comp);
+				mISDN_QuickHex(logbuf, p, ie_len);
+				printk(KERN_DEBUG "facIE: %s\n", logbuf);
+			}
+			break;
 	}
 }
 

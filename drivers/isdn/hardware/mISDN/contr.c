@@ -571,6 +571,8 @@ Controller_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		if(!ret)
 			dev_kfree_skb(skb);
 	} else if (hh->dinfo == MISDN_ID_DUMMY) {
+		contrDebug(contr, CAPI_DBG_CONTR_INFO, "%s: call Supplementary_l3l4 len %d",
+			__FUNCTION__, skb->len);
 		ret = Supplementary_l3l4(contr, hh->prim, skb);
 	} else {
 		if (!(plci = getPlci4L3id(contr, hh->dinfo))) {
