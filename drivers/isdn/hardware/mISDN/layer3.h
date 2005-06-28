@@ -22,6 +22,7 @@
 #define L3_DEB_CHARGE	0x08
 #define L3_DEB_CHECK	0x10
 #define L3_DEB_SI	0x20
+#define L3_DEB_MSG	0x80000000
 
 #define FLG_L2BLOCK	1
 #define FLG_PTP		2

@@ -285,6 +285,8 @@ extern	struct sk_buff 	*mISDN_alloc_l3msg(int, u_char);
 #endif
 extern	void		mISDN_AddvarIE(struct sk_buff *, u_char *);
 extern	void		mISDN_AddIE(struct sk_buff *, u_char, u_char *);
+extern	ie_info_t	*mISDN_get_last_repeated_ie(Q931_info_t *, ie_info_t *);
+extern	int		mISDN_get_free_ext_ie(Q931_info_t *);
 extern	void		mISDN_LogL3Msg(struct sk_buff *);
 
 /* manager default handler helper macros */

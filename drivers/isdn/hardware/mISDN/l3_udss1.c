@@ -4,7 +4,7 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *		This file is (c) under GNU PUBLIC LICENSE
+ *		This file is (c) under GNU  PUBLIC LICENSE
  *		For changes and modifications please read
  *		../../../Documentation/isdn/mISDN.cert
  *
@@ -32,8 +32,9 @@ static int
 parseQ931(struct sk_buff *skb) {
 	Q931_info_t	*qi;
 	int		l, codeset, maincodeset;
-	int		len, iep, pos = 0, cnt = 0;
-	u16		*ie, cr;
+	int		len, iep, pos = 0, cnt = 0, eidx = -1;
+	u16		cr;
+	ie_info_t	*ie, *old;
 	u_char		t, *p = skb->data;
 
 	if (skb->len < 3)
@@ -79,57 +80,125 @@ parseQ931(struct sk_buff *skb) {
 			codeset = p[pos] & 0x07;
 			if (!(p[pos] & 0x08))
 				maincodeset = codeset;
+			if (eidx >= 0) {
+				qi->ext[eidx].cs.len = pos - qi->ext[eidx].ie.off;
+				eidx = -1;
+			}
 			pos++;
 			continue;
 		}
 		if (codeset == 0) {
 			if (p[pos] & 0x80) { /* single octett IE */
 				if (p[pos] == IE_MORE_DATA)
-					qi->more_data = pos;
+					qi->more_data.off = pos;
 				else if (p[pos] == IE_COMPLETE)
-					qi->sending_complete = pos;
+					qi->sending_complete.off = pos;
 				else if ((p[pos] & 0xf0) == IE_CONGESTION)
-					qi->congestion_level = pos;
+					qi->congestion_level.off = pos;
 				cnt++;
 				pos++;
 			} else {
-				iep = mISDN_l3_ie2pos(p[pos]);
+				t = p[pos];
+				iep = mISDN_l3_ie2pos(t);
 				if ((pos+1) >= len)
 					return(-4);
 				l = p[pos+1];
 				if ((pos+l+1) >= len)
 					return(-5);
 				if (iep>=0) {
-					if (!ie[iep])
-						ie[iep] = pos;
+					if (!ie[iep].off) { /* IE not detected before */
+						ie[iep].off = pos;
+					} else { /* IE is repeated */
+						old = &ie[iep];
+						if (old->repeated)
+							old = mISDN_get_last_repeated_ie(qi, old);
+						if (!old) {
+							int_error();
+							return(-6);
+						}
+						eidx = mISDN_get_free_ext_ie(qi);
+						if (eidx < 0) {
+							int_error();
+							return(-7);
+						}
+						old->ridx = eidx;
+						old->repeated = 1;
+						qi->ext[eidx].ie.off = pos;
+						qi->ext[eidx].v.codeset = 0;
+						qi->ext[eidx].v.val = t;
+						eidx = -1;
+					}
 				}
 				pos += l + 2;
 				cnt++;
 			}
+		} else { /* codeset != 0 */
+			if (eidx < 0) {
+				eidx = mISDN_get_free_ext_ie(qi);
+				if (eidx < 0) {
+					int_error();
+					return(-8);
+				}
+				qi->ext[eidx].cs.codeset = codeset;
+				qi->ext[eidx].ie.off = pos;
+				qi->ext[eidx].ie.cs_flg = 1;
+				if (codeset == maincodeset) { /* locked shift */
+					qi->ext[eidx].cs.locked = 1;
+				}
+			}
+			if (p[pos] & 0x80) { /* single octett IE */
+				cnt++;
+				pos++;
+			} else {
+				if ((pos+1) >= len)
+					return(-4);
+				l = p[pos+1];
+				if ((pos+l+1) >= len)
+					return(-5);
+				pos += l + 2;
+				cnt++;
+			}
+			if (qi->ext[eidx].cs.locked == 0) {/* single IE codeset shift */
+				qi->ext[eidx].cs.len = pos - qi->ext[eidx].ie.off;
+				eidx = -1;
+			}
 		}
 		codeset = maincodeset;
 	}
+	if (eidx >= 0)
+		qi->ext[eidx].cs.len = pos - qi->ext[eidx].ie.off;
 	return(cnt);
 }
 
 static int
 calc_msg_len(Q931_info_t *qi)
 {
-	int	i, cnt = 0;
-	u_char	*buf = (u_char *)qi;
-	u16	*v_ie;
+	int		i, cnt = 0;
+	u_char		*buf = (u_char *)qi;
+	ie_info_t	*ie;
 
 	buf += L3_EXTRA_SIZE;
-	if (qi->more_data)
+	if (qi->more_data.off)
 		cnt++;
-	if (qi->sending_complete)
+	if (qi->sending_complete.off)
 		cnt++;
-	if (qi->congestion_level)
+	if (qi->congestion_level.off)
 		cnt++;
-	v_ie = &qi->bearer_capability;
-	for (i=0; i<32; i++) {
-		if (v_ie[i])
-			cnt += buf[v_ie[i] + 1] + 2;
+	ie = &qi->bearer_capability;
+	while (ie <= &qi->fill1) {
+		if (ie->off)
+			cnt += buf[ie->off + 1] + 2;
+		ie++;
+	}
+	for (i = 0; i < 8; i++) {
+		if (qi->ext[i].ie.off) {
+			if (qi->ext[i].ie.cs_flg == 1) { /* other codset info chunk */
+				cnt++; /* codeset shift IE */
+				cnt += qi->ext[i].cs.len;
+			} else { /* repeated IE */
+				cnt += buf[qi->ext[i].ie.off + 1] + 2;
+			}
+		}
 	}
 	return(cnt);
 }
@@ -137,31 +206,58 @@ calc_msg_len(Q931_info_t *qi)
 static int
 compose_msg(struct sk_buff *skb, Q931_info_t *qi)
 {
-	int	i, l;
-	u_char	*p, *buf = (u_char *)qi;
-	u16	*v_ie;
+	int		i, l, ri;
+	u_char		*p, *buf = (u_char *)qi;
+	ie_info_t	*ie;
 
 	buf += L3_EXTRA_SIZE;
 	
-	if (qi->more_data) {
+	if (qi->more_data.off) {
 		p = skb_put(skb, 1);
-		*p = buf[qi->more_data];
+		*p = buf[qi->more_data.off];
 	}
-	if (qi->sending_complete) {
+	if (qi->sending_complete.off) {
 		p = skb_put(skb, 1);
-		*p = buf[qi->sending_complete];
+		*p = buf[qi->sending_complete.off];
 	}
-	if (qi->congestion_level) {
+	if (qi->congestion_level.off) {
 		p = skb_put(skb, 1);
-		*p = buf[qi->congestion_level];
+		*p = buf[qi->congestion_level.off];
 	}
-	v_ie = &qi->bearer_capability;
+	ie = &qi->bearer_capability;
 	for (i=0; i<32; i++) {
-		if (v_ie[i]) {
-			l = buf[v_ie[i] + 1] +1;
+		if (ie[i].off) {
+			l = buf[ie[i].off + 1] +1;
 			p = skb_put(skb, l + 1);
 			*p++ = mISDN_l3_pos2ie(i);
-			memcpy(p, &buf[v_ie[i] + 1], l);
+			memcpy(p, &buf[ie[i].off + 1], l);
+			if (ie[i].repeated) {
+				ri = ie[i].ridx;
+				while(ri >= 0) {
+					l = buf[qi->ext[ri].ie.off + 1] +1;
+					p = skb_put(skb, l + 1);
+					if (mISDN_l3_pos2ie(i) != qi->ext[ri].v.val)
+						int_error();
+					*p++ = qi->ext[ri].v.val;
+					memcpy(p, &buf[qi->ext[ri].ie.off + 1], l);
+					if (qi->ext[ri].ie.repeated)
+						ri = qi->ext[ri].ie.ridx;
+					else
+						ri = -1;
+				}
+			}
+		}
+	}
+	for (i=0; i<8; i++) {
+		/* handle other codeset elements */
+		if (qi->ext[i].ie.cs_flg == 1) {
+			p = skb_put(skb, 1); /* shift codeset IE */
+			if (qi->ext[i].cs.locked == 1)
+				*p = 0x90 | qi->ext[i].cs.codeset;
+			else /* non-locking shift */
+				*p = 0x98 | qi->ext[i].cs.codeset;
+			p = skb_put(skb, qi->ext[i].cs.len);
+			memcpy(p, &buf[qi->ext[i].ie.off], qi->ext[i].cs.len);
 		}
 	}
 	return(0);
@@ -421,7 +517,7 @@ check_infoelements(l3_process_t *pc, struct sk_buff *skb, int *checklist)
 	Q931_info_t	*qi = (Q931_info_t *)skb->data;
 	int		*cl = checklist;
 	u_char		*p, ie;
-	u16		*iep;
+	ie_info_t	*iep;
 	int		i, l, newpos, oldpos;
 	int		err_seq = 0, err_len = 0, err_compr = 0, err_ureg = 0;
 	
@@ -430,7 +526,7 @@ check_infoelements(l3_process_t *pc, struct sk_buff *skb, int *checklist)
 	iep = &qi->bearer_capability;
 	oldpos = -1;
 	for (i=0; i<32; i++) {
-		if (iep[i]) {
+		if (iep[i].off) {
 			ie = mISDN_l3_pos2ie(i);
 			if ((newpos = ie_in_set(pc, ie, cl))) {
 				if (newpos > 0) {
@@ -445,7 +541,7 @@ check_infoelements(l3_process_t *pc, struct sk_buff *skb, int *checklist)
 				else
 					err_ureg++;
 			}
-			l = p[iep[i] +1];
+			l = p[iep[i].off +1];
 			if (l > getmax_ie_len(ie))
 				err_len++;
 		}
@@ -536,9 +632,9 @@ l3dss1_get_channel_id(l3_process_t *pc, struct sk_buff *skb) {
 	Q931_info_t	*qi = (Q931_info_t *)skb->data;
 	u_char		*p;
 
-	if (qi->channel_id) {
+	if (qi->channel_id.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->channel_id;
+		p += L3_EXTRA_SIZE + qi->channel_id.off;
 		p++;
 		if (test_bit(FLG_EXTCID, &pc->l3->Flag)) {
 			if (*p != 1) {
@@ -569,9 +665,9 @@ l3dss1_get_cause(l3_process_t *pc, struct sk_buff *skb) {
 	u_char		l;
 	u_char		*p;
 
-	if (qi->cause) {
+	if (qi->cause.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->cause;
+		p += L3_EXTRA_SIZE + qi->cause.off;
 		p++;
 		l = *p++;
 		if (l>30) {
@@ -636,8 +732,8 @@ l3dss1_disconnect_req(l3_process_t *pc, u_char pr, void *arg)
 	StopAllL3Timer(pc);
 	if (arg) {
 		qi = (Q931_info_t *)skb->data;
-		if (!qi->cause) {
-			qi->cause = skb->len - L3_EXTRA_SIZE;
+		if (!qi->cause.off) {
+			qi->cause.off = skb->len - L3_EXTRA_SIZE;
 			p = skb_put(skb, 4);
 			*p++ = IE_CAUSE;
 			*p++ = 2;
@@ -1020,8 +1116,8 @@ l3dss1_setup(l3_process_t *pc, u_char pr, void *arg)
 	 */
 	/* only the first occurence 'll be detected ! */
 	p = skb->data;
-	if (qi->bearer_capability) {
-		p += L3_EXTRA_SIZE + qi->bearer_capability;
+	if (qi->bearer_capability.off) {
+		p += L3_EXTRA_SIZE + qi->bearer_capability.off;
 		p++;
 		if ((p[0] < 2) || (p[0] > 11))
 			err = 1;
@@ -1163,9 +1259,9 @@ l3dss1_progress(l3_process_t *pc, u_char pr, void *arg) {
 	int		err = 0;
 	u_char		*p, cause = CAUSE_INVALID_CONTENTS;
 
-	if (qi->progress) {
+	if (qi->progress.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->progress;
+		p += L3_EXTRA_SIZE + qi->progress.off;
 		p++;
 		if (p[0] != 2) {
 			err = 1;
@@ -1224,9 +1320,9 @@ l3dss1_notify(l3_process_t *pc, u_char pr, void *arg) {
 	int		err = 0;
 	u_char		*p, cause = CAUSE_INVALID_CONTENTS;
                         
-	if (qi->notify) {
+	if (qi->notify.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->notify;
+		p += L3_EXTRA_SIZE + qi->notify.off;
 		p++;
 		if (p[0] != 1) {
 			err = 1;
@@ -1301,9 +1397,9 @@ l3dss1_release_ind(l3_process_t *pc, u_char pr, void *arg)
 	int		err, callState = -1;
 	Q931_info_t	*qi = (Q931_info_t *)skb->data;
 
-	if (qi->call_state) {
+	if (qi->call_state.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->call_state;
+		p += L3_EXTRA_SIZE + qi->call_state.off;
 		p++;
 		if (1 == *p++)
 			callState = *p;
@@ -1325,6 +1421,7 @@ l3dss1_release_ind(l3_process_t *pc, u_char pr, void *arg)
 static void
 l3dss1_restart(l3_process_t *pc, u_char pr, void *arg) {
 	struct sk_buff	*skb = arg;
+
 	L3DelTimer(&pc->timer);
 	mISDN_l3up(pc, CC_RELEASE | INDICATION, NULL);
 	release_l3_process(pc);
@@ -1347,9 +1444,9 @@ l3dss1_status(l3_process_t *pc, u_char pr, void *arg) {
 		else
 			cause = CAUSE_INVALID_CONTENTS;
 	}
-	if (qi->call_state) {
+	if (qi->call_state.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->call_state;
+		p += L3_EXTRA_SIZE + qi->call_state.off;
 		p++;
 		if (1 == *p++) {
 			callState = *p;
@@ -1375,7 +1472,7 @@ l3dss1_status(l3_process_t *pc, u_char pr, void *arg) {
 			return;
 		}
 	}
-	if (qi->cause)
+	if (qi->cause.off)
 		cause = pc->err & 0x7f;
 	if ((cause == CAUSE_PROTOCOL_ERROR) && (callState == 0)) {
 		/* ETS 300-104 7.6.1, 8.6.1, 10.6.1...
@@ -1400,7 +1497,7 @@ l3dss1_facility(l3_process_t *pc, u_char pr, void *arg)
 	
 	ret = check_infoelements(pc, skb, ie_FACILITY);
 	l3dss1_std_ie_err(pc, ret);
-	if (!qi->facility) {
+	if (!qi->facility.off) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "FACILITY without IE_FACILITY");
 		dev_kfree_skb(skb);
@@ -1538,9 +1635,9 @@ l3dss1_global_restart(l3_process_t *pc, u_char pr, void *arg)
 
 //	newl3state(pc, 2);
 	L3DelTimer(&pc->timer);
-	if (qi->restart_ind) {
+	if (qi->restart_ind.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->restart_ind;
+		p += L3_EXTRA_SIZE + qi->restart_ind.off;
 		p++;
 		ri = p[1];
 		l3_debug(pc->l3, "Restart %x", ri);
@@ -1548,9 +1645,9 @@ l3dss1_global_restart(l3_process_t *pc, u_char pr, void *arg)
 		l3_debug(pc->l3, "Restart without restart IE");
 		ri = 0x86;
 	}
-	if (qi->channel_id) {
+	if (qi->channel_id.off) {
 		p = skb->data;
-		p += L3_EXTRA_SIZE + qi->channel_id;
+		p += L3_EXTRA_SIZE + qi->channel_id.off;
 		p++;
 		chan = p[1] & 3;
 		ch = p[1];
@@ -1715,7 +1812,7 @@ l3dss1_dl_reset(l3_process_t *pc, u_char pr, void *arg)
 	qi = (Q931_info_t *)skb_put(skb, L3_EXTRA_SIZE);
 	mISDN_initQ931_info(qi);
 	qi->type = MT_DISCONNECT;
-	qi->cause = 1;
+	qi->cause.off = 1;
 	p = skb_put(skb, 5);
 	p++;
 	*p++ = IE_CAUSE;
@@ -1992,6 +2089,8 @@ dss1_fromdown(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 		dev_kfree_skb(skb);
 		return(0);
 	}
+	if (l3->debug & L3_DEB_MSG)
+		mISDN_LogL3Msg(skb);
 	qi = (Q931_info_t *)skb->data;
 	ptr = skb->data;
 	ptr += L3_EXTRA_SIZE;
@@ -2042,15 +2141,15 @@ dss1_fromdown(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 			}
 		} else if (qi->type == MT_STATUS) {
 			cause = 0;
-			if (qi->cause) {
-				if (ptr[qi->cause +1] >= 2)
-					cause = ptr[qi->cause + 3] & 0x7f;
+			if (qi->cause.off) {
+				if (ptr[qi->cause.off +1] >= 2)
+					cause = ptr[qi->cause.off + 3] & 0x7f;
 				else
-					cause = ptr[qi->cause + 2] & 0x7f;	
+					cause = ptr[qi->cause.off + 2] & 0x7f;	
 			}
 			callState = 0;
-			if (qi->call_state) {
-				callState = ptr[qi->cause + 2];
+			if (qi->call_state.off) {
+				callState = ptr[qi->call_state.off + 2];
 			}
 			/* ETS 300-104 part 2.4.1
 			 * if setup has not been made and a message type
@@ -2144,6 +2243,8 @@ dss1_fromup(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 		}
 		return(ret);
 	} 
+	if ((l3->debug & L3_DEB_MSG) && skb->len)
+		mISDN_LogL3Msg(skb);
 	if (!proc && hh->dinfo == MISDN_ID_DUMMY) {
 		if (hh->prim == (CC_FACILITY | REQUEST)) {
 			l3dss1_facility_req(l3->dummy, hh->prim, skb->len ? skb : NULL);

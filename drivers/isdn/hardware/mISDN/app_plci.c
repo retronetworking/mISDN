@@ -32,10 +32,10 @@ __u16 q931CIPValue(Q931_info_t *qi)
 
 	if (!qi)
 		return 0;
-	if (!qi->bearer_capability)
+	if (!qi->bearer_capability.off)
 		return 0;
 	p = (u_char *)qi;
-	p += L3_EXTRA_SIZE + qi->bearer_capability;
+	p += L3_EXTRA_SIZE + qi->bearer_capability.off;
 	if (memcmp(p, BEARER_SPEECH_64K_ALAW, 5) == 0
 	    || memcmp(p, BEARER_SPEECH_64K_ULAW, 5) == 0) {
 		CIPValue = 1;
@@ -50,11 +50,12 @@ __u16 q931CIPValue(Q931_info_t *qi)
 		CIPValue = 0;
 	}
 
-	if (!qi->hlc)
+	// FIXME: handle duplicated IE's
+	if (!qi->hlc.off)
 		return CIPValue;
 
 	p = (u_char *)qi;
-	p += L3_EXTRA_SIZE + qi->hlc;
+	p += L3_EXTRA_SIZE + qi->hlc.off;
 	if ((CIPValue == 1) || (CIPValue == 4)) {
 		if (memcmp(p, HLC_TELEPHONY, 4) == 0) {
 			CIPValue = 16;
@@ -706,12 +707,12 @@ plci_cc_setup_conf(struct FsmInst *fi, int event, void *arg)
 	if (qi) {
 		p = (u_char *)qi;
 		p += L3_EXTRA_SIZE;
-		if (qi->connected_nr)
-			cmsg->ConnectedNumber = &p[qi->connected_nr + 1];
-		if (qi->connected_sub)
-			cmsg->ConnectedSubaddress = &p[qi->connected_sub + 1];
-		if (qi->llc)
-			cmsg->LLC = &p[qi->llc + 1];
+		if (qi->connected_nr.off)
+			cmsg->ConnectedNumber = &p[qi->connected_nr.off + 1];
+		if (qi->connected_sub.off)
+			cmsg->ConnectedSubaddress = &p[qi->connected_sub.off + 1];
+		if (qi->llc.off)
+			cmsg->LLC = &p[qi->llc.off + 1];
 	}
 	if (mISDN_FsmEvent(fi, EV_PI_CONNECT_ACTIVE_IND, cmsg))
 		cmsg_free(cmsg);
@@ -770,20 +771,29 @@ plci_cc_setup_ind(struct FsmInst *fi, int event, void *arg)
 		p = (u_char *)qi;
 		p += L3_EXTRA_SIZE;
 		cmsg->CIPValue = q931CIPValue(qi);
-		if (qi->called_nr)
-			cmsg->CalledPartyNumber = &p[qi->called_nr + 1];
-		if (qi->called_sub)
-			cmsg->CalledPartySubaddress = &p[qi->called_sub + 1];
-		if (qi->calling_nr)
-			cmsg->CallingPartyNumber = &p[qi->calling_nr + 1];
-		if (qi->calling_sub)
-			cmsg->CallingPartySubaddress = &p[qi->calling_sub + 1];
-		if (qi->bearer_capability)
-			cmsg->BC = &p[qi->bearer_capability + 1];
-		if (qi->llc)
-			cmsg->LLC = &p[qi->llc + 1];
-		if (qi->hlc)
-			cmsg->HLC = &p[qi->hlc + 1];
+		if (qi->called_nr.off)
+			cmsg->CalledPartyNumber = &p[qi->called_nr.off + 1];
+		if (qi->called_sub.off)
+			cmsg->CalledPartySubaddress = &p[qi->called_sub.off + 1];
+		if (qi->calling_nr.off)
+			cmsg->CallingPartyNumber = &p[qi->calling_nr.off + 1];
+		if (qi->calling_sub.off)
+			cmsg->CallingPartySubaddress = &p[qi->calling_sub.off + 1];
+		if (qi->bearer_capability.off)
+			cmsg->BC = &p[qi->bearer_capability.off + 1];
+		if (qi->llc.off)
+			cmsg->LLC = &p[qi->llc.off + 1];
+		if (qi->hlc.off)
+			cmsg->HLC = &p[qi->hlc.off + 1];
+#if CAPIUTIL_VERSION > 1
+		/* ETS 300 092 Annex B */
+		if (qi->calling_nr.repeated) {
+			if (qi->ext[qi->calling_nr.ridx].ie.off)
+				cmsg->CallingPartyNumber2 = &p[qi->ext[qi->calling_nr.ridx].ie.off + 1];
+			else
+				int_error();
+		}
+#endif
 		// all else set to default
 	}
 	if (mISDN_FsmEvent(&aplci->plci_m, EV_PI_CONNECT_IND, cmsg))
@@ -812,8 +822,8 @@ plci_cc_disconnect_ind(struct FsmInst *fi, int event, void *arg)
 	if (qi) {
 		p = (u_char *)qi;
 		p += L3_EXTRA_SIZE;
-		if (qi->cause)
-			memcpy(aplci->cause, &p[qi->cause + 1], 3);
+		if (qi->cause.off)
+			memcpy(aplci->cause, &p[qi->cause.off + 1], 3);
 	}
 	if (aplci->appl->InfoMask & CAPI_INFOMASK_EARLYB3)
 		return;
@@ -836,8 +846,8 @@ plci_cc_release_ind(struct FsmInst *fi, int event, void *arg)
 	if (qi) {
 		p = (u_char *)qi;
 		p += L3_EXTRA_SIZE;
-		if (qi->cause)
-			cmsg->Reason = 0x3400 | p[qi->cause + 3];
+		if (qi->cause.off)
+			cmsg->Reason = 0x3400 | p[qi->cause.off + 3];
 		else if (aplci->cause[0]) // cause from CC_DISCONNECT IND
 			cmsg->Reason = 0x3400 | aplci->cause[2];
 		else
@@ -857,10 +867,10 @@ plci_cc_notify_ind(struct FsmInst *fi, int event, void *arg)
 	_cmsg		*cmsg;
 	__u8		tmp[10], *p, *nf;
 
-	if (!qi || !qi->notify)
+	if (!qi || !qi->notify.off)
 		return;
 	nf = (u_char *)qi;
-	nf += L3_EXTRA_SIZE + qi->notify + 1;
+	nf += L3_EXTRA_SIZE + qi->notify.off + 1;
 	if (nf[0] != 1) // len != 1
 		return;
 	switch (nf[1]) {
@@ -913,9 +923,9 @@ plci_cc_suspend_err(struct FsmInst *fi, int event, void *arg)
 	__u16		SuppServiceReason;
 	
 	if (qi) { // reject from network
-		if (qi->cause) {
+		if (qi->cause.off) {
 			p = (u_char *)qi;
-			p += L3_EXTRA_SIZE + qi->cause;
+			p += L3_EXTRA_SIZE + qi->cause.off;
 			SuppServiceReason = 0x3400 | p[3];
 		} else
 			SuppServiceReason = CapiProtocolErrorLayer3;
@@ -952,9 +962,9 @@ plci_cc_resume_err(struct FsmInst *fi, int event, void *arg)
 	CMSG_ALLOC(cmsg);
 	AppPlciCmsgHeader(aplci, cmsg, CAPI_DISCONNECT, CAPI_IND);
 	if (qi) { // reject from network
-		if (qi->cause) {
+		if (qi->cause.off) {
 			p = (u_char *)qi;
-			p += L3_EXTRA_SIZE + qi->cause;
+			p += L3_EXTRA_SIZE + qi->cause.off;
 			cmsg->Reason = 0x3400 | p[3];
 		} else
 			cmsg->Reason = 0;
@@ -973,12 +983,12 @@ plci_cc_resume_conf(struct FsmInst *fi, int event, void *arg)
 	_cmsg		*cmsg;
 	__u8		tmp[10], *p;
 	
-	if (!qi || !qi->channel_id) {
+	if (!qi || !qi->channel_id.off) {
 		int_error();
 		return;
 	}
 	p = (u_char *)qi;
-	p += L3_EXTRA_SIZE + qi->channel_id;
+	p += L3_EXTRA_SIZE + qi->channel_id.off;
 	aplci->channel = plci_parse_channel_id(p);
 	CMSG_ALLOC(cmsg);
 	AppPlciCmsgHeader(aplci, cmsg, CAPI_FACILITY, CAPI_IND);
@@ -1508,9 +1518,9 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 			AppPlciInfoIndIE(aplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, qi);
 			AppPlciInfoIndIE(aplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, qi);
 			AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
-			if (qi->channel_id) {
+			if (qi->channel_id.off) {
 				ie = (u_char *)qi;
-				ie += L3_EXTRA_SIZE + qi->channel_id;
+				ie += L3_EXTRA_SIZE + qi->channel_id.off;
 				aplci->channel = plci_parse_channel_id(ie);
 			}
 			mISDN_FsmEvent(&aplci->plci_m, EV_L3_SETUP_IND, arg); 
@@ -1526,9 +1536,9 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 				AppPlciInfoIndIE(aplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, qi);
 				AppPlciInfoIndIE(aplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, qi);
 				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
-				if (qi->channel_id) {
+				if (qi->channel_id.off) {
 					ie = (u_char *)qi;
-					ie += L3_EXTRA_SIZE + qi->channel_id;
+					ie += L3_EXTRA_SIZE + qi->channel_id.off;
 					aplci->channel = plci_parse_channel_id(ie);
 				}
 			}
@@ -1538,9 +1548,9 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 			if (qi) {
 				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
 				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
-				if (qi->channel_id) {
+				if (qi->channel_id.off) {
 					ie = (u_char *)qi;
-					ie += L3_EXTRA_SIZE + qi->channel_id;
+					ie += L3_EXTRA_SIZE + qi->channel_id.off;
 					aplci->channel = plci_parse_channel_id(ie);
 				}
 			}
@@ -1585,9 +1595,9 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 				AppPlciInfoIndIE(aplci, IE_PROGRESS,
 					CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, qi);
 				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
-				if (qi->channel_id) {
+				if (qi->channel_id.off) {
 					ie = (u_char *)qi;
-					ie += L3_EXTRA_SIZE + qi->channel_id;
+					ie += L3_EXTRA_SIZE + qi->channel_id.off;
 					aplci->channel = plci_parse_channel_id(ie);
 				}
 			}
@@ -1599,9 +1609,9 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 				AppPlciInfoIndIE(aplci, IE_PROGRESS,
 					CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, qi);
 				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
-				if (qi->channel_id) {
+				if (qi->channel_id.off) {
 					ie = (u_char *)qi;
-					ie += L3_EXTRA_SIZE + qi->channel_id;
+					ie += L3_EXTRA_SIZE + qi->channel_id.off;
 					aplci->channel = plci_parse_channel_id(ie);
 				}
 			}
@@ -1615,9 +1625,9 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 					CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, qi);
 				AppPlciInfoIndIE(aplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, qi);
 				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
-				if (qi->channel_id) {
+				if (qi->channel_id.off) {
 					ie = (u_char *)qi;
-					ie += L3_EXTRA_SIZE + qi->channel_id;
+					ie += L3_EXTRA_SIZE + qi->channel_id.off;
 					aplci->channel = plci_parse_channel_id(ie);
 				}
 			}
@@ -1877,7 +1887,7 @@ AppPlciInfoIndIE(AppPlci_t *aplci, unsigned char ie, __u32 mask, Q931_info_t *qi
 {
 	_cmsg		*cmsg;
 	u_char		*iep = NULL;
-	u16		*ies;
+	ie_info_t	*ies;
 	
 
 	if ((!aplci->appl) || (!(aplci->appl->InfoMask & mask)))
@@ -1892,10 +1902,10 @@ AppPlciInfoIndIE(AppPlci_t *aplci, unsigned char ie, __u32 mask, Q931_info_t *qi
 		if (mISDN_l3_ie2pos(ie) < 0)
 			return;
 		ies += mISDN_l3_ie2pos(ie);
-		if (!*ies)
+		if (!ies->off)
 			return;
 		iep = (u_char *)qi;
-		iep += L3_EXTRA_SIZE + *ies +1;
+		iep += L3_EXTRA_SIZE + ies->off +1;
 	}
 	CMSG_ALLOC(cmsg);
 	AppPlciCmsgHeader(aplci, cmsg, CAPI_INFO, CAPI_IND);

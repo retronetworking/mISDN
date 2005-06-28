@@ -19,7 +19,7 @@
  *              - changed if any interface is extended but backwards compatible
  *
  */
-#define	MISDN_MAJOR_VERSION	2
+#define	MISDN_MAJOR_VERSION	3
 #define	MISDN_MINOR_VERSION	0
 #define	MISDN_VERSION		((MISDN_MAJOR_VERSION<<16) | MISDN_MINOR_VERSION)
 
@@ -627,46 +627,76 @@ typedef struct _channel_info {
 
 /* l3 pointer arrays */
 
+typedef struct _ie_info {
+	u16	off	: 10,
+		ridx	: 3,
+		res1	: 1,
+		cs_flg	: 1,
+		repeated: 1;
+} __attribute__((packed)) ie_info_t;
+
+typedef struct _ie_val {
+	u16	codeset	: 3,
+		res1	: 5,
+		val	: 8;
+} __attribute__((packed)) ie_val_t;;
+
+typedef struct _cs_info {
+	u16	codeset	: 3,
+		locked	: 1,
+		res1	: 2,
+		len	: 10;
+} __attribute__((packed)) cs_info_t;
+
+typedef struct _ie_info_ext {
+	ie_info_t	ie;
+	union {
+		ie_val_t	v;
+		cs_info_t	cs;
+	};
+} __attribute__((packed)) ie_info_ext_t;
+
 typedef struct _Q931_info {
-	u_char	type __attribute__((packed));
-	u_char	crlen __attribute__((packed));
-	u16	cr __attribute__((packed));
-	u16	bearer_capability __attribute__((packed));
-	u16	cause __attribute__((packed));
-	u16	call_id __attribute__((packed));
-	u16	call_state __attribute__((packed));
-	u16	channel_id __attribute__((packed));
-	u16	facility __attribute__((packed));
-	u16	progress __attribute__((packed));
-	u16	net_fac __attribute__((packed));
-	u16	notify __attribute__((packed));
-	u16	display __attribute__((packed));
-	u16	date __attribute__((packed));
-	u16	keypad __attribute__((packed));
-	u16	signal __attribute__((packed));
-	u16	info_rate __attribute__((packed));
-	u16	end2end_transit __attribute__((packed));
-	u16	transit_delay_sel __attribute__((packed));
-	u16	pktl_bin_para __attribute__((packed));
-	u16	pktl_window __attribute__((packed));
-	u16	pkt_size __attribute__((packed));
-	u16	closed_userg __attribute__((packed));
-	u16	connected_nr __attribute__((packed));
-	u16	connected_sub __attribute__((packed));
-	u16	calling_nr __attribute__((packed));
-	u16	calling_sub __attribute__((packed));
-	u16	called_nr __attribute__((packed));
-	u16	called_sub __attribute__((packed));
-	u16	redirect_nr __attribute__((packed));
-	u16	transit_net_sel __attribute__((packed));
-	u16	restart_ind __attribute__((packed));
-	u16	llc __attribute__((packed));
-	u16	hlc __attribute__((packed));
-	u16	useruser __attribute__((packed));
-	u16	more_data __attribute__((packed));
-	u16	sending_complete __attribute__((packed));
-	u16	congestion_level __attribute__((packed));
-	u16	fill1 __attribute__((packed));
+	u_char		type __attribute__((packed));
+	u_char		crlen __attribute__((packed));
+	u16		cr __attribute__((packed));
+	ie_info_t	bearer_capability __attribute__((packed));
+	ie_info_t	cause __attribute__((packed));
+	ie_info_t	call_id __attribute__((packed));
+	ie_info_t	call_state __attribute__((packed));
+	ie_info_t	channel_id __attribute__((packed));
+	ie_info_t	facility __attribute__((packed));
+	ie_info_t	progress __attribute__((packed));
+	ie_info_t	net_fac __attribute__((packed));
+	ie_info_t	notify __attribute__((packed));
+	ie_info_t	display __attribute__((packed));
+	ie_info_t	date __attribute__((packed));
+	ie_info_t	keypad __attribute__((packed));
+	ie_info_t	signal __attribute__((packed));
+	ie_info_t	info_rate __attribute__((packed));
+	ie_info_t	end2end_transit __attribute__((packed));
+	ie_info_t	transit_delay_sel __attribute__((packed));
+	ie_info_t	pktl_bin_para __attribute__((packed));
+	ie_info_t	pktl_window __attribute__((packed));
+	ie_info_t	pkt_size __attribute__((packed));
+	ie_info_t	closed_userg __attribute__((packed));
+	ie_info_t	connected_nr __attribute__((packed));
+	ie_info_t	connected_sub __attribute__((packed));
+	ie_info_t	calling_nr __attribute__((packed));
+	ie_info_t	calling_sub __attribute__((packed));
+	ie_info_t	called_nr __attribute__((packed));
+	ie_info_t	called_sub __attribute__((packed));
+	ie_info_t	redirect_nr __attribute__((packed));
+	ie_info_t	transit_net_sel __attribute__((packed));
+	ie_info_t	restart_ind __attribute__((packed));
+	ie_info_t	llc __attribute__((packed));
+	ie_info_t	hlc __attribute__((packed));
+	ie_info_t	useruser __attribute__((packed));
+	ie_info_t	more_data __attribute__((packed));
+	ie_info_t	sending_complete __attribute__((packed));
+	ie_info_t	congestion_level __attribute__((packed));
+	ie_info_t	fill1 __attribute__((packed));
+	ie_info_ext_t	ext[8] __attribute__((packed));
 } Q931_info_t;
 
 #define L3_EXTRA_SIZE	sizeof(Q931_info_t)
