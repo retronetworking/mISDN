@@ -207,6 +207,7 @@ enum {
 	ST_PLCI_P_3,
 	ST_PLCI_P_4,
 	ST_PLCI_P_ACT,
+	ST_PLCI_P_HELD,
 	ST_PLCI_P_5,
 	ST_PLCI_P_6,
 	ST_PLCI_P_RES,
@@ -222,6 +223,7 @@ static char *str_st_plci[] = {
 	"ST_PLCI_P_3",
 	"ST_PLCI_P_4",
 	"ST_PLCI_P_ACT",
+	"ST_PLCI_P_HELD",
 	"ST_PLCI_P_5",
 	"ST_PLCI_P_6",
 	"ST_PLCI_P_RES",
@@ -242,6 +244,10 @@ enum {
 	EV_AP_DISCONNECT_REQ,
 	EV_PI_DISCONNECT_IND,
 	EV_AP_DISCONNECT_RESP,
+	EV_AP_HOLD_REQ,
+	EV_AP_RETRIEVE_REQ,
+	EV_PI_HOLD_CONF,
+	EV_PI_RETRIEVE_CONF,
 	EV_AP_SUSPEND_REQ,
 	EV_PI_SUSPEND_CONF,
 	EV_AP_RESUME_REQ,
@@ -255,6 +261,12 @@ enum {
 	EV_L3_RELEASE_IND,
 	EV_L3_RELEASE_PROC_IND,
 	EV_L3_NOTIFY_IND,
+	EV_L3_HOLD_IND,
+	EV_L3_HOLD_ACKNOWLEDGE,
+	EV_L3_HOLD_REJECT,
+	EV_L3_RETRIEVE_IND,
+	EV_L3_RETRIEVE_ACKNOWLEDGE,
+	EV_L3_RETRIEVE_REJECT,
 	EV_L3_SUSPEND_ERR,
 	EV_L3_SUSPEND_CONF,
 	EV_L3_RESUME_ERR,
@@ -281,6 +293,10 @@ static char* str_ev_plci[] = {
 	"EV_AP_DISCONNECT_REQ",
 	"EV_PI_DISCONNECT_IND",
 	"EV_AP_DISCONNECT_RESP",
+	"EV_AP_HOLD_REQ",
+	"EV_AP_RETRIEVE_REQ",
+	"EV_PI_HOLD_CONF",
+	"EV_PI_RETRIEVE_CONF",
 	"EV_AP_SUSPEND_REQ",
 	"EV_PI_SUSPEND_CONF",
 	"EV_AP_RESUME_REQ",
@@ -294,6 +310,12 @@ static char* str_ev_plci[] = {
 	"EV_L3_RELEASE_IND",
 	"EV_L3_RELEASE_PROC_IND",
 	"EV_L3_NOTIFY_IND",
+	"EV_L3_HOLD_IND",
+	"EV_L3_HOLD_ACKNOWLEDGE",
+	"EV_L3_HOLD_REJECT",
+	"EV_L3_RETRIEVE_IND",
+	"EV_L3_RETRIEVE_ACKNOWLEDGE",
+	"EV_L3_RETRIEVE_REJECT",
 	"EV_L3_SUSPEND_ERR",
 	"EV_L3_SUSPEND_CONF",
 	"EV_L3_RESUME_ERR",
@@ -446,6 +468,22 @@ plci_connect_ind(struct FsmInst *fi, int event, void *arg)
 {
 	mISDN_FsmChangeState(fi, ST_PLCI_P_2);
 	Send2Application(fi->userdata, arg);
+}
+
+static void plci_hold_req(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+	Plci_t	*plci = aplci->plci;
+
+	plciL4L3(plci, CC_HOLD | REQUEST, arg); 
+}
+
+static void plci_retrieve_req(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+	Plci_t	*plci = aplci->plci;
+
+	plciL4L3(plci, CC_RETRIEVE | REQUEST, arg); 
 }
 
 static void plci_suspend_req(struct FsmInst *fi, int event, void *arg)
@@ -864,8 +902,7 @@ plci_cc_notify_ind(struct FsmInst *fi, int event, void *arg)
 {
 	AppPlci_t	*aplci = fi->userdata;
 	Q931_info_t	*qi = arg;
-	_cmsg		*cmsg;
-	__u8		tmp[10], *p, *nf;
+	__u8		*nf;
 
 	if (!qi || !qi->notify.off)
 		return;
@@ -874,22 +911,184 @@ plci_cc_notify_ind(struct FsmInst *fi, int event, void *arg)
 	if (nf[0] != 1) // len != 1
 		return;
 	switch (nf[1]) {
-		case 0x80: // user suspended
-		case 0x81: // user resumed
-			if (!aplci->appl)
-				break;
-			if (!(aplci->appl->NotificationMask & SuppServiceTP))
-				break;
-			CMSG_ALLOC(cmsg);
-			AppPlciCmsgHeader(aplci, cmsg, CAPI_FACILITY, CAPI_IND);
-			p = &tmp[1];
-			p += capiEncodeWord(p, 0x8002 + (nf[1] & 1)); // Suspend/Resume Notification
-			*p++ = 0; // empty struct
-			tmp[0] = p - &tmp[1];
-			cmsg->FacilitySelector = 0x0003;
-			cmsg->FacilityIndicationParameter = tmp;
-			Send2Application(aplci, cmsg);
+		case 0xF9: // user hold
+			SendSSNotificationEvent(aplci, 0x8000);
 			break;
+		case 0xFA: // user retrieve
+			SendSSNotificationEvent(aplci, 0x8001);
+			break;
+		case 0x80: // user suspended
+			SendSSNotificationEvent(aplci, 0x8002);
+			break;
+		case 0x81: // user resumed
+			SendSSNotificationEvent(aplci, 0x8003);
+			break;
+		case 0xFB: // call is diverting
+			SendSSNotificationEvent(aplci, 0x8004);
+			break;
+		case 0xE8: // diversion activated
+			SendSSNotificationEvent(aplci, 0x8005);
+			break;
+		default:
+			int_errtxt("unhandled notification %x", nf[1]);
+	}
+}
+
+static void plci_hold_conf(struct FsmInst *fi, int event, void *arg)
+{
+	mISDN_FsmChangeState(fi, ST_PLCI_P_HELD);
+}
+
+static void
+AppPlci_hold_reply(AppPlci_t *aplci, __u16 SuppServiceReason)
+{
+	_cmsg	*cmsg;
+	__u8	tmp[10], *p;
+
+	if (aplci->appl) {
+		CMSG_ALLOC(cmsg);
+		AppPlciCmsgHeader(aplci, cmsg, CAPI_FACILITY, CAPI_IND);
+		p = &tmp[1];
+		p += capiEncodeWord(p, 0x0002); // Hold
+		p += capiEncodeFacIndSuspend(p, SuppServiceReason);
+		tmp[0] = p - &tmp[1];
+		cmsg->FacilitySelector = 0x0003;
+		cmsg->FacilityIndicationParameter = tmp;
+		Send2Application(aplci, cmsg);
+	}
+	if (SuppServiceReason == CapiSuccess)
+		mISDN_FsmEvent(&aplci->plci_m, EV_PI_HOLD_CONF, NULL);
+}
+
+static void
+plci_cc_hold_rej(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+	Q931_info_t	*qi = arg;
+	u_char		*p;
+	__u16		SuppServiceReason;
+	
+	if (qi) { // reject from network
+		if (qi->cause.off) {
+			p = (u_char *)qi;
+			p += L3_EXTRA_SIZE + qi->cause.off;
+			SuppServiceReason = 0x3400 | p[3];
+		} else
+			SuppServiceReason = CapiProtocolErrorLayer3;
+	} else { // timeout
+		SuppServiceReason = CapiTimeOut;
+	}
+	AppPlci_hold_reply(aplci, SuppServiceReason);
+}
+
+static void
+plci_cc_hold_ack(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+
+	AppPlci_hold_reply(aplci, CapiSuccess);
+	AppPlciLinkDown(aplci);
+}
+
+static void
+plci_cc_hold_ind(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+
+	AppPlci_hold_reply(aplci, CapiSuccess);
+	AppPlciLinkDown(aplci);
+	plciL4L3(aplci->plci, CC_HOLD_ACKNOWLEDGE| REQUEST, NULL);
+}
+
+static void plci_retrieve_conf(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+
+	mISDN_FsmChangeState(fi, ST_PLCI_P_ACT);
+	AppPlciLinkUp(aplci);
+	if (test_bit(PLCI_STATE_STACKREADY, &aplci->plci->state))
+		Send2Application(aplci, arg);
+	else
+		Send2ApplicationDelayed(aplci, arg);
+}
+
+static void
+AppPlci_retrieve_reply(AppPlci_t *aplci, __u16 SuppServiceReason)
+{
+	_cmsg	*cmsg;
+	__u8	tmp[10], *p;
+
+	if (aplci->appl) {
+		CMSG_ALLOC(cmsg);
+		AppPlciCmsgHeader(aplci, cmsg, CAPI_FACILITY, CAPI_IND);
+		p = &tmp[1];
+		p += capiEncodeWord(p, 0x0003); // Retrieve
+		p += capiEncodeFacIndSuspend(p, SuppServiceReason);
+		tmp[0] = p - &tmp[1];
+		cmsg->FacilitySelector = 0x0003;
+		cmsg->FacilityIndicationParameter = tmp;
+
+		if (SuppServiceReason != CapiSuccess)
+			Send2Application(aplci, cmsg);
+		else 
+			if (mISDN_FsmEvent(&aplci->plci_m, EV_PI_RETRIEVE_CONF, cmsg))
+				cmsg_free(cmsg);
+	}
+}
+
+static void
+plci_cc_retrieve_rej(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+	Q931_info_t	*qi = arg;
+	u_char		*p;
+	__u16		SuppServiceReason;
+	
+	if (qi) { // reject from network
+		if (qi->cause.off) {
+			p = (u_char *)qi;
+			p += L3_EXTRA_SIZE + qi->cause.off;
+			SuppServiceReason = 0x3400 | p[3];
+		} else
+			SuppServiceReason = CapiProtocolErrorLayer3;
+	} else { // timeout
+		SuppServiceReason = CapiTimeOut;
+	}
+	AppPlci_retrieve_reply(aplci, SuppServiceReason);
+}
+
+static void
+plci_cc_retrieve_ack(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+	Q931_info_t     *qi = arg;
+	u_char		*ie;
+
+	if (qi->channel_id.off) {
+		ie = (u_char *)qi;
+		ie += L3_EXTRA_SIZE + qi->channel_id.off;
+		aplci->channel = plci_parse_channel_id(ie);
+		AppPlci_retrieve_reply(aplci, CapiSuccess);
+	} else
+		AppPlci_retrieve_reply(aplci, 0x3711); /* resource Error */
+}
+
+static void
+plci_cc_retrieve_ind(struct FsmInst *fi, int event, void *arg)
+{
+	AppPlci_t	*aplci = fi->userdata;
+	Q931_info_t     *qi = arg;
+	u_char		*ie;
+
+	if (qi->channel_id.off) {
+		ie = (u_char *)qi;
+		ie += L3_EXTRA_SIZE + qi->channel_id.off;
+		aplci->channel = plci_parse_channel_id(ie);
+		AppPlci_retrieve_reply(aplci, CapiSuccess);
+		plciL4L3(aplci->plci, CC_RETRIEVE_ACKNOWLEDGE | REQUEST, NULL);
+	} else {
+		AppPlci_retrieve_reply(aplci, 0x3711); /* resource Error */
+		plciL4L3(aplci->plci, CC_RETRIEVE_REJECT | REQUEST, NULL);
 	}
 }
 
@@ -1016,12 +1215,12 @@ plci_select_b_protocol_req(struct FsmInst *fi, int event, void *arg)
 
 	ret = AppPlciLinkDown(aplci);
 	if (ret) {
-		Info = 0x2001;
+		Info = CapiMessageNotSupportedInCurrentState;
 		goto answer;
 	}
 	ret = AppPlciLinkUp(aplci);
 	if (ret < 0)
-		Info = 0x2001;
+		Info = CapiMessageNotSupportedInCurrentState;
 	else
 		Info = ret;
 answer:
@@ -1132,18 +1331,37 @@ static struct FsmNode fn_plci_list[] =
   {ST_PLCI_P_ACT,	EV_PI_DISCONNECT_IND,		plci_disconnect_ind},
   {ST_PLCI_P_ACT,	EV_AP_INFO_REQ,			plci_info_req},
   {ST_PLCI_P_ACT,	EV_AP_SELECT_B_PROTOCOL_REQ,	plci_select_b_protocol_req},
+  {ST_PLCI_P_ACT,	EV_AP_HOLD_REQ,			plci_hold_req},
   {ST_PLCI_P_ACT,	EV_AP_SUSPEND_REQ,		plci_suspend_req},
   {ST_PLCI_P_ACT,	EV_PI_SUSPEND_CONF,		plci_suspend_conf},
   {ST_PLCI_P_ACT,	EV_L3_DISCONNECT_IND,		plci_cc_disconnect_ind},
   {ST_PLCI_P_ACT,	EV_L3_RELEASE_IND,		plci_cc_release_ind},
   {ST_PLCI_P_ACT,	EV_L3_NOTIFY_IND,		plci_cc_notify_ind},
+  {ST_PLCI_P_ACT,	EV_L3_HOLD_IND,			plci_cc_hold_ind},
+  {ST_PLCI_P_ACT,	EV_L3_HOLD_ACKNOWLEDGE,		plci_cc_hold_ack},
+  {ST_PLCI_P_ACT,	EV_L3_HOLD_REJECT,		plci_cc_hold_rej},
+  {ST_PLCI_P_ACT,	EV_PI_HOLD_CONF,		plci_hold_conf},
   {ST_PLCI_P_ACT,	EV_L3_SUSPEND_ERR,		plci_cc_suspend_err},
   {ST_PLCI_P_ACT,	EV_L3_SUSPEND_CONF,		plci_cc_suspend_conf},
   {ST_PLCI_P_ACT,	EV_PH_CONTROL_IND,		plci_cc_ph_control_ind},
   {ST_PLCI_P_ACT,	EV_AP_RELEASE,			plci_appl_release_disc},
 
+  {ST_PLCI_P_HELD,	EV_AP_RETRIEVE_REQ,		plci_retrieve_req},
+  {ST_PLCI_P_HELD,	EV_L3_RETRIEVE_ACKNOWLEDGE,	plci_cc_retrieve_ack},
+  {ST_PLCI_P_HELD,	EV_L3_RETRIEVE_REJECT,		plci_cc_retrieve_rej},
+  {ST_PLCI_P_HELD,	EV_PI_RETRIEVE_CONF,		plci_retrieve_conf},
+  {ST_PLCI_P_HELD,	EV_AP_DISCONNECT_REQ,		plci_disconnect_req},
+  {ST_PLCI_P_HELD,	EV_AP_INFO_REQ,			plci_info_req},
+  {ST_PLCI_P_HELD,	EV_L3_RETRIEVE_IND,		plci_cc_retrieve_ind},
+  {ST_PLCI_P_HELD,	EV_L3_DISCONNECT_IND,		plci_cc_disconnect_ind},
+  {ST_PLCI_P_HELD,	EV_L3_RELEASE_IND,		plci_cc_release_ind},
+  {ST_PLCI_P_HELD,	EV_L3_NOTIFY_IND,		plci_cc_notify_ind},
+  {ST_PLCI_P_HELD,	EV_PI_DISCONNECT_IND,		plci_disconnect_ind},
+  {ST_PLCI_P_HELD,	EV_AP_RELEASE,			plci_appl_release_disc},
+
   {ST_PLCI_P_5,		EV_PI_DISCONNECT_IND,		plci_disconnect_ind},
   {ST_PLCI_P_5,		EV_L3_RELEASE_IND,		plci_cc_release_ind},
+  {ST_PLCI_P_5,		EV_AP_RELEASE,			plci_appl_release},
 
   {ST_PLCI_P_6,		EV_AP_DISCONNECT_RESP,		plci_disconnect_resp},
   {ST_PLCI_P_6,		EV_AP_RELEASE,			plci_disconnect_resp},
@@ -1642,6 +1860,50 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 					CAPI_INFOMASK_PROGRESS | CAPI_INFOMASK_EARLYB3, qi);
 			}
 			break;
+		case CC_HOLD | INDICATION:
+			if (qi)
+				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+			if (mISDN_FsmEvent(&aplci->plci_m, EV_L3_HOLD_IND, arg)) {
+				/* no routine reject L3 */
+				plciL4L3(aplci->plci, CC_HOLD_REJECT | REQUEST, NULL);
+			}
+			break;
+		case CC_HOLD_ACKNOWLEDGE | INDICATION:
+			if (qi)
+				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+			mISDN_FsmEvent(&aplci->plci_m, EV_L3_HOLD_ACKNOWLEDGE, arg);
+			break;
+		case CC_HOLD_REJECT | INDICATION:
+			if (qi) {
+				AppPlciInfoIndIE(aplci, IE_CAUSE, CAPI_INFOMASK_CAUSE, qi);
+				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+			}
+			mISDN_FsmEvent(&aplci->plci_m, EV_L3_HOLD_REJECT, arg);
+			break;
+		case CC_RETRIEVE | INDICATION:
+			if (qi) {
+				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
+			}
+			if (mISDN_FsmEvent(&aplci->plci_m, EV_L3_RETRIEVE_IND, arg)) {
+				/* no routine reject L3 */
+				plciL4L3(aplci->plci, CC_RETRIEVE_REJECT | REQUEST, NULL);
+			}
+			break;
+		case CC_RETRIEVE_ACKNOWLEDGE | INDICATION:
+			if (qi) {
+				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
+			}
+			mISDN_FsmEvent(&aplci->plci_m, EV_L3_RETRIEVE_ACKNOWLEDGE, arg);
+			break;
+		case CC_RETRIEVE_REJECT | INDICATION:
+			if (qi) {
+				AppPlciInfoIndIE(aplci, IE_CAUSE, CAPI_INFOMASK_CAUSE, qi);
+				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+			}
+			mISDN_FsmEvent(&aplci->plci_m, EV_L3_RETRIEVE_REJECT, arg);
+			break;
 		case CC_SUSPEND_ACKNOWLEDGE | INDICATION:
 			mISDN_FsmEvent(&aplci->plci_m, EV_L3_SUSPEND_CONF, arg); 
 			break;
@@ -1793,6 +2055,52 @@ AppPlciLinkDown(AppPlci_t *aplci)
 }
 
 int
+AppPlciFacHoldReq(AppPlci_t *aplci, FacReqParm_t *facReqParm, FacConfParm_t *facConfParm)
+{
+	struct sk_buff	*skb;
+
+	skb = mISDN_alloc_l3msg(20, MT_HOLD);
+	if (!skb) {
+		int_error();
+		return CapiIllMessageParmCoding;
+	}
+
+	if (mISDN_FsmEvent(&aplci->plci_m, EV_AP_HOLD_REQ, skb)) {
+		// no routine
+		facConfParm->u.Info.SupplementaryServiceInfo = 
+			CapiRequestNotAllowedInThisState;
+		dev_kfree_skb(skb);
+		return CapiMessageNotSupportedInCurrentState;
+	} else {
+		facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
+	}
+	return CapiSuccess;
+}
+
+int
+AppPlciFacRetrieveReq(AppPlci_t *aplci, FacReqParm_t *facReqParm, FacConfParm_t *facConfParm)
+{
+	struct sk_buff	*skb;
+
+	skb = mISDN_alloc_l3msg(20, MT_RETRIEVE);
+	if (!skb) {
+		int_error();
+		return CapiIllMessageParmCoding;
+	}
+
+	if (mISDN_FsmEvent(&aplci->plci_m, EV_AP_RETRIEVE_REQ, skb)) {
+		// no routine
+		facConfParm->u.Info.SupplementaryServiceInfo = 
+			CapiRequestNotAllowedInThisState;
+		dev_kfree_skb(skb);
+		return CapiMessageNotSupportedInCurrentState;
+	} else {
+		facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
+	}
+	return CapiSuccess;
+}
+
+int
 AppPlciFacSuspendReq(AppPlci_t *aplci, FacReqParm_t *facReqParm, FacConfParm_t *facConfParm)
 {
 	__u8		*CallIdentity;
@@ -1813,7 +2121,8 @@ AppPlciFacSuspendReq(AppPlci_t *aplci, FacReqParm_t *facReqParm, FacConfParm_t *
 		// no routine
 		facConfParm->u.Info.SupplementaryServiceInfo = 
 			CapiRequestNotAllowedInThisState;
-		kfree(skb);
+		dev_kfree_skb(skb);
+		return CapiMessageNotSupportedInCurrentState;
 	} else {
 		facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
 	}
@@ -1840,7 +2149,7 @@ AppPlciFacResumeReq(AppPlci_t *aplci, FacReqParm_t *facReqParm, FacConfParm_t *f
 	if (CallIdentity && CallIdentity[0])
 		mISDN_AddIE(skb, IE_CALL_ID, CallIdentity);
 	if (mISDN_FsmEvent(&aplci->plci_m, EV_AP_RESUME_REQ, skb))
-		kfree(skb);
+		dev_kfree_skb(skb);
 
 	facConfParm->u.Info.SupplementaryServiceInfo = CapiSuccess;
 	return CapiSuccess;

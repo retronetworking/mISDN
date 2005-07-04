@@ -430,6 +430,12 @@ static int ie_STATUS[] = {IE_CAUSE | IE_MANDATORY, IE_CALL_STATE |
 static int ie_STATUS_ENQUIRY[] = {IE_DISPLAY, -1};
 static int ie_SUSPEND_ACKNOWLEDGE[] = {IE_FACILITY, IE_DISPLAY, -1};
 static int ie_SUSPEND_REJECT[] = {IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
+static int ie_HOLD[] = {IE_DISPLAY, -1};
+static int ie_HOLD_ACKNOWLEDGE[] = {IE_DISPLAY, -1};
+static int ie_HOLD_REJECT[] = {IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
+static int ie_RETRIEVE[] = {IE_CHANNEL_ID| IE_MANDATORY, IE_DISPLAY, -1};
+static int ie_RETRIEVE_ACKNOWLEDGE[] = {IE_CHANNEL_ID| IE_MANDATORY, IE_DISPLAY, -1};
+static int ie_RETRIEVE_REJECT[] = {IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
 /* not used 
  * static int ie_CONGESTION_CONTROL[] = {IE_CONGESTION | IE_MANDATORY,
  *		IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
@@ -590,6 +596,12 @@ l3dss1_check_messagetype_validity(l3_process_t *pc, int mt, void *arg)
 		case MT_CONGESTION_CONTROL:
 		case MT_STATUS:
 		case MT_STATUS_ENQUIRY:
+		case MT_HOLD:
+		case MT_HOLD_ACKNOWLEDGE:
+		case MT_HOLD_REJECT:
+		case MT_RETRIEVE:
+		case MT_RETRIEVE_ACKNOWLEDGE:
+		case MT_RETRIEVE_REJECT:
 			if (pc->l3->debug & L3_DEB_CHECK)
 				l3_debug(pc->l3, "l3dss1_check_messagetype_validity mt(%x) OK", mt);
 			break;
@@ -1681,6 +1693,394 @@ l3dss1_dummy(l3_process_t *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_hold_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	if (!test_bit(FLG_PTP, &pc->l3->Flag)) {
+		if ((pc->state & VALID_HOLD_STATES_PTMP) == 0) { /* not a valid HOLD state for PtMP */
+			return;
+		}
+	}
+	switch(pc->aux_state) {
+		case AUX_IDLE:
+			break;
+		default:
+			int_errtxt("RETRIEVE_REQ in wrong aux state %d\n", pc->aux_state);
+		case AUX_HOLD_IND: /* maybe collition, ignored */
+			return;
+	}
+	if (arg)
+		SendMsg(pc, arg, -1);
+	else
+		l3dss1_message(pc, MT_HOLD);
+	pc->aux_state = AUX_HOLD_REQ;
+	L3AddTimer(&pc->aux_timer, THOLD, CC_THOLD);
+}
+
+static void
+l3dss1_hold_ack_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	switch(pc->aux_state) {
+		case AUX_HOLD_IND:
+			break;
+		default:
+			int_errtxt("HOLD_ACK in wrong aux state %d\n", pc->aux_state);
+			return;
+	}
+	if (arg)
+		SendMsg(pc, arg, -1);
+	else
+		l3dss1_message(pc, MT_HOLD_ACKNOWLEDGE);
+	pc->aux_state = AUX_CALL_HELD;
+}
+
+static void
+l3dss1_hold_rej_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	switch(pc->aux_state) {
+		case AUX_HOLD_IND:
+			break;
+		default:
+			int_errtxt("HOLD_REJ in wrong aux state %d\n", pc->aux_state);
+			return;
+	}
+	if (arg)
+		SendMsg(pc, arg, -1);
+	else
+		l3dss1_message_cause(pc, MT_HOLD_REJECT, CAUSE_RESOURCES_UNAVAIL); // FIXME
+	pc->aux_state = AUX_IDLE;
+}
+
+static void
+l3dss1_hold_ind(l3_process_t *pc, u_char pr, void *arg)
+{
+	struct sk_buff	*skb = arg;
+	int		ret;
+
+	ret = check_infoelements(pc, skb, ie_HOLD);
+	if (ERR_IE_COMPREHENSION == ret) {
+		l3dss1_std_ie_err(pc, ret);
+		dev_kfree_skb(skb);
+		return;
+	}
+	if (test_bit(FLG_PTP, &pc->l3->Flag)) {
+		if ((pc->state & VALID_HOLD_STATES_PTP) == 0) { /* not a valid HOLD state for PtP */
+			l3dss1_message_cause(pc, MT_HOLD_REJECT, CAUSE_NOTCOMPAT_STATE);
+			dev_kfree_skb(skb);
+			return;
+		}
+	} else {
+		if ((pc->state & VALID_HOLD_STATES_PTMP) == 0) { /* not a valid HOLD state for PtMP */
+			l3dss1_message_cause(pc, MT_HOLD_REJECT, CAUSE_NOTCOMPAT_STATE);
+			dev_kfree_skb(skb);
+			return;
+		}
+	}
+	switch(pc->aux_state) {
+		case AUX_HOLD_REQ:
+			L3DelTimer(&pc->aux_timer);
+		case AUX_IDLE:
+			if (mISDN_l3up(pc, CC_HOLD | INDICATION, skb))
+				dev_kfree_skb(skb);
+			else {
+				pc->aux_state = AUX_HOLD_IND;
+			}
+			break;
+		default:
+			l3dss1_message_cause(pc, MT_HOLD_REJECT, CAUSE_NOTCOMPAT_STATE);
+			dev_kfree_skb(skb);
+			return;
+	}
+	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
+		l3dss1_std_ie_err(pc, ret);
+}
+
+static void
+l3dss1_hold_rej(l3_process_t *pc, u_char pr, void *arg)
+{
+	struct sk_buff	*skb = arg;
+	int		ret;
+	u_char		cause;
+
+	if ((ret = l3dss1_get_cause(pc, skb))) {
+		if (pc->l3->debug & L3_DEB_WARN)
+			l3_debug(pc->l3, "HOLD_REJ get_cause err(%d)", ret);
+		if (ret == -1) 
+			cause = CAUSE_MANDATORY_IE_MISS;
+		else
+			cause = CAUSE_INVALID_CONTENTS;
+		l3dss1_status_send(pc, cause);
+		dev_kfree_skb(skb);
+		return;
+	}
+	ret = check_infoelements(pc, skb, ie_HOLD_REJECT);
+	if (ERR_IE_COMPREHENSION == ret) {
+		l3dss1_std_ie_err(pc, ret);
+		dev_kfree_skb(skb);
+		return;
+	}
+	switch(pc->aux_state) {
+		case AUX_HOLD_REQ:
+			L3DelTimer(&pc->aux_timer);
+			break;
+		default:
+			int_errtxt("HOLD_REJ in wrong aux state %d\n", pc->aux_state);
+	}
+	pc->aux_state = AUX_IDLE;
+	if (mISDN_l3up(pc, CC_HOLD_REJECT | INDICATION, skb))
+		dev_kfree_skb(skb);
+}
+
+static void
+l3dss1_hold_ignore(l3_process_t *pc, u_char pr, void *arg)
+{
+	dev_kfree_skb(arg);
+}
+
+static void
+l3dss1_hold_req_ignore(l3_process_t *pc, u_char pr, void *arg)
+{
+}
+
+static void
+l3dss1_hold_ack(l3_process_t *pc, u_char pr, void *arg)
+{
+	struct sk_buff	*skb = arg;
+	int		ret;
+
+	ret = check_infoelements(pc, skb, ie_HOLD_ACKNOWLEDGE);
+	if (ERR_IE_COMPREHENSION == ret) {
+		l3dss1_std_ie_err(pc, ret);
+		dev_kfree_skb(skb);
+		return;
+	}
+	switch(pc->aux_state) {
+		case AUX_HOLD_REQ:
+			L3DelTimer(&pc->aux_timer);
+			if (mISDN_l3up(pc, CC_HOLD_ACKNOWLEDGE | INDICATION, skb))
+				dev_kfree_skb(skb);
+			pc->aux_state = AUX_CALL_HELD;
+			break;
+		default:
+			int_errtxt("HOLD_ACK in wrong aux state %d\n", pc->aux_state);
+			dev_kfree_skb(skb);
+	}
+	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
+		l3dss1_std_ie_err(pc, ret);
+}
+
+static void
+l3dss1_retrieve_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	if (!test_bit(FLG_PTP, &pc->l3->Flag)) {
+		if ((pc->state & (VALID_HOLD_STATES_PTMP | SBIT(12))) == 0) { /* not a valid RETRIEVE state for PtMP */
+			return;
+		}
+	}
+	switch(pc->aux_state) {
+		case AUX_CALL_HELD:
+			break;
+		default:
+			int_errtxt("RETRIEVE_REQ in wrong aux state %d\n", pc->aux_state);
+		case AUX_RETRIEVE_IND: /* maybe collition, ignored */
+			return;
+	}
+	if (arg) {
+		SendMsg(pc, arg, -1);
+	} else {
+		newl3state(pc, -1);
+		l3dss1_message(pc, MT_RETRIEVE);
+	}
+	pc->aux_state = AUX_RETRIEVE_REQ;
+	L3AddTimer(&pc->aux_timer, TRETRIEVE, CC_TRETRIEVE);
+}
+
+static void
+l3dss1_retrieve_ack_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	switch(pc->aux_state) {
+		case AUX_RETRIEVE_IND:
+			break;
+		default:
+			int_errtxt("HOLD_REJ in wrong aux state %d\n", pc->aux_state);
+			return;
+	}
+	if (arg)
+		SendMsg(pc, arg, -1);
+	else
+		l3dss1_message(pc, MT_RETRIEVE_ACKNOWLEDGE);
+	pc->aux_state = AUX_IDLE;
+}
+
+static void
+l3dss1_retrieve_rej_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	switch(pc->aux_state) {
+		case AUX_RETRIEVE_IND:
+			break;
+		default:
+			int_errtxt("HOLD_REJ in wrong aux state %d\n", pc->aux_state);
+			return;
+	}
+	if (arg)
+		SendMsg(pc, arg, -1);
+	else
+		l3dss1_message_cause(pc, MT_RETRIEVE_REJECT, CAUSE_RESOURCES_UNAVAIL); // FIXME
+	pc->aux_state = AUX_CALL_HELD;
+}
+
+
+static void
+l3dss1_retrieve_ind(l3_process_t *pc, u_char pr, void *arg)
+{
+	struct sk_buff	*skb = arg;
+	int		ret;
+
+	if (test_bit(FLG_PTP, &pc->l3->Flag)) {
+		if ((pc->state & (VALID_HOLD_STATES_PTP | SBIT(12))) == 0) { /* not a valid RETRIEVE state for PtP */
+			l3dss1_message_cause(pc, MT_RETRIEVE_REJECT, CAUSE_NOTCOMPAT_STATE);
+			dev_kfree_skb(skb);
+			return;
+		}
+	} else {
+		if ((pc->state & (VALID_HOLD_STATES_PTMP | SBIT(12))) == 0) { /* not a valid RETRIEVE state for PtMP */
+			l3dss1_message_cause(pc, MT_RETRIEVE_REJECT, CAUSE_NOTCOMPAT_STATE);
+			dev_kfree_skb(skb);
+			return;
+		}
+	}
+	ret = check_infoelements(pc, skb, ie_RETRIEVE);
+	if (ERR_IE_COMPREHENSION == ret) {
+		l3dss1_std_ie_err(pc, ret);
+		dev_kfree_skb(skb);
+		return;
+	}
+	switch(pc->aux_state) {
+		case AUX_RETRIEVE_REQ:
+			L3DelTimer(&pc->aux_timer);
+		case AUX_CALL_HELD:
+			if (!(ret = l3dss1_get_channel_id(pc, skb))) {
+				if ((0 == pc->bc) || (3 == pc->bc)) {
+					if (pc->l3->debug & L3_DEB_WARN)
+						l3_debug(pc->l3, "RETRIEVE with wrong chid %x",
+							pc->bc);
+					l3dss1_message_cause(pc, MT_RETRIEVE_REJECT, CAUSE_INVALID_CONTENTS);
+					dev_kfree_skb(skb);
+					return;
+				}
+			}
+			if (mISDN_l3up(pc, CC_RETRIEVE | INDICATION, skb))
+				dev_kfree_skb(skb);
+			else {
+				pc->aux_state = AUX_RETRIEVE_IND;
+			}
+			break;
+		default:
+			l3dss1_message_cause(pc, MT_RETRIEVE_REJECT, CAUSE_NOTCOMPAT_STATE);
+			dev_kfree_skb(skb);
+			return;
+	}
+	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
+		l3dss1_std_ie_err(pc, ret);
+}
+
+static void
+l3dss1_retrieve_ack(l3_process_t *pc, u_char pr, void *arg)
+{
+	struct sk_buff	*skb = arg;
+	int		ret;
+
+	ret = check_infoelements(pc, skb, ie_RETRIEVE_ACKNOWLEDGE);
+	if (ERR_IE_COMPREHENSION == ret) {
+		l3dss1_std_ie_err(pc, ret);
+		dev_kfree_skb(skb);
+		return;
+	}
+	switch(pc->aux_state) {
+		case AUX_RETRIEVE_REQ:
+			L3DelTimer(&pc->aux_timer);
+			if (!(ret = l3dss1_get_channel_id(pc, skb))) {
+				if ((0 == pc->bc) || (3 == pc->bc)) {
+					if (pc->l3->debug & L3_DEB_WARN)
+						l3_debug(pc->l3, "RETRIEVE ACK with wrong chid %x",
+							pc->bc);
+					l3dss1_status_send(pc, CAUSE_INVALID_CONTENTS);
+					dev_kfree_skb(skb);
+					return;
+				}
+			}
+			if (mISDN_l3up(pc, CC_RETRIEVE_ACKNOWLEDGE | INDICATION, skb))
+				dev_kfree_skb(skb);
+			pc->aux_state = AUX_IDLE;
+			break;
+		default:
+			int_errtxt("RETRIEVE_ACK in wrong aux state %d\n", pc->aux_state);
+	}
+	if (ret) /* STATUS for none mandatory IE errors after actions are taken */
+		l3dss1_std_ie_err(pc, ret);
+}
+
+static void
+l3dss1_retrieve_rej(l3_process_t *pc, u_char pr, void *arg)
+{
+	struct sk_buff	*skb = arg;
+	int		ret;
+	u_char		cause;
+
+	if ((ret = l3dss1_get_cause(pc, skb))) {
+		if (pc->l3->debug & L3_DEB_WARN)
+			l3_debug(pc->l3, "RETRIEVE_REJ get_cause err(%d)", ret);
+		if (ret == -1) 
+			cause = CAUSE_MANDATORY_IE_MISS;
+		else
+			cause = CAUSE_INVALID_CONTENTS;
+		l3dss1_status_send(pc, cause);
+		dev_kfree_skb(skb);
+		return;
+	}
+	ret = check_infoelements(pc, skb, ie_RETRIEVE_REJECT);
+	if (ERR_IE_COMPREHENSION == ret) {
+		l3dss1_std_ie_err(pc, ret);
+		dev_kfree_skb(skb);
+		return;
+	}
+	switch(pc->aux_state) {
+		case AUX_RETRIEVE_REQ:
+			L3DelTimer(&pc->aux_timer);
+			pc->aux_state = AUX_CALL_HELD;
+			break;
+		default:
+			int_errtxt("RETRIEVE_REJ in wrong aux state %d\n", pc->aux_state);
+	}
+	pc->aux_state = AUX_IDLE;
+	if (mISDN_l3up(pc, CC_RETRIEVE_REJECT | INDICATION, skb))
+		dev_kfree_skb(skb);
+}
+
+static void
+l3dss1_thold(l3_process_t *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->aux_timer);
+#if 0
+	pc->cause = 102;	/* Timer expiry */
+	pc->para.loc = 0;	/* local */
+#endif
+	mISDN_l3up(pc, CC_HOLD_REJECT | INDICATION, NULL);
+	pc->aux_state = AUX_IDLE;
+}
+
+static void
+l3dss1_tretrieve(l3_process_t *pc, u_char pr, void *arg)
+{
+	L3DelTimer(&pc->aux_timer);
+#if 0
+	pc->cause = 102;	/* Timer expiry */
+	pc->para.loc = 0;	/* local */
+#endif
+	mISDN_l3up(pc, CC_RETRIEVE_REJECT | INDICATION, NULL);
+	pc->aux_state = AUX_CALL_HELD;
+}
+
+static void
 l3dss1_t302(l3_process_t *pc, u_char pr, void *arg)
 {
 	L3DelTimer(&pc->timer);
@@ -1891,6 +2291,26 @@ static struct stateentry downstatelist[] =
 	 CC_CONNECT | REQUEST, l3dss1_connect_req},
 	{SBIT(10),
 	 CC_SUSPEND | REQUEST, l3dss1_suspend_req},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
+	 CC_HOLD | REQUEST, l3dss1_hold_req},
+	{ALL_STATES,
+	 CC_HOLD | REQUEST, l3dss1_hold_req_ignore},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
+	 CC_HOLD_ACKNOWLEDGE | REQUEST, l3dss1_hold_ack_req},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
+	 CC_HOLD_REJECT | REQUEST, l3dss1_hold_rej_req},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(12),
+	 CC_RETRIEVE | REQUEST, l3dss1_retrieve_req},
+	{ALL_STATES,
+	 CC_RETRIEVE| REQUEST, l3dss1_hold_req_ignore},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(12),
+	 CC_RETRIEVE_ACKNOWLEDGE | REQUEST, l3dss1_retrieve_ack_req},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(12),
+	 CC_RETRIEVE_REJECT | REQUEST, l3dss1_retrieve_rej_req},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
+	 CC_HOLD  | REQUEST, l3dss1_hold_req},
+	{ALL_STATES,
+	 CC_FACILITY | REQUEST, l3dss1_facility_req},
 	{ALL_STATES,
 	 CC_STATUS_ENQUIRY | REQUEST, l3dss1_status_enq_req},
 };
@@ -1948,6 +2368,20 @@ static struct stateentry datastatelist[] =
 	 MT_RESUME_ACKNOWLEDGE, l3dss1_resume_ack},
 	{SBIT(17),
 	 MT_RESUME_REJECT, l3dss1_resume_rej},
+	{SBIT(12) | SBIT(19),
+	 MT_HOLD, l3dss1_hold_ignore},
+	{ALL_STATES,
+	 MT_HOLD, l3dss1_hold_ind},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
+	 MT_HOLD_REJECT, l3dss1_hold_rej},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10),
+	 MT_HOLD_ACKNOWLEDGE, l3dss1_hold_ack},
+	{ALL_STATES,
+	 MT_RETRIEVE, l3dss1_retrieve_ind},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(12),
+	 MT_RETRIEVE_REJECT, l3dss1_retrieve_rej},
+	{SBIT(3) | SBIT(4) | SBIT(7) | SBIT(8) | SBIT(9) | SBIT(10) | SBIT(12),
+	 MT_RETRIEVE_ACKNOWLEDGE, l3dss1_retrieve_ack},
 };
 
 #define DATASLLEN \
@@ -2000,6 +2434,10 @@ static struct stateentry manstatelist[] =
 	 CC_T309, l3dss1_dl_release},
 	{SBIT(6),
 	 CC_TCTRL, l3dss1_reset},
+	{ALL_STATES,
+	 CC_THOLD, l3dss1_thold},
+	{ALL_STATES,
+	 CC_TRETRIEVE, l3dss1_tretrieve},
 	{ALL_STATES,
 	 CC_RESTART | REQUEST, l3dss1_restart},
 };
@@ -2415,6 +2853,7 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 	nl3->global->l3 = nl3;
 	nl3->global->t303skb = NULL;
 	L3InitTimer(nl3->global, &nl3->global->timer);
+	L3InitTimer(nl3->global, &nl3->global->aux_timer);
 	if (!(nl3->dummy = kmalloc(sizeof(l3_process_t), GFP_ATOMIC))) {
 		printk(KERN_ERR "mISDN can't get memory for dss1 dummy CR\n");
 		release_l3(nl3);
@@ -2429,6 +2868,7 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 	nl3->dummy->l3 = nl3;
 	nl3->dummy->t303skb = NULL;
 	L3InitTimer(nl3->dummy, &nl3->dummy->timer);
+	L3InitTimer(nl3->dummy, &nl3->dummy->aux_timer);
 	sprintf(nl3->inst.name, "DSS1 %x", st->id >> 8);
 	nl3->p_mgr = dss1man;
 	list_add_tail(&nl3->list, &u_dss1.ilist);

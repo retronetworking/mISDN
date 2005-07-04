@@ -208,7 +208,7 @@ int mISDN_get_free_ext_ie(Q931_info_t *qi)
 
 void mISDN_LogL3Msg(struct sk_buff *skb)
 {
-	u_char		*p,*ps, *t, tmp[32];
+	u_char		*p,*ps, *t, tmp[128];
 	ie_info_t	*ies;
 	int		i,j;
 	Q931_info_t	*qi = (Q931_info_t *)skb->data;
@@ -230,13 +230,13 @@ void mISDN_LogL3Msg(struct sk_buff *skb)
 			t = tmp;
 			*t = 0;
 			for (j=0; j<p[1]; j++) {
-				if (j>8) {
+				if (j>40) {
 					sprintf(t, " ...");
 					break;
 				}
 				t += sprintf(t, " %02x", p[j+2]);
 			}
-			printk(KERN_DEBUG "L3Msg ies[%d] off(%d) rep(%d) ridx(%d) ie(%02x/%02x) len(%d) %s\n",
+			printk(KERN_DEBUG "L3Msg ies[%d] off(%d) rep(%d) ridx(%d) ie(%02x/%02x) len(%d)%s\n",
 				i, ies[i].off, ies[i].repeated, ies[i].ridx, _mISDN_l3_pos2ie[i], *p, p[1], tmp);
 		}
 	}
@@ -247,18 +247,18 @@ void mISDN_LogL3Msg(struct sk_buff *skb)
 			*t = 0;
 			if (qi->ext[i].ie.cs_flg) {
 				for (j=0; j<qi->ext[i].cs.len; j++) {
-					if (j>8) {
+					if (j>40) {
 						sprintf(t, " ...");
 						break;
 					}
 					t += sprintf(t, " %02x", p[j]);
 				}
-				printk(KERN_DEBUG "L3Msg ext[%d] off(%d) locked(%d) cs(%d) len(%d) %s\n",
+				printk(KERN_DEBUG "L3Msg ext[%d] off(%d) locked(%d) cs(%d) len(%d)%s\n",
 					i, qi->ext[i].ie.off, qi->ext[i].cs.locked, qi->ext[i].cs.codeset,
 					qi->ext[i].cs.len, tmp);
 			} else {
 				for (j=0; j<p[1]; j++) {
-					if (j>8) {
+					if (j>40) {
 						sprintf(t, " ...");
 						break;
 					}

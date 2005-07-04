@@ -1837,8 +1837,8 @@ ph_data_indication(layer2_t *l2, mISDN_head_t *hh, struct sk_buff *skb) {
 		ptei >>= 1;
 		if ((psapi != l2->sapi) && (psapi != TEI_SAPI)) {
 			/* not our bussiness */
-			printk(KERN_DEBUG "%s: sapi %d/%d sapi mismatch\n", __FUNCTION__,
-				psapi, l2->sapi);
+			// printk(KERN_DEBUG "%s: sapi %d/%d sapi mismatch\n", __FUNCTION__,
+			//	psapi, l2->sapi);
 			dev_kfree_skb(skb);
 			return(0);
 		}
@@ -1849,8 +1849,8 @@ ph_data_indication(layer2_t *l2, mISDN_head_t *hh, struct sk_buff *skb) {
 			}
 		} else if ((ptei != l2->tei) || (psapi == TEI_SAPI)) {
 			/* not our bussiness */
-			printk(KERN_DEBUG "%s: tei %d/%d sapi %d mismatch\n", __FUNCTION__,
-				ptei, l2->tei, psapi);
+			// printk(KERN_DEBUG "%s: tei %d/%d sapi %d mismatch\n", __FUNCTION__,
+			//	ptei, l2->tei, psapi);
 			dev_kfree_skb(skb);
 			return(0);
 		}

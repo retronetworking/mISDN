@@ -320,6 +320,7 @@ l3_process_t
 	p->callref = cr;
 	p->n303 = n303;
 	L3InitTimer(p, &p->timer);
+	L3InitTimer(p, &p->aux_timer);
 	list_add_tail(&p->list, &l3->plist);
 	return (p);
 };

@@ -287,6 +287,7 @@ SendMessage(struct capi_ctr *ctrl, struct sk_buff *skb)
 		// for PLCI state machine
 		case CAPI_INFO_REQ:
 		case CAPI_ALERT_REQ:
+		case CAPI_CONNECT_REQ:
 		case CAPI_CONNECT_RESP:
 		case CAPI_CONNECT_ACTIVE_RESP:
 		case CAPI_DISCONNECT_REQ:

@@ -190,6 +190,16 @@ ParseRejectComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 }
 
 int
+ParseUnknownComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
+{
+	int invokeId;
+	INIT;
+	
+	pc->comp = tag;
+	return end - beg;
+}
+
+int
 ParseComponent(struct asn1_parm *pc, u_char *p, u_char *end)
 {
         INIT;
@@ -198,6 +208,16 @@ ParseComponent(struct asn1_parm *pc, u_char *p, u_char *end)
 	XCHOICE(ParseReturnResultComponent, ASN1_TAG_SEQUENCE, 2);
 	XCHOICE(ParseReturnErrorComponent, ASN1_TAG_SEQUENCE, 3);
 	XCHOICE(ParseRejectComponent, ASN1_TAG_SEQUENCE, 4);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 5);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 6);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 7);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 8);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 9);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 10);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 11);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 12);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 13);
+	XCHOICE(ParseUnknownComponent, ASN1_TAG_SEQUENCE, 14);
 	XCHOICE_DEFAULT;
 }
 

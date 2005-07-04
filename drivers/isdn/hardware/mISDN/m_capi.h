@@ -366,6 +366,8 @@ void 	AppPlciDelNCCI(Ncci_t *);
 void 	AppPlci_l3l4(AppPlci_t *, int, void *);
 __u16 	AppPlciSendMessage(AppPlci_t *, struct sk_buff *);
 void	AppPlciRelease(AppPlci_t *);
+int	AppPlciFacHoldReq(AppPlci_t *, FacReqParm_t *, FacConfParm_t *);
+int	AppPlciFacRetrieveReq(AppPlci_t *, FacReqParm_t *, FacConfParm_t *);
 int	AppPlciFacSuspendReq(AppPlci_t *, FacReqParm_t *, FacConfParm_t *);
 int	AppPlciFacResumeReq(AppPlci_t *, FacReqParm_t *, FacConfParm_t *);
 void	AppPlciGetCmsg(AppPlci_t *, _cmsg *);
@@ -400,6 +402,7 @@ SSProcess_t	*SSProcessConstr(Application_t *, __u16, __u32);
 void		SSProcessDestr(SSProcess_t *);
 int		Supplementary_l3l4(Controller_t *, __u32, struct sk_buff *);
 void		SupplementaryFacilityReq(Application_t *, _cmsg *);
+void		SendSSNotificationEvent(AppPlci_t *, u16);
 
 // ---------------------------------------------------------------------------
 // INFOMASK defines (LISTEN commands)
@@ -421,9 +424,19 @@ void		SupplementaryFacilityReq(Application_t *, _cmsg *);
 // Supplementary Services
 // ---------------------------------------------------------------------------
 
+#define SuppServiceHR			0x00000001
 #define SuppServiceTP			0x00000002
+#define SuppServiceECT			0x00000004
+#define SuppService3PTY			0x00000008
 #define SuppServiceCF			0x00000010
-#define mISDNSupportedServices		(SuppServiceCF | SuppServiceTP)
+#define SuppServiceCD			0x00000020
+#define SuppServiceMCID			0x00000040
+#define SuppServiceCCBS			0x00000080
+
+#define mISDNSupportedServices		(SuppServiceCD | \
+					 SuppServiceCF | \
+					 SuppServiceTP | \
+					 SuppServiceHR)
 
 // ---------------------------------------------------------------------------
 // structs for Facillity requests
@@ -457,6 +470,12 @@ struct FacReqCFDeactivate {
 	__u8  *ServedUserNumber;
 };
 
+struct FacReqCDeflection {
+	__u16 PresentationAllowed;
+	__u8  *DeflectedToNumber;
+	__u8  *DeflectedToSubaddress;
+};
+
 #define FacReqCFInterrogateParameters FacReqCFDeactivate
 
 struct FacReqCFInterrogateNumbers {
@@ -473,6 +492,7 @@ struct FacReqParm {
 		struct FacReqCFDeactivate CFDeactivate;
 		struct FacReqCFInterrogateParameters CFInterrogateParameters;
 		struct FacReqCFInterrogateNumbers CFInterrogateNumbers;
+		struct FacReqCDeflection CDeflection;
 	} u;
 };
 

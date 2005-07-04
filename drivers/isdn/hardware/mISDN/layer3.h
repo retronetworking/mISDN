@@ -46,6 +46,8 @@ typedef struct _l3_process {
 	u_int			id;
 	int			bc;
 	int			err;
+	int			aux_state;
+	L3Timer_t		aux_timer;
 } l3_process_t;
 
 typedef struct _layer3 {
