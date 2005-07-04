@@ -1479,6 +1479,10 @@ HFCD_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 				hc->hw.mst_m |= HFCPCI_MASTER;
 			Write_hfc(hc, HFCPCI_MST_MODE, hc->hw.mst_m);
 			Write_hfc(hc, HFCPCI_STATES, HFCPCI_ACTIVATE | HFCPCI_DO_ACTION);
+			dch->inst.unlock(hc);
+			skb_trim(skb, 0);
+			return(mISDN_queueup_newhead(inst, 0, PH_CONTROL | INDICATION,
+				HW_POWERUP, skb));
 //			l1_msg(hc, HW_POWERUP | CONFIRM, NULL);
 		} else if (hh->dinfo == HW_DEACTIVATE) {
 			hc->hw.mst_m &= ~HFCPCI_MASTER;
