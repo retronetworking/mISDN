@@ -1926,6 +1926,9 @@ static int hfcmulti_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 				HFC_outb(hc, A_ST_WR_STATE, 3);
 				HFC_outb(hc, A_ST_WR_STATE, 3 | (V_ST_ACT*3)); /* activate */
 			}
+			dch->inst.unlock(hc);
+			skb_trim(skb, 0);
+			return(mISDN_queueup_newhead(inst, 0, PH_CONTROL | INDICATION,HW_POWERUP, skb));
 			break;
 
 			case HW_DEACTIVATE:
