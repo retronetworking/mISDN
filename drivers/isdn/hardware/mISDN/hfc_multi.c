@@ -144,38 +144,41 @@ static int nt_t1_count[] = { 480, 240, 120, 60, 30, 15, 8, 4 };
 static u_char silence =	0xff;	/* silence by LAW */
 
 /* enable 32 bit fifo access (PC usage) */
-#define FIFO_32BIT_ACCESS
+//#define FIFO_32BIT_ACCESS
 
 #define VENDOR_CCD "Cologne Chip AG"
+#define CCAG_VID 0x1397      // Cologne Chip Vendor ID
 
 static const PCI_ENTRY id_list[] =
 {
-	{0x1397, 0x1397, 0x08B4, 0x08B4, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x08B4, 0x08B4, VENDOR_CCD,
 	 "HFC-4S Eval", 4, 0, 0},
-	{0x1397, 0x1397, 0x16B8, 0x16B8, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x16B8, 0x16B8, VENDOR_CCD,
 	 "HFC-8S Eval", 8, 0, 0},
-	{0x1397, 0x1397, 0x30B1, 0x30B1, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x30B1, 0x30B1, VENDOR_CCD,
 	 "HFC-E1 Eval", 1, 0, 0},
-	{0x1397, 0x1397, 0x08B4, 0xB520, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x08B4, 0xB520, VENDOR_CCD,
 	 "HFC-4S IOB4ST", 4, 1, 2},
-	{0x1397, 0x1397, 0x08B4, 0xB620, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x08B4, 0xB620, VENDOR_CCD,
 	 "HFC-4S", 4, 1, 2},
-	{0x1397, 0x1397, 0x08B4, 0xB560, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x08B4, 0xB560, VENDOR_CCD,
 	 "HFC-4S Beronet Card", 4, 1, 2},
-	{0x1397, 0x1397, 0x16B8, 0xB521, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x16B8, 0xB521, VENDOR_CCD,
 	 "HFC-8S IOB4ST Recording", 8, 1, 0},
-	{0x1397, 0x1397, 0x16B8, 0xB522, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x16B8, 0xB522, VENDOR_CCD,
 	 "HFC-8S IOB8ST", 8, 1, 0},
-	{0x1397, 0x1397, 0x16B8, 0xB622, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x16B8, 0xB622, VENDOR_CCD,
 	 "HFC-8S", 8, 1, 0},
-	{0x1397, 0x1397, 0x16B8, 0xB562, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x16B8, 0xB562, VENDOR_CCD,
 	 "HFC-8S Beronet Card", 8, 1, 0},
-	{0x1397, 0x1397, 0x30B1, 0xB523, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x30B1, 0xB523, VENDOR_CCD,
 	 "HFC-E1 IOB1E1", 1, 0, 1}, /* E1 only supports single clock */
-	{0x1397, 0x1397, 0x30B1, 0xC523, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x30B1, 0xC523, VENDOR_CCD,
 	 "HFC-E1", 1, 0, 1}, /* E1 only supports single clock */
-	{0x1397, 0x1397, 0x30B1, 0xB563, VENDOR_CCD,
+	{CCAG_VID, CCAG_VID, 0x30B1, 0xB563, VENDOR_CCD,
 	 "HFC-E1 Beronet Card", 1, 0, 1}, /* E1 only supports single clock */
+	{0x10B5, CCAG_VID, 0x9030, 0x3136, VENDOR_CCD,
+	 "HFC-4S PCIBridgeEval", 4, 0, 0},      // PLX PCI-Bridge
 	{0, 0, 0, 0, NULL, NULL, 0, 0, 0},
 };
 
@@ -190,6 +193,7 @@ static const PCI_ENTRY id_list[] =
 #define MODULE_CARDS_T	"1-16i"
 #define MODULE_PORTS_T	"1-128i" /* 16 cards can have 128 ports */
 static u_int type[MAX_CARDS];
+static BYTE allocated[MAX_CARDS];  // remember if card is found
 static int pcm[MAX_PORTS];
 static u_int protocol[MAX_PORTS];
 static int layermask[MAX_PORTS];
@@ -247,16 +251,16 @@ release_io_hfcmulti(hfc_multi_t *hc)
 	/* soft reset */
 	hc->hw.r_cirm |= V_SRES;
 	HFC_outb(hc, R_CIRM, hc->hw.r_cirm);
-	udelay(10);
+	udelay(1000);
 	hc->hw.r_cirm &= ~V_SRES;
 	HFC_outb(hc, R_CIRM, hc->hw.r_cirm);
-	udelay(10); /* instead of 'wait' that may cause locking */
+	udelay(1000); /* instead of 'wait' that may cause locking */
 
 	/* disable memory mapped ports / io ports */
 	pci_write_config_word(hc->pci_dev, PCI_COMMAND, 0);
 #ifdef CONFIG_HFCMULTI_PCIMEM
-	if (hc->pci_membase)
-		iounmap((void *)hc->pci_membase);
+	if (hc->pci_membase) iounmap((void *)hc->pci_membase);
+	if (hc->plx_membase) iounmap((void *)hc->plx_membase);
 #else
 	if (hc->pci_iobase)
 		release_region(hc->pci_iobase, 8);
@@ -276,8 +280,8 @@ init_chip(hfc_multi_t *hc)
 {
 	u_long val, val2 = 0, rev;
 	int cnt = 0;
-	int i;
-	u_char r_conf_en;
+	int i,err;
+	u_char r_conf_en, rval;
 
 	/* reset all registers */
 	memset(&hc->hw, 0, sizeof(hfcmulti_hw_t));
@@ -285,9 +289,14 @@ init_chip(hfc_multi_t *hc)
 	/* revision check */
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: entered\n", __FUNCTION__);
-	val = HFC_inb(hc, R_CHIP_ID);
+	val = HFC_inb(hc, R_CHIP_ID)>>4;
+	if(val!=0x8 && val!=0xc && val!=0xe)
+	{
+		printk(KERN_INFO "HFC_multi: unknown CHIP_ID:%x\n",(u_int)val);
+		return(-EIO);
+	}
 	rev = HFC_inb(hc, R_CHIP_RV);
-	printk(KERN_INFO "HFC_multi: resetting HFC with chip ID=0x%lx revision=%ld%s\n", val>>4, rev, (rev==0)?" (old FIFO handling)":"");
+	printk(KERN_INFO "HFC_multi: resetting HFC with chip ID=0x%lx revision=%ld%s\n", val, rev, (rev==0)?" (old FIFO handling)":"");
 	if (rev == 0) {
 		test_and_set_bit(HFC_CHIP_REVISION0, &hc->chip);
 		printk(KERN_WARNING "HFC_multi: NOTE: Your chip is revision 0, ask Cologne Chip for update. Newer chips have a better FIFO handling. Old chips still work but may have slightly lower HDLC transmit performance.\n");
@@ -332,21 +341,56 @@ init_chip(hfc_multi_t *hc)
 	HFC_outb(hc, R_FIFO_MD, 0);
 	hc->hw.r_cirm = V_SRES | V_HFCRES | V_PCMRES | V_STRES | V_RLD_EPR;
 	HFC_outb(hc, R_CIRM, hc->hw.r_cirm);
-	udelay(10);
+	udelay(100);
 	hc->hw.r_cirm = 0;
 	HFC_outb(hc, R_CIRM, hc->hw.r_cirm);
-	udelay(10);
+	udelay(100);
 	HFC_outb(hc, R_RAM_SZ, hc->hw.r_ram_sz);
 
+
 	/* set pcm mode & reset */
-	if (test_bit(HFC_CHIP_PCM_SLAVE, &hc->chip)) {
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: setting PCM into slave mode\n", __FUNCTION__);
-	} else {
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: setting PCM into master mode\n", __FUNCTION__);
+	if (test_bit(HFC_CHIP_PCM_SLAVE, &hc->chip))
+	{
+		if (debug & DEBUG_HFCMULTI_INIT) printk(KERN_DEBUG "%s: setting PCM into slave mode\n", __FUNCTION__);
+	}
+	else
+	{
+		if (debug & DEBUG_HFCMULTI_INIT) printk(KERN_DEBUG "%s: setting PCM into master mode\n", __FUNCTION__);
 		hc->hw.r_pcm_md0 |= V_PCM_MD;
 	}
+
+	// RAM access test
+	HFC_outb(hc, R_RAM_ADDR0, 0);
+	HFC_outb(hc, R_RAM_ADDR1, 0);
+	HFC_outb(hc, R_RAM_ADDR2, 0);
+
+	err=0;
+	for(i=0;i<256;i++)
+	{
+		HFC_outb(hc, R_RAM_ADDR0,i);
+		HFC_outb(hc, R_RAM_DATA,((i*3)&0xff));
+		//udelay(5);
+		//HFC_outb(hc, R_RAM_DATA,((i*3)&0xff));
+	}
+
+	for(i=0;i<256;i++)
+	{
+		HFC_outb(hc, R_RAM_ADDR0,i);
+		HFC_inb(hc, R_RAM_DATA);
+		rval=HFC_inb(hc, R_INT_DATA);
+		if(rval!=((i*3)&0xff))
+		{
+			printk(KERN_DEBUG "addr:%x val:%x should:%x\n",i,rval,(i*3)&0xff);
+			err++;
+		}
+	}
+
+	if(err)
+	{
+		printk(KERN_DEBUG "aborting.1 - %d RAM access errors\n",err);
+		return(-EIO);
+	}
+
 	i = 0;
 	HFC_outb(hc, R_PCM_MD0, hc->hw.r_pcm_md0 | 0x90);
 	if (hc->slots == 32)
@@ -451,6 +495,7 @@ init_chip(hfc_multi_t *hc)
 
 	/* setting misc irq */
 	HFC_outb(hc, R_IRQMSK_MISC, hc->hw.r_irqmsk_misc);
+	printk(KERN_DEBUG "r_irqmsk_misc.2:%x\n", hc->hw.r_irqmsk_misc);
 
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: done\n", __FUNCTION__);
@@ -593,13 +638,13 @@ static void
 hfcmulti_dtmf(hfc_multi_t *hc)
 {
 	signed long coeff[16];
-	unsigned long mantissa;
+	DWORD mantissa;
 	int co, ch;
 	bchannel_t *bch = NULL;
-	unsigned char exponent;
+	BYTE exponent;
 	int dtmf = 0;
 	int addr;
-	unsigned short w_float;
+	WORD w_float;
 	struct sk_buff *skb;
 
 	if (debug & DEBUG_HFCMULTI_DTMF)
@@ -695,6 +740,71 @@ acnt			w_float = HFC_inb_(hc, R_RAM_DATA);
 }
 */
 
+#ifdef CONFIG_HFCMULTI_PCIMEM
+/*******************/
+/* write fifo data */
+/*******************/
+void write_fifo_data(hfc_multi_t *hc,BYTE *dest,int len)
+{
+	int i,remain;
+
+	remain=len;
+
+#ifdef FIFO_32BIT_ACCESS
+		for(i=0;i<remain/4;i++)
+		{
+			HFC_outl_(hc, A_FIFO_DATA0, *((DWORD *)dest));
+			remain-=4;
+			dest+=4;
+		}
+#endif
+
+#ifdef FIFO_16BIT_ACCESS
+		for(i=0;i<remain/2;i++)
+		{
+			HFC_outw_(hc, A_FIFO_DATA0, *((WORD *)dest));
+			remain-=2;
+			dest+=2;
+		}
+#endif
+
+		for(i=0;i<remain;i++) HFC_outb_(hc, A_FIFO_DATA0, *dest++);
+
+}
+#endif
+
+#ifndef CONFIG_HFCMULTI_PCIMEM
+/*******************/
+/* write fifo data */
+/*******************/
+void write_fifo_data(hfc_multi_t *hc,BYTE *dest,int len)
+{
+	int i,remain;
+
+	remain=len;
+	HFC_set(hc, A_FIFO_DATA0);
+
+#ifdef FIFO_32BIT_ACCESS
+		for(i=0;i<remain/4;i++)
+		{
+			HFC_putl(hc, *((DWORD *)dest));
+			remain-=4;
+			dest+=4;
+		}
+#endif
+
+#ifdef FIFO_16BIT_ACCESS
+		for(i=0;i<remain/2;i++)
+		{
+			HFC_putw(hc, *((WORD *)dest));
+			remain-=2;
+			dest+=2;
+		}
+#endif
+
+		for(i=0;i<remain;i++) HFC_putb(hc, *dest++);
+}
+#endif
 
 /*********************************/
 /* fill fifo as much as possible */
@@ -703,14 +813,17 @@ acnt			w_float = HFC_inb_(hc, R_RAM_DATA);
 static void
 hfcmulti_tx(hfc_multi_t *hc, int ch, dchannel_t *dch, bchannel_t *bch)
 {
-	int i, ii, temp;
+	int i, ii,temp;
 	int Zspace, z1, z2;
 	int Fspace, f1, f2;
-	unsigned char *d, *dd, *buf = NULL;
+	BYTE *d, *buf = NULL;
 	int *len = NULL, *idx = NULL; /* = NULL, to make GCC happy */
 	int txpending, slot_tx;
 	int hdlc = 0;
 
+	f1 = HFC_inb_(hc, A_F1);
+	f2 = HFC_inb_(hc, A_F2);
+	//printk(KERN_DEBUG "txf12:%x %x\n",f1,f2);
 	/* get skb, fifo & mode */
 	if (dch) {
 		buf = dch->tx_buf;
@@ -835,36 +948,8 @@ next_frame:
 		printk(KERN_DEBUG "%s: fifo(%d) has %d bytes space left (z1=%04x, z2=%04x) sending %d of %d bytes %s\n",
 			__FUNCTION__, ch, Zspace, z1, z2, ii-i, (*len)-i, hdlc?"HDLC":"TRANS");
 	}
-#ifdef FIFO_32BIT_ACCESS
-#ifndef CONFIG_HFCMULTI_PCIMEM
-	HFC_set(hc, A_FIFO_DATA0);
-#endif
-	dd = d + ((ii-i)&0xfffc);
-	i += (ii-i) & 0xfffc;
-	while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-		HFC_outl_(hc, A_FIFO_DATA0, *((unsigned long *)d));
-#else
-		HFC_putl(hc, *((unsigned long *)d));
-#endif
-//		if (debug & DEBUG_HFCMULTI_FIFO)
-//			printk("%02x %02x %02x %02x ", d[0], d[1], d[2], d[3]);
-		d+=4;
-	}
-#endif
-	dd = d + (ii-i);
-	while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-		HFC_outb_(hc, A_FIFO_DATA0, *d);
-#else
-		HFC_putb(hc, *d);
-#endif
-//		if (debug & DEBUG_HFCMULTI_FIFO)
-//			printk("%02x ", d[0]);
-		d++;
-	}
-//	if (debug & DEBUG_HFCMULTI_FIFO)
-//		printk("\n");
+
+	write_fifo_data(hc,d,ii-i);
 	*idx = ii;
 
 	/* if not all data has been written */
@@ -961,17 +1046,80 @@ next_frame:
 }
 
 
-/**************/
-/* empty fifo */
-/**************/
+#ifdef CONFIG_HFCMULTI_PCIMEM
+/******************/
+/* read fifo data */
+/******************/
+void read_fifo_data(hfc_multi_t *hc,BYTE *dest,int len)
+{
+	int i,remain;
+
+	remain=len;
+
+#ifdef FIFO_32BIT_ACCESS
+		for(i=0;i<remain/4;i++)
+		{
+			*((DWORD *)dest) = HFC_inl_(hc, A_FIFO_DATA0);
+			remain-=4;
+			dest+=4;
+		}
+#endif
+
+#ifdef FIFO_16BIT_ACCESS
+		for(i=0;i<remain/2;i++)
+		{
+			*((WORD *)dest) = HFC_inw_(hc, A_FIFO_DATA0);
+			remain-=2;
+			dest+=2;
+		}
+#endif
+
+		for(i=0;i<remain;i++) *dest++ = HFC_inb_(hc, A_FIFO_DATA0);
+
+}
+#endif
+
+#ifndef CONFIG_HFCMULTI_PCIMEM
+/******************/
+/* read fifo data */
+/******************/
+void read_fifo_data(hfc_multi_t *hc,BYTE *dest,int len)
+{
+	int i,remain;
+
+	remain=len;
+	HFC_set(hc, A_FIFO_DATA0);
+
+#ifdef FIFO_32BIT_ACCESS
+		for(i=0;i<remain/4;i++)
+		{
+			*((DWORD *)dest) = HFC_getl(hc);
+			remain-=4;
+			dest+=4;
+		}
+#endif
+
+#ifdef FIFO_16BIT_ACCESS
+		for(i=0;i<remain/2;i++)
+		{
+			*((WORD *)dest) = HFC_getw(hc);
+			remain-=2;
+			dest+=2;
+		}
+#endif
+
+		for(i=0;i<remain;i++) *dest++ = HFC_getb(hc);
+}
+#endif
+
 
 static void
 hfcmulti_rx(hfc_multi_t *hc, int ch, dchannel_t *dch, bchannel_t *bch)
 {
-	int ii, temp;
+	int temp;
 	int Zsize, z1, z2 = 0; /* = 0, to make GCC happy */
 	int f1 = 0, f2 = 0; /* = 0, to make GCC happy */
-	unsigned char *d, *dd, *buf = NULL;
+	BYTE *d, *buf = NULL;
 	int *idx = NULL, max = 0; /* = 0, to make GCC happy */
 	int hdlc = 0;
 	struct sk_buff *skb;
@@ -1009,6 +1157,8 @@ next_frame:
 		}
 		f2 = HFC_inb_(hc, A_F2);
 	}
+	//if(f1!=f2) printk(KERN_DEBUG "got a chan:%d framef12:%x %x!!!!\n",ch,f1,f2);
+	//printk(KERN_DEBUG "got a chan:%d framef12:%x %x!!!!\n",ch,f1,f2);
 	z1 = HFC_inw_(hc, A_Z1) - hc->Zmin;
 	while(z1 != (temp=(HFC_inw_(hc, A_Z1) - hc->Zmin))) {
 		if (debug & DEBUG_HFCMULTI_FIFO)
@@ -1034,8 +1184,7 @@ next_frame:
 			printk(KERN_DEBUG "%s: fifo(%d) reading %d bytes (z1=%04x, z2=%04x) HDLC %s (f1=%d, f2=%d) got=%d\n",
 				__FUNCTION__, ch, Zsize, z1, z2, (f1==f2)?"fragment":"COMPLETE", f1, f2, Zsize+*idx);
 		/* HDLC */
-		ii = Zsize;
-		if ((ii + *idx) > max) {
+		if ((Zsize + *idx) > max) {
 			if (debug & DEBUG_HFCMULTI_FIFO)
 				printk(KERN_DEBUG "%s: hdlc-frame too large.\n", __FUNCTION__);
 			*idx = 0;
@@ -1043,32 +1192,10 @@ next_frame:
 			HFC_wait_(hc);
 			return;
 		}
-		d = buf + *idx;
-#ifdef FIFO_32BIT_ACCESS
-#ifndef CONFIG_HFCMULTI_PCIMEM
-		HFC_set(hc, A_FIFO_DATA0);
-#endif
-		dd = d + (ii&0xfffc);
-		while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-			*((unsigned long *)d) = HFC_inl_(hc, A_FIFO_DATA0);
-#else
-			*((unsigned long *)d) = HFC_getl(hc);
-#endif
-			d+=4;
-		}
-		dd = d + (ii&0x0003);
-#else
-		dd = d + ii;
-#endif
-		while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-			*d++ = HFC_inb_(hc, A_FIFO_DATA0);
-#else
-			*d++ = HFC_getb(hc);
-#endif
-		}
-		*idx += ii;
+
+		read_fifo_data(hc,buf+ *idx,Zsize);
+		*idx += Zsize;
+
 		if (f1 != f2) {
 			/* increment Z2,F2-counter */
 			HFC_outb_(hc, R_INC_RES_FIFO, V_INC_F);
@@ -1077,20 +1204,26 @@ next_frame:
 			if (*idx < 4) {
 				if (debug & DEBUG_HFCMULTI_FIFO)
 					printk(KERN_DEBUG "%s: Frame below minimum size\n", __FUNCTION__);
-				return;
+				*idx = 0;
+				goto next_frame;
 			}
 			/* there is at least one complete frame, check crc */
 			if (buf[(*idx)-1]) {
 				if (debug & DEBUG_HFCMULTI_CRC)
 					printk(KERN_DEBUG "%s: CRC-error\n", __FUNCTION__);
-				return;
+				*idx = 0;
+				goto next_frame;
 			}
 			/* only send dchannel if in active state */
 			if (dch && hc->type==1 && hc->chan[ch].e1_state!=1)
-				return;
+			{
+				*idx = 0;
+				goto next_frame;
+			}
 			if (!(skb = alloc_stack_skb((*idx)-3, (bch)?bch->up_headerlen:dch->up_headerlen))) {
 				printk(KERN_DEBUG "%s: No mem for skb\n", __FUNCTION__);
-				return;
+				*idx = 0;
+				goto next_frame;
 			}
 			memcpy(skb_put(skb, (*idx)-3), buf, (*idx)-3);
 			if (debug & DEBUG_HFCMULTI_FIFO) {
@@ -1126,41 +1259,22 @@ next_frame:
 		/* there is an incomplete frame */
 	} else {
 		/* transparent */
-		ii = Zsize;
-		if (ii > MAX_DATA_MEM)
-			ii = MAX_DATA_MEM;
-		if (!(skb = alloc_stack_skb(ii, bch->up_headerlen))) {
+		if (Zsize > MAX_DATA_MEM) Zsize = MAX_DATA_MEM;
+		if (!(skb = alloc_stack_skb(Zsize, bch->up_headerlen))) {
 			printk(KERN_DEBUG "%s: No mem for skb\n", __FUNCTION__);
 			HFC_outb_(hc, R_INC_RES_FIFO, V_RES_F);
 			HFC_wait_(hc);
 			return;
 		}
+
 		if (debug & DEBUG_HFCMULTI_FIFO)
 			printk(KERN_DEBUG "%s: fifo(%d) reading %d bytes (z1=%04x, z2=%04x) TRANS\n",
-				__FUNCTION__, ch, ii, z1, z2);
-		d = skb_put(skb, ii);
-#ifdef FIFO_32BIT_ACCESS
-#ifndef CONFIG_HFCMULTI_PCIMEM
-		HFC_set(hc, A_FIFO_DATA0);
-#endif
-		dd = d + (ii&0xfffc);
-		while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-			*((unsigned long *)d) = HFC_inl_(hc, A_FIFO_DATA0);
-#else
-			*((unsigned long *)d) = HFC_getl(hc);
-#endif
-			d+=4;
-		}
-#endif
-		dd = d + (ii&0x0003);
-		while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-			*d++ = HFC_inb_(hc, A_FIFO_DATA0);
-#else
-			*d++ = HFC_getb(hc);
-#endif
-		}
+				__FUNCTION__, ch, Zsize, z1, z2);
+		d = skb_put(skb, Zsize);
+
+
+		read_fifo_data(hc,d,Zsize);
+
 		if (dch) {
 			// schedule D-channel event
 			//skb_queue_tail(&dch->rqueue, skb);
@@ -1191,14 +1305,29 @@ next_frame:
 static irqreturn_t
 hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
+	static int iq1=0,iq2=0,iq3=0,iq4=0,iq5=0,iq6=0,iqcnt=0;
 	hfc_multi_t *hc = dev_id;
 	bchannel_t *bch;
 	dchannel_t *dch;
 	u_long flags;
 	u_char r_irq_statech, status, r_irq_misc, r_irq_oview, r_irq_fifo_bl;
-	int ch;
-	int i, j;
-	int temp;
+	//u_char bl1,bl2;
+	u_short *plx_acc,wval;
+	int ch,i,j,temp;
+
+#ifdef CONFIG_PLX_PCI_BRIDGE
+	plx_acc=(u_short*)(hc->plx_membase+0x4c);
+	wval=*plx_acc;
+	if(!(wval&0x04))
+	{
+		if(wval&0x20)
+		{
+			//printk(KERN_WARNING "NO irq  LINTI1:%x\n",wval);
+			printk(KERN_WARNING "got irq  LINTI2\n");
+		}
+		return(IRQ_NONE);
+	}
+#endif
 
 	spin_lock_irqsave(&hc->lock.lock, flags);
 #ifdef SPIN_DEBUG
@@ -1211,14 +1340,33 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 #ifdef SPIN_DEBUG
 		hc->lock.spin_adr = NULL;
 #endif
+
+#ifdef CONFIG_PLX_PCI_BRIDGE
+	//plx_acc=(u_short*)(hc->plx_membase+0x4c);
+	//*plx_acc=0xc00;  // clear LINTI1 & LINTI2
+	//*plx_acc=0xc41;
+#endif
 		spin_unlock_irqrestore(&hc->lock.lock, flags);
 		return(IRQ_NONE);
 	}
 
 	status = HFC_inb_(hc, R_STATUS);
 	r_irq_statech = HFC_inb_(hc, R_IRQ_STATECH);
+	if(r_irq_statech) iq1++;
+	if(status&V_DTMF_STA) iq2++;
+	if(status&V_LOST_STA) iq3++;
+	if(status&V_EXT_IRQSTA) iq4++;
+	if(status&V_MISC_IRQSTA) iq5++;
+	if(status&V_FR_IRQSTA) iq6++;
+	if(iqcnt++>5000)
+	{
+		printk(KERN_ERR "iq1:%x iq2:%x iq3:%x iq4:%x iq5:%x iq6:%x\n",iq1,iq2,iq3,iq4,iq5,iq6);
+		iqcnt=0;
+
+	}
 	if (!r_irq_statech && !(status & (V_DTMF_STA | V_LOST_STA | V_EXT_IRQSTA | V_MISC_IRQSTA | V_FR_IRQSTA))) {
 		/* irq is not for us */
+		//if(status) printk(KERN_WARNING "nofus:%x\n",status);
 		goto irq_notforus;
 	}
 	hc->irqcnt++;
@@ -1261,6 +1409,7 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 							HFC_wait_(hc);
 							HFC_outb_(hc, R_INC_RES_FIFO, V_RES_F);
 							HFC_wait_(hc);
+							dch->tx_idx=0;
 						}
 
 						//dchannel_sched_event(dch, D_L1STATECHANGE);
@@ -1411,9 +1560,16 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (status & V_FR_IRQSTA) {
 		/* FIFO IRQ */
 		r_irq_oview = HFC_inb_(hc, R_IRQ_OVIEW);
+		//if(r_irq_oview) printk(KERN_DEBUG "OV:%x\n",r_irq_oview);
 		i = 0;
 		while(i < 8) {
 			if (r_irq_oview & (1 << i)) {
+				r_irq_fifo_bl = HFC_inb_(hc, R_IRQ_FIFO_BL0 + i);
+				//r_irq_fifo_bl = HFC_inb_(hc, R_INT_DATA);
+				//if(r_irq_fifo_bl) printk(KERN_DEBUG "BL%d:%x\n",i,r_irq_fifo_bl);
+				//bl1 = HFC_inb_(hc, R_IRQ_FIFO_BL0);
+				//bl2 = HFC_inb_(hc, R_IRQ_FIFO_BL0);
+				//printk(KERN_DEBUG "zero:%x :%x\n",bl1,bl2);
 				r_irq_fifo_bl = HFC_inb_(hc, R_IRQ_FIFO_BL0 + i);
 				j = 0;
 				while(j < 8) {
@@ -1421,6 +1577,7 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 					if (r_irq_fifo_bl & (1 << j)) {
 						if ((dch = hc->chan[ch].dch))
 						if (hc->created[hc->chan[ch].port]) {
+							//printk(KERN_DEBUG "txchan:%d\n",ch);
 							hfcmulti_tx(hc, ch, dch, NULL);
 							/* start fifo */
 							HFC_outb_(hc, R_FIFO, 0);
@@ -1430,6 +1587,7 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 						if (hc->created[hc->chan[ch].port]) {
 							if (bch->protocol != ISDN_PID_NONE) {
 								hfcmulti_tx(hc, ch, NULL, bch);
+								//printk(KERN_DEBUG "txchan:%d\n",ch);
 								/* start fifo */
 								HFC_outb_(hc, R_FIFO, 0);
 								HFC_wait_(hc);
@@ -1441,11 +1599,13 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 						if ((dch = hc->chan[ch].dch))
 						if (hc->created[hc->chan[ch].port]) {
 							hfcmulti_rx(hc, ch, dch, NULL);
+							//printk(KERN_DEBUG "rxchan:%d\n",ch);
 						}
 						if ((bch = hc->chan[ch].bch))
 						if (hc->created[hc->chan[ch].port]) {
 							if (bch->protocol != ISDN_PID_NONE) {
 								hfcmulti_rx(hc, ch, NULL, bch);
+								//printk(KERN_DEBUG "rxchan:%d\n",ch);
 							}
 						}
 					}
@@ -1469,6 +1629,12 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 #ifdef SPIN_DEBUG
 	hc->lock.busy_adr = NULL;
 	hc->lock.spin_adr = NULL;
+#endif
+
+#ifdef CONFIG_PLX_PCI_BRIDGE
+	//plx_acc=(u_short*)(hc->plx_membase+0x4c);
+	//*plx_acc=0xc00;  // clear LINTI1 & LINTI2
+	//*plx_acc=0xc41;
 #endif
 	spin_unlock_irqrestore(&hc->lock.lock, flags);
 	return IRQ_HANDLED;
@@ -1731,7 +1897,6 @@ hfcmulti_conf(hfc_multi_t *hc, int ch, int num)
 static void
 hfcmulti_splloop(hfc_multi_t *hc, int ch, u_char *data, int len)
 {
-	u_char *d, *dd;
 	bchannel_t *bch = hc->chan[ch].bch;
 
 	/* flush pending TX data */
@@ -1780,33 +1945,7 @@ hfcmulti_splloop(hfc_multi_t *hc, int ch, u_char *data, int len)
 
 //printk("len=%d %02x %02x %02x\n", len, data[0], data[1], data[2]);
 	/* write loop data */
-	d = data;
-#ifdef FIFO_32BIT_ACCESS
-#ifndef CONFIG_HFCMULTI_PCIMEM
-	HFC_set(hc, A_FIFO_DATA0);
-#endif
-	dd = d + (len & 0xfffc);
-	while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-		HFC_outl_(hc, A_FIFO_DATA0, *((unsigned long *)d));
-#else
-		HFC_putl(hc, *((unsigned long *)d));
-#endif
-		d+=4;
-
-	}
-	dd = d + (len & 0x0003);
-#else
-	dd = d + len;
-#endif
-	while(d != dd) {
-#ifdef CONFIG_HFCMULTI_PCIMEM
-		HFC_outb_(hc, A_FIFO_DATA0, *d);
-#else
-		HFC_putb(hc, *d);
-#endif
-		d++;
-	}
+	write_fifo_data(hc,data,len);
 
 	udelay(500);
 	HFC_outb(hc, A_SUBCH_CFG, V_LOOP_FIFO);
@@ -1894,16 +2033,16 @@ static int hfcmulti_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 	if (hh->prim == (PH_SIGNAL | REQUEST)) {
 		dch->inst.lock(hc, 0);
 		switch (hh->dinfo) {
-#if 0
 			case INFO3_P8:
 			case INFO3_P10:
+#if 0
 			if (debug & DEBUG_HFCMULTI_MSG)
 				printk(KERN_DEBUG "%s: INFO3_P%d\n", __FUNCTION__, (hh->dinfo==INFO3_P8)?8:10);
 			if (test_bit(HFC_CHIP_MASTER, &hc->chip))
 				hc->hw.mst_m |= HFCPCI_MASTER;
 			Write_hfc(hc, HFCPCI_MST_MODE, hc->hw.mst_m);
-			break;
 #endif
+			break;
 			default:
 			printk(KERN_DEBUG "%s: unknown PH_SIGNAL info %x\n", __FUNCTION__, hh->dinfo);
 			ret = -EINVAL;
@@ -1959,6 +2098,13 @@ static int hfcmulti_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 			if (debug & DEBUG_HFCMULTI_MSG)
 				printk(KERN_DEBUG "%s: HW_PCM_DISC\n", __FUNCTION__);
 			hfcmulti_pcm(hc, dch->channel, -1, -1, -1, -1);
+			break;
+			case HW_POWERUP:
+				printk(KERN_INFO "HW_POWERUP\n");
+				HFC_outb(hc, R_ST_SEL, hc->chan[dch->channel].port);
+				HFC_outb(hc, A_ST_WR_STATE, 3 | 0x10); /* activate */
+				udelay(6); /* wait at least 5,21us */
+				HFC_outb(hc, A_ST_WR_STATE, 3); /* activate */
 			break;
 
 			default:
@@ -2529,7 +2675,7 @@ static void
 hfcmulti_initmode(hfc_multi_t *hc)
 {
 	int nt_mode;
-	unsigned char r_sci_msk, a_st_wr_state, r_e1_wr_sta;
+	BYTE r_sci_msk, a_st_wr_state, r_e1_wr_sta;
 	int i, port;
 	dchannel_t *dch;
 
@@ -2716,6 +2862,7 @@ init_card(hfc_multi_t *hc)
 {
 	int cnt = 1; /* as long as there is no trouble */
 	int err = -EIO;
+	u_short *plx_acc;
 
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: entered\n", __FUNCTION__);
@@ -2727,6 +2874,10 @@ init_card(hfc_multi_t *hc)
 		return(-EIO);
 	}
 	hc->irq = hc->pci_dev->irq;
+#ifdef CONFIG_PLX_PCI_BRIDGE
+	plx_acc=(u_short*)(hc->plx_membase+0x4c);
+	*plx_acc=0x41;  // enable PCI & LINT1 irq
+#endif
 
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: IRQ %d count %d\n", __FUNCTION__, hc->irq, hc->irqcnt);
@@ -2739,6 +2890,7 @@ init_card(hfc_multi_t *hc)
 		 */
 		unlock_dev(hc);
 		HFC_outb(hc, R_IRQ_CTRL, V_GLOB_IRQ_EN);
+		//printk(KERN_DEBUG "no master irq set!!!\n");
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((100*HZ)/1000); /* Timeout 100ms */
 		/* turn IRQ off until chip is completely initialized */
@@ -2752,6 +2904,8 @@ init_card(hfc_multi_t *hc)
 		}
 		lock_dev(hc, 0);
 		printk(KERN_WARNING "HFC PCI: IRQ(%d) getting no interrupts during init (try %d)\n", hc->irq, cnt);
+		plx_acc=(u_short*)(hc->plx_membase+0x4c);
+		*plx_acc=0x00;  // disable PCI & LINT1 irq
 		cnt--;
 		err = -EIO;
 	}
@@ -2848,54 +3002,22 @@ SelFreeBChannel(hfc_multi_t *hc, int ch, channel_info_t *ci)
 /*********************************/
 
 static int
-setup_pci(hfc_multi_t *hc)
+setup_pci(hfc_multi_t *hc, struct pci_dev *dev,int id_idx)
 {
 	int i;
-	struct pci_dev *tmp_dev = NULL;
-	hfc_multi_t *hc_tmp, *next;
+	//struct pci_dev *tmp_dev = NULL;
+	//hfc_multi_t *hc_tmp, *next;
+
+	printk(KERN_INFO "HFC-multi: card manufacturer: '%s' card name: '%s' clock: %s\n", id_list[id_idx].vendor_name, id_list[id_idx].card_name, (id_list[id_idx].clock2)?"double":"normal");
 
 	/* go into 0-state (we might already be due to zero-filled-object */
-	i = 0;
-	while(i < 32) {
+	for(i=0;i<32;i++) {
 		if (hc->chan[i].dch)
 			hc->chan[i].dch->ph_state = 0;
-		i++;
 	}
 
-	/* loop all card ids */
-	i = 0;
-	while (id_list[i].vendor_id) {
-		/* only the given type is searched */
-		if (id_list[i].type != hc->type) {
-			i++;
-			continue;
-		}
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "setup_pci(): investigating card entry %d (looking for type %d)\n", i, hc->type);
-		inuse:
-		tmp_dev = pci_find_subsys(id_list[i].vendor_id, id_list[i].device_id, id_list[i].vendor_sub, id_list[i].device_sub, tmp_dev);
-		if (tmp_dev) {
-			/* skip if already in use */
-			list_for_each_entry_safe(hc_tmp, next, &HFCM_obj.ilist, list) {
-				if (hc_tmp->pci_dev == tmp_dev) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_INFO "setup_pci(): found a pci card: '%s' card name: '%s', but already in use, so we skip.\n", id_list[i].vendor_name, id_list[i].card_name);
-					goto inuse;
-				}
-			}
-			break;
-		}
-		i++;
-	}
-	if (!tmp_dev) {
-		printk(KERN_WARNING "HFC-multi: No PCI card found\n");
-		return (-ENODEV);
-	}
-
-	/* found a card */
-	printk(KERN_INFO "HFC-multi: card manufacturer: '%s' card name: '%s' clock: %s\n", id_list[i].vendor_name, id_list[i].card_name, (id_list[i].clock2)?"double":"normal");
-	hc->pci_dev = tmp_dev;
-	if (id_list[i].clock2)
+	hc->pci_dev = dev;
+	if (id_list[id_idx].clock2)
 		test_and_set_bit(HFC_CHIP_CLOCK2, &hc->chip);
 	if (hc->pci_dev->irq <= 0) {
 		printk(KERN_WARNING "HFC-multi: No IRQ for PCI card found.\n");
@@ -2905,30 +3027,72 @@ setup_pci(hfc_multi_t *hc)
 		printk(KERN_WARNING "HFC-multi: Error enabling PCI card.\n");
 		return (-EIO);
 	}
-	hc->leds = id_list[i].leds;
+	hc->leds = id_list[id_idx].leds;
 #ifdef CONFIG_HFCMULTI_PCIMEM
-	hc->pci_membase = (char *) get_pcibase(hc->pci_dev, 1);
-	if (!hc->pci_membase) {
-		printk(KERN_WARNING "HFC-multi: No IO-Memory for PCI card found\n");
+	hc->pci_membase = NULL;
+	hc->plx_membase = NULL;
+
+#ifdef CONFIG_PLX_PCI_BRIDGE
+	hc->plx_origmembase =  get_pcibase(hc->pci_dev, 0);  // MEMBASE 1 is PLX PCI Bridge
+
+	if (!hc->plx_origmembase) {
+		printk(KERN_WARNING "HFC-multi: No IO-Memory for PCI PLX bridge found\n");
+		pci_disable_device(hc->pci_dev);
 		return (-EIO);
 	}
 
-	if (!(hc->pci_membase = ioremap((ulong) hc->pci_membase, 256))) {
-		printk(KERN_WARNING "HFC-multi: failed to remap io address space. (internal error)\n");
-		hc->pci_membase = NULL;
+	if (!(hc->plx_membase = ioremap(hc->plx_origmembase, 128))) {
+		printk(KERN_WARNING "HFC-multi: failed to remap plx address space. (internal error)\n");
+		hc->plx_membase = NULL;
+		pci_disable_device(hc->pci_dev);
 		return (-EIO);
 	}
-	printk(KERN_INFO "%s: defined at MEMBASE %#x IRQ %d HZ %d leds-type %d\n", hc->name, (u_int) hc->pci_membase, hc->pci_dev->irq, HZ, hc->leds);
+	printk(KERN_WARNING "HFC-multi: plx_membase:%#x plx_origmembase:%#x\n",(u_int) hc->plx_membase, (u_int)hc->plx_origmembase);
+
+	hc->pci_origmembase =  get_pcibase(hc->pci_dev, 2);  // MEMBASE 1 is PLX PCI Bridge
+	if (!hc->pci_origmembase) {
+		printk(KERN_WARNING "HFC-multi: No IO-Memory for PCI card found\n");
+		pci_disable_device(hc->pci_dev);
+		return (-EIO);
+	}
+
+	if (!(hc->pci_membase = ioremap(hc->pci_origmembase, 0x400))) {
+		printk(KERN_WARNING "HFC-multi: failed to remap io address space. (internal error)\n");
+		hc->pci_membase = NULL;
+		pci_disable_device(hc->pci_dev);
+		return (-EIO);
+	}
+
+	printk(KERN_INFO "%s: defined at MEMBASE %#x (%#x) IRQ %d HZ %d leds-type %d\n", hc->name, (u_int) hc->pci_membase, (u_int) hc->pci_origmembase, hc->pci_dev->irq, HZ, hc->leds);
 	pci_write_config_word(hc->pci_dev, PCI_COMMAND, PCI_ENA_MEMIO);
+#else // CONFIG_PLX_PCI_BRIDGE
+	hc->pci_origmembase = get_pcibase(hc->pci_dev, 1);
+	if (!hc->pci_origmembase) {
+		printk(KERN_WARNING "HFC-multi: No IO-Memory for PCI card found\n");
+		pci_disable_device(hc->pci_dev);
+		return (-EIO);
+	}
+
+	if (!(hc->pci_membase = ioremap(hc->pci_origmembase, 256))) {
+		printk(KERN_WARNING "HFC-multi: failed to remap io address space. (internal error)\n");
+		hc->pci_membase = NULL;
+		pci_disable_device(hc->pci_dev);
+		return (-EIO);
+	}
+	printk(KERN_INFO "%s: defined at MEMBASE %#x (%#x) IRQ %d HZ %d leds-type %d\n", hc->name, (u_int) hc->pci_membase, (u_int) hc->pci_origmembase, hc->pci_dev->irq, HZ, hc->leds);
+	pci_write_config_word(hc->pci_dev, PCI_COMMAND, PCI_ENA_MEMIO);
+#endif // CONFIG_PLX_PCI_BRIDGE
 #else
 	hc->pci_iobase = (u_int) get_pcibase(hc->pci_dev, 0);
 	if (!hc->pci_iobase) {
 		printk(KERN_WARNING "HFC-multi: No IO for PCI card found\n");
+		pci_disable_device(hc->pci_dev);
 		return (-EIO);
 	}
 	if (!request_region(hc->pci_iobase, 8, "hfcmulti")) {
 		printk(KERN_WARNING "HFC-multi: failed to rquest address space at 0x%04x (internal error)\n", hc->pci_iobase);
 		hc->pci_iobase = 0;
+		pci_disable_device(hc->pci_dev);
 		return (-EIO);
 	}
 
@@ -3276,453 +3440,424 @@ HFC_manager(void *data, u_int prim, void *arg)
 	return(0);
 }
 
-
-static int __init
-HFCmulti_init(void)
+static int find_type_entry(int hfc_type)
 {
-	int err, err2, i;
+	int i;
+
+	for(i=0;MAX_CARDS;i++)
+	{
+		if(type[i]==hfc_type && !allocated[i])
+		{
+			allocated[i]=1;
+			return(i);
+		}
+	}
+
+	return(-1);
+}
+
+static int find_idlist_entry(int vendor,int subvendor, int device, int subdevice)
+{
+	int cnt;
+
+	cnt=0;
+	while(id_list[cnt].vendor_id)
+	{
+		if(id_list[cnt].vendor_id==vendor && id_list[cnt].vendor_sub==subvendor
+		   && id_list[cnt].device_id==device && id_list[cnt].device_sub==subdevice) return(cnt);
+		cnt++;
+	}
+
+	return(-1);
+}
+
+static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_id *ent)
+{
+	int err,i,ret_err=0,port_cnt;
+	int bchperport, pt;
+	int ch, ch2;
+	int id_idx;        // index to id_list
+	int hfc_type;      // chip type
 	hfc_multi_t *hc,*next;
 	mISDN_pid_t pid, pids[MAX_CARDS];
 	mISDNstack_t *dst = NULL; /* make gcc happy */
-	int port_cnt;
-	int bchperport, pt;
-	int ch, ch2;
 	dchannel_t *dch;
 	bchannel_t *bch;
-	char tmp[64];
 
-	if (debug & DEBUG_HFCMULTI_INIT)
-		printk(KERN_DEBUG "%s: init entered\n", __FUNCTION__);
+	id_idx=find_idlist_entry(ent->vendor,ent->subvendor,ent->device,ent->subdevice);
+	if(id_idx== -1)
+	{
+		printk( KERN_ERR "could not find id_list entry for: vendor:%x device:%x subvendor:%x subdevice:%x\n",
+				ent->vendor,ent->device,ent->subvendor,ent->subdevice);
+		return (-ENODEV);
+	}
 
-#ifdef __BIG_ENDIAN
-#error "not running on big endian machines now"
-#endif
-	strcpy(tmp, hfcmulti_revision);
-	printk(KERN_INFO "mISDN: HFC-multi driver Rev. %s\n", mISDN_getrev(tmp));
+	hfc_type=id_list[id_idx].type;
+	HFC_cnt=find_type_entry(hfc_type);
+	if(hfc_type== -1)
+	{
+		printk( KERN_ERR "could not find entry with type:%d\n",hfc_type);
+		return (-ENODEV);
+	}
 
-	switch(poll) {
+	if (debug & DEBUG_HFCMULTI_INIT) printk(KERN_DEBUG "%s: Registering chip type %d (0x%x)\n", __FUNCTION__, type[HFC_cnt] & 0xff, type[HFC_cnt]);
+
+	/* check card type */
+	switch (type[HFC_cnt] & 0xff) {
+		case 1:
+		bchperport = 30;
+		break;
+
+		case 4:
+		bchperport = 2;
+		break;
+
 		case 8:
-		poll_timer = 2;
+		bchperport = 2;
 		break;
-		case 16:
-		poll_timer = 3;
-		break;
-		case 32:
-		poll_timer = 4;
-		break;
-		case 64:
-		poll_timer = 5;
-		break;
-		case 128: case 0:
-		poll_timer = 6;
-		poll = 128;
-		break;
-		case 256:
-		poll_timer = 7;
-		break;
+
 		default:
-		printk(KERN_ERR "%s: Wrong poll value (%d).\n", __FUNCTION__, poll);
-		err = -EINVAL;
-		return(err);
-
-	}
-
-	memset(&HFCM_obj, 0, sizeof(HFCM_obj));
-#ifdef MODULE
-	HFCM_obj.owner = THIS_MODULE;
-#endif
-	INIT_LIST_HEAD(&HFCM_obj.ilist);
-	HFCM_obj.name = HFCName;
-	HFCM_obj.own_ctrl = HFC_manager;
-	HFCM_obj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 | ISDN_PID_L0_NT_S0
-				| ISDN_PID_L0_TE_E1 | ISDN_PID_L0_NT_E1;
-	HFCM_obj.DPROTO.protocol[1] = ISDN_PID_L1_NT_S0
-				| ISDN_PID_L1_TE_E1 | ISDN_PID_L1_NT_E1;
-	HFCM_obj.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS | ISDN_PID_L1_B_64HDLC;
-	HFCM_obj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS | ISDN_PID_L2_B_RAWDEV;
-
-	if (debug & DEBUG_HFCMULTI_INIT)
-		printk(KERN_DEBUG "%s: registering HFCM_obj\n", __FUNCTION__);
-	if ((err = mISDN_register(&HFCM_obj))) {
-		printk(KERN_ERR "Can't register HFC-Multi cards error(%d)\n", err);
-		return(err);
-	}
-	if (debug & DEBUG_HFCMULTI_INIT)
-		printk(KERN_DEBUG "%s: new mISDN object (refcnt = %d)\n", __FUNCTION__, HFCM_obj.refcnt);
-
-	/* Note: ALL ports are one "card" object */
-
-	port_cnt = HFC_cnt = 0;
-	while (HFC_cnt < MAX_CARDS  &&  type[HFC_cnt] > 0) {
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: Registering chip type %d (0x%x)\n", __FUNCTION__, type[HFC_cnt] & 0xff, type[HFC_cnt]);
-
-		/* check card type */
-		switch (type[HFC_cnt] & 0xff) {
-			case 1:
-			bchperport = 30;
-			break;
-
-			case 4:
-			bchperport = 2;
-			break;
-
-			case 8:
-			bchperport = 2;
-			break;
-
-			default:
-			printk(KERN_ERR "Card type(%d) not supported.\n", type[HFC_cnt] & 0xff);
-			err = -EINVAL;
-			goto free_object;
-		}
-
-
-		/* allocate card+fifo structure */
-		if (!(hc = kmalloc(sizeof(hfc_multi_t), GFP_ATOMIC))) {
-			printk(KERN_ERR "No kmem for HFC-Multi card\n");
-			err = -ENOMEM;
-			goto free_object;
-		}
-		memset(hc, 0, sizeof(hfc_multi_t));
-		hc->id = HFC_cnt + 1;
-		hc->pcm = pcm[HFC_cnt];
-
-		/* set chip specific features */
-		hc->masterclk = -1;
-		hc->type = type[HFC_cnt] & 0xff;
-		if (type[HFC_cnt] & 0x100) {
-			test_and_set_bit(HFC_CHIP_ULAW, &hc->chip);
-			silence = 0xff; /* ulaw silence */
-		} else
-			silence = 0x2a; /* alaw silence */
-		if (type[HFC_cnt] & 0x200)
-			test_and_set_bit(HFC_CHIP_DTMF, &hc->chip);
-//		if ((type[HFC_cnt]&0x400) && hc->type==4)
-//			test_and_set_bit(HFC_CHIP_LEDS, &hc->chip);
-		if (type[HFC_cnt] & 0x800)
-			test_and_set_bit(HFC_CHIP_PCM_SLAVE, &hc->chip);
-		if (type[HFC_cnt] & 0x1000)
-			test_and_set_bit(HFC_CHIP_CLOCK_IGNORE, &hc->chip);
-		if (type[HFC_cnt] & 0x2000)
-			test_and_set_bit(HFC_CHIP_RX_SYNC, &hc->chip);
-		if (type[HFC_cnt] & 0x4000)
-			test_and_set_bit(HFC_CHIP_EXRAM_128, &hc->chip);
-		if (type[HFC_cnt] & 0x8000)
-			test_and_set_bit(HFC_CHIP_EXRAM_512, &hc->chip);
-		hc->slots = 32;
-		if (type[HFC_cnt] & 0x10000)
-			hc->slots = 64;
-		if (type[HFC_cnt] & 0x20000)
-			hc->slots = 128;
-		if (hc->type == 1)
-			sprintf(hc->name, "HFC-E1#%d", HFC_cnt+1);
-		else
-			sprintf(hc->name, "HFC-%dS#%d", hc->type, HFC_cnt+1);
-
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: (after APPEND_TO_LIST)\n", __FUNCTION__);
-		list_add_tail(&hc->list, &HFCM_obj.ilist);
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: (after APPEND_TO_LIST)\n", __FUNCTION__);
-
-		lock_HW_init(&hc->lock);
-
-		pt = 0;
-		while (pt < hc->type) {
-			if (protocol[port_cnt] == 0) {
-				printk(KERN_ERR "Not enough 'protocol' values given.\n");
-				err = -EINVAL;
-				goto free_channels;
-			}
-			if (hc->type == 1)
-				ch = 16;
-			else
-				ch = (pt<<2)+2;
-			if (debug & DEBUG_HFCMULTI_INIT)
-				printk(KERN_DEBUG "%s: Registering D-channel, card(%d) ch(%d) port(%d) protocol(%x)\n", __FUNCTION__, HFC_cnt+1, ch, pt+1, protocol[port_cnt]);
-			hc->chan[ch].port = pt;
-			hc->chan[ch].nt_timer = -1;
-			dch = kmalloc(sizeof(dchannel_t), GFP_ATOMIC);
-			if (!dch) {
-				err = -ENOMEM;
-				goto free_channels;
-			}
-			memset(dch, 0, sizeof(dchannel_t));
-			dch->channel = ch;
-			//dch->debug = debug;
-			dch->inst.obj = &HFCM_obj;
-			dch->inst.lock = lock_dev;
-			dch->inst.unlock = unlock_dev;
-			mISDN_init_instance(&dch->inst, &HFCM_obj, hc, hfcmulti_l1hw);
-			dch->inst.pid.layermask = ISDN_LAYER(0);
-			sprintf(dch->inst.name, "HFCm%d/%d", HFC_cnt+1, pt+1);
-			if (!(hc->chan[ch].rx_buf = kmalloc(MAX_DFRAME_LEN_L1, GFP_ATOMIC))) {
-				err = -ENOMEM;
-				goto free_channels;
-			}
-			if (mISDN_init_dch(dch)) {
-				err = -ENOMEM;
-				goto free_channels;
-			}
-			hc->chan[ch].dch = dch;
-
-			i=0;
-			while(i < bchperport) {
-				if (hc->type == 1)
-					ch2 = i + 1 + (i>=15);
-				else
-					ch2 = (pt<<2)+i;
-				if (debug & DEBUG_HFCMULTI_INIT)
-					printk(KERN_DEBUG "%s: Registering B-channel, card(%d) ch(%d) port(%d) channel(%d)\n", __FUNCTION__, HFC_cnt+1, ch2, pt+1, i);
-				hc->chan[ch2].port = pt;
-				bch = kmalloc(sizeof(bchannel_t), GFP_ATOMIC);
-				if (!bch) {
-					err = -ENOMEM;
-					goto free_channels;
-				}
-				memset(bch, 0, sizeof(bchannel_t));
-				bch->channel = ch2;
-				mISDN_init_instance(&bch->inst, &HFCM_obj, hc, hfcmulti_l2l1);
-				bch->inst.pid.layermask = ISDN_LAYER(0);
-				bch->inst.lock = lock_dev;
-				bch->inst.unlock = unlock_dev;
-				//bch->debug = debug;
-				sprintf(bch->inst.name, "%s B%d",
-					dch->inst.name, i+1);
-				if (mISDN_init_bch(bch)) {
-					kfree(bch);
-					err = -ENOMEM;
-					goto free_channels;
-				}
-				skb_queue_head_init(&hc->chan[ch2].dtmfque);
-				hc->chan[ch2].bch = bch;
-#ifdef FIXME  // TODO
-				if (bch->dev) {
-					bch->dev->wport.pif.func = hfcmulti_l2l1;
-					bch->dev->wport.pif.fdata = bch;
-				}
-#endif
-				i++;
-			}
-
-			/* set D-channel */
-			mISDN_set_dchannel_pid(&pid, protocol[port_cnt], layermask[port_cnt]);
-
-			/* set PRI */
-			if (hc->type == 1) {
-				if (layermask[port_cnt] & ISDN_LAYER(2)) {
-					pid.protocol[2] |= ISDN_PID_L2_DF_PTP;
-				}
-				if (layermask[port_cnt] & ISDN_LAYER(3)) {
-					pid.protocol[3] |= ISDN_PID_L3_DF_PTP;
-					pid.protocol[3] |= ISDN_PID_L3_DF_EXTCID;
-					pid.protocol[3] |= ISDN_PID_L3_DF_CRLEN2;
-				}
-			}
-
-			/* set protocol type */
-			if (protocol[port_cnt] & 0x10) {
-				/* NT-mode */
-				dch->inst.pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_NT_E1:ISDN_PID_L0_NT_S0;
-				dch->inst.pid.protocol[1] = (hc->type==1)?ISDN_PID_L1_NT_E1:ISDN_PID_L1_NT_S0;
-				pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_NT_E1:ISDN_PID_L0_NT_S0;
-				pid.protocol[1] = (hc->type==1)?ISDN_PID_L1_NT_E1:ISDN_PID_L1_NT_S0;
-				dch->inst.pid.layermask |= ISDN_LAYER(1);
-				pid.layermask |= ISDN_LAYER(1);
-				if (layermask[port_cnt] & ISDN_LAYER(2))
-					pid.protocol[2] = ISDN_PID_L2_LAPD_NET;
-				test_and_set_bit(HFC_CFG_NTMODE, &hc->chan[ch].cfg);
-			} else {
-				/* TE-mode */
-				dch->inst.pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_TE_E1:ISDN_PID_L0_TE_S0;
-				pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_TE_E1:ISDN_PID_L0_TE_S0;
-				if (hc->type == 1) {
-					/* own E1 for E1 */
-					dch->inst.pid.protocol[1] = ISDN_PID_L1_TE_E1;
-					pid.protocol[1] = ISDN_PID_L1_TE_E1;
-					dch->inst.pid.layermask |= ISDN_LAYER(1);
-					pid.layermask |= ISDN_LAYER(1);
-				}
-			}
-
-
-			if (hc->type != 1) {
-				/* S/T */
-				/* set master clock */
-				if (protocol[port_cnt] & 0x10000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL set master clock: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					if (test_bit(HFC_CFG_NTMODE, &hc->chan[ch].cfg)) {
-						printk(KERN_ERR "Error: Master clock for port(%d) of card(%d) is only possible with TE-mode\n", pt+1, HFC_cnt+1);
-						err = -EINVAL;
-						goto free_channels;
-					}
-					if (hc->masterclk >= 0) {
-						printk(KERN_ERR "Error: Master clock for port(%d) of card(%d) already defined for port(%d)\n", pt+1, HFC_cnt+1, hc->masterclk+1);
-						err = -EINVAL;
-						goto free_channels;
-					}
-					hc->masterclk = pt;
-				}
-
-				/* set transmitter line to non capacitive */
-				if (protocol[port_cnt] & 0x20000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL set non capacitive transmitter: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					test_and_set_bit(HFC_CFG_NONCAP_TX, &hc->chan[ch].cfg);
-				}
-
-				/* disable E-channel */
-				if (protocol[port_cnt] & 0x40000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL disable E-channel: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					test_and_set_bit(HFC_CFG_DIS_ECHANNEL, &hc->chan[ch].cfg);
-				}
-				/* register E-channel */
-				if (protocol[port_cnt] & 0x80000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL register E-channel: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					test_and_set_bit(HFC_CFG_REG_ECHANNEL, &hc->chan[ch].cfg);
-				}
-			} else {
-				/* E1 */
-				/* set optical line type */
-				if (protocol[port_cnt] & 0x10000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL set optical interfacs: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					test_and_set_bit(HFC_CFG_OPTICAL, &hc->chan[ch].cfg);
-				}
-
-				/* set LOS report */
-				if (protocol[port_cnt] & 0x40000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL set LOS report: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					test_and_set_bit(HFC_CFG_REPORT_LOS, &hc->chan[ch].cfg);
-				}
-
-				/* set AIS report */
-				if (protocol[port_cnt] & 0x80000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL set AIS report: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					test_and_set_bit(HFC_CFG_REPORT_AIS, &hc->chan[ch].cfg);
-				}
-
-				/* set SLIP report */
-				if (protocol[port_cnt] & 0x100000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL set SLIP report: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
-					test_and_set_bit(HFC_CFG_REPORT_SLIP, &hc->chan[ch].cfg);
-				}
-
-				/* set elastic jitter buffer */
-				if (protocol[port_cnt] & 0x600000) {
-					if (debug & DEBUG_HFCMULTI_INIT)
-						printk(KERN_DEBUG "%s: PROTOCOL set elastic buffer to %d: card(%d) port(%d)\n", __FUNCTION__, hc->chan[ch].jitter, HFC_cnt+1, pt);
-					hc->chan[ch].jitter = (protocol[port_cnt]>>21) & 0x3;
-				} else
-					hc->chan[ch].jitter = 2; /* default */
-			}
-
-			memcpy(&pids[pt], &pid, sizeof(pid));
-
-			pt++;
-			port_cnt++;
-		}
-
-		/* run card setup */
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: Setting up card(%d)\n", __FUNCTION__, HFC_cnt+1);
-		if ((err = setup_pci(hc))) {
-			goto free_channels;
-		}
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: Initializing card(%d)\n", __FUNCTION__, HFC_cnt+1);
-		if ((err = init_card(hc))) {
-			if (debug & DEBUG_HFCMULTI_INIT) {
-				printk(KERN_DEBUG "%s: do release_io_hfcmulti\n", __FUNCTION__);
-				release_io_hfcmulti(hc);
-			}
-			goto free_channels;
-		}
-
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: Init modes card(%d)\n", __FUNCTION__, HFC_cnt+1);
-		hfcmulti_initmode(hc);
-
-		/* add stacks */
-		pt = 0;
-		while(pt < hc->type) {
-			if (debug & DEBUG_HFCMULTI_INIT)
-				printk(KERN_DEBUG "%s: Adding d-stack: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt+1);
-			if (hc->type == 1)
-				dch = hc->chan[16].dch;
-			else
-				dch = hc->chan[(pt<<2)+2].dch;
-			if ((err = HFCM_obj.ctrl(NULL, MGR_NEWSTACK | REQUEST, &dch->inst))) {
-				printk(KERN_ERR  "MGR_ADDSTACK REQUEST dch err(%d)\n", err);
-				free_release:
-				release_port(hc, -1); /* all ports */
-				goto free_object;
-			}
-			/* indicate that this stack is created */
-			hc->created[pt] = 1;
-
-			dst = dch->inst.st;
-
-			i = 0;
-			while(i < bchperport) {
-				if (debug & DEBUG_HFCMULTI_INIT)
-					printk(KERN_DEBUG "%s: Adding b-stack: card(%d) port(%d) B-channel(%d)\n", __FUNCTION__, HFC_cnt+1, pt+1, i+1);
-				if (hc->type == 1)
-					bch = hc->chan[i + 1 + (i>=15)].bch;
-				else
-					bch = hc->chan[(pt<<2) + i].bch;
-				if ((err = HFCM_obj.ctrl(dst, MGR_NEWSTACK | REQUEST, &bch->inst))) {
-					printk(KERN_ERR "MGR_ADDSTACK bchan error %d\n", err);
-					free_delstack:
-					HFCM_obj.ctrl(dst, MGR_DELSTACK | REQUEST, NULL);
-					goto free_release;
-				}
-				bch->st = bch->inst.st;
-				i++;
-			}
-			if (debug & DEBUG_HFCMULTI_INIT)
-				printk(KERN_DEBUG "%s: (before MGR_SETSTACK REQUEST) layermask=0x%x\n", __FUNCTION__, pids[pt].layermask);
-
-			if ((err = HFCM_obj.ctrl(dst, MGR_SETSTACK | REQUEST, &pids[pt]))) {
-				printk(KERN_ERR "MGR_SETSTACK REQUEST dch err(%d)\n", err);
-				goto free_delstack;
-			}
-			if (debug & DEBUG_HFCMULTI_INIT)
-				printk(KERN_DEBUG "%s: (after MGR_SETSTACK REQUEST)\n", __FUNCTION__);
-
-			/* delay some time */
-			set_current_state(TASK_UNINTERRUPTIBLE);
-			schedule_timeout((100*HZ)/1000); /* Timeout 100ms */
-
-			/* tell stack, that we are ready */
-			HFCM_obj.ctrl(dst, MGR_CTRLREADY | INDICATION, NULL);
-
-			pt++;
-		}
-
-		/* now turning on irq */
-		HFC_outb(hc, R_IRQ_CTRL, hc->hw.r_irq_ctrl);
-
-		HFC_cnt++;
-	}
-
-	if (HFC_cnt == 0) {
-		printk(KERN_INFO "hfc_multi: No cards defined, read the documentation.\n");
+		printk(KERN_ERR "Card type(%d) not supported.\n", type[HFC_cnt] & 0xff);
 		err = -EINVAL;
 		goto free_object;
 	}
 
-	printk(KERN_INFO "hfc_multi driver: %d cards with total of %d ports installed.\n", HFC_cnt, port_cnt);
-	return(0);
 
-	/* DONE */
+	/* allocate card+fifo structure */
+	if (!(hc = kmalloc(sizeof(hfc_multi_t), GFP_ATOMIC))) {
+		printk(KERN_ERR "No kmem for HFC-Multi card\n");
+		err = -ENOMEM;
+		goto free_object;
+	}
+	pci_set_drvdata(pdev, hc);
+	memset(hc, 0, sizeof(hfc_multi_t));
+	hc->id = HFC_cnt + 1;
+	hc->pcm = pcm[HFC_cnt];
+
+	/* set chip specific features */
+	hc->masterclk = -1;
+	hc->type = type[HFC_cnt] & 0xff;
+	if (type[HFC_cnt] & 0x100) {
+		test_and_set_bit(HFC_CHIP_ULAW, &hc->chip);
+		silence = 0xff; /* ulaw silence */
+	} else
+		silence = 0x2a; /* alaw silence */
+	if (type[HFC_cnt] & 0x200)
+		test_and_set_bit(HFC_CHIP_DTMF, &hc->chip);
+//		if ((type[HFC_cnt]&0x400) && hc->type==4)
+//			test_and_set_bit(HFC_CHIP_LEDS, &hc->chip);
+	if (type[HFC_cnt] & 0x800)
+		test_and_set_bit(HFC_CHIP_PCM_SLAVE, &hc->chip);
+	if (type[HFC_cnt] & 0x1000)
+		test_and_set_bit(HFC_CHIP_CLOCK_IGNORE, &hc->chip);
+	if (type[HFC_cnt] & 0x2000)
+		test_and_set_bit(HFC_CHIP_RX_SYNC, &hc->chip);
+	if (type[HFC_cnt] & 0x4000)
+		test_and_set_bit(HFC_CHIP_EXRAM_128, &hc->chip);
+	if (type[HFC_cnt] & 0x8000)
+		test_and_set_bit(HFC_CHIP_EXRAM_512, &hc->chip);
+	hc->slots = 32;
+	if (type[HFC_cnt] & 0x10000)
+		hc->slots = 64;
+	if (type[HFC_cnt] & 0x20000)
+		hc->slots = 128;
+	if (hc->type == 1)
+		sprintf(hc->name, "HFC-E1#%d", HFC_cnt+1);
+	else
+		sprintf(hc->name, "HFC-%dS#%d", hc->type, HFC_cnt+1);
+
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: (after APPEND_TO_LIST)\n", __FUNCTION__);
+	list_add_tail(&hc->list, &HFCM_obj.ilist);
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: (after APPEND_TO_LIST)\n", __FUNCTION__);
+
+	lock_HW_init(&hc->lock);
+
+	pt = 0;
+	port_cnt=0;
+	while (pt < hc->type) {
+		if (protocol[port_cnt] == 0) {
+			printk(KERN_ERR "Not enough 'protocol' values given.\n");
+			ret_err = -EINVAL;
+			goto free_channels;
+		}
+		if (hc->type == 1)
+			ch = 16;
+		else
+			ch = (pt<<2)+2;
+		if (debug & DEBUG_HFCMULTI_INIT)
+			printk(KERN_DEBUG "%s: Registering D-channel, card(%d) ch(%d) port(%d) protocol(%x)\n", __FUNCTION__, HFC_cnt+1, ch, pt+1, protocol[port_cnt]);
+		hc->chan[ch].port = pt;
+		hc->chan[ch].nt_timer = -1;
+		dch = kmalloc(sizeof(dchannel_t), GFP_ATOMIC);
+		if (!dch) {
+			ret_err = -ENOMEM;
+			goto free_channels;
+		}
+		memset(dch, 0, sizeof(dchannel_t));
+		dch->channel = ch;
+		//dch->debug = debug;
+		dch->inst.obj = &HFCM_obj;
+		dch->inst.lock = lock_dev;
+		dch->inst.unlock = unlock_dev;
+		mISDN_init_instance(&dch->inst, &HFCM_obj, hc, hfcmulti_l1hw);
+		dch->inst.pid.layermask = ISDN_LAYER(0);
+		sprintf(dch->inst.name, "HFCm%d/%d", HFC_cnt+1, pt+1);
+		if (!(hc->chan[ch].rx_buf = kmalloc(MAX_DFRAME_LEN_L1, GFP_ATOMIC))) {
+			ret_err = -ENOMEM;
+			goto free_channels;
+		}
+		if (mISDN_init_dch(dch)) {
+			ret_err = -ENOMEM;
+			goto free_channels;
+		}
+		hc->chan[ch].dch = dch;
+
+		i=0;
+		while(i < bchperport) {
+			if (hc->type == 1)
+				ch2 = i + 1 + (i>=15);
+			else
+				ch2 = (pt<<2)+i;
+			if (debug & DEBUG_HFCMULTI_INIT)
+				printk(KERN_DEBUG "%s: Registering B-channel, card(%d) ch(%d) port(%d) channel(%d)\n", __FUNCTION__, HFC_cnt+1, ch2, pt+1, i);
+			hc->chan[ch2].port = pt;
+			bch = kmalloc(sizeof(bchannel_t), GFP_ATOMIC);
+			if (!bch) {
+				ret_err = -ENOMEM;
+				goto free_channels;
+			}
+			memset(bch, 0, sizeof(bchannel_t));
+			bch->channel = ch2;
+			mISDN_init_instance(&bch->inst, &HFCM_obj, hc, hfcmulti_l2l1);
+			bch->inst.pid.layermask = ISDN_LAYER(0);
+			bch->inst.lock = lock_dev;
+			bch->inst.unlock = unlock_dev;
+			//bch->debug = debug;
+			sprintf(bch->inst.name, "%s B%d",
+				dch->inst.name, i+1);
+			if (mISDN_init_bch(bch)) {
+				kfree(bch);
+				ret_err = -ENOMEM;
+				goto free_channels;
+			}
+			skb_queue_head_init(&hc->chan[ch2].dtmfque);
+			hc->chan[ch2].bch = bch;
+#ifdef FIXME  // TODO
+			if (bch->dev) {
+				bch->dev->wport.pif.func = hfcmulti_l2l1;
+				bch->dev->wport.pif.fdata = bch;
+			}
+#endif
+			i++;
+		}
+
+		/* set D-channel */
+		mISDN_set_dchannel_pid(&pid, protocol[port_cnt], layermask[port_cnt]);
+
+		/* set PRI */
+		if (hc->type == 1) {
+			if (layermask[port_cnt] & ISDN_LAYER(2)) {
+				pid.protocol[2] |= ISDN_PID_L2_DF_PTP;
+			}
+			if (layermask[port_cnt] & ISDN_LAYER(3)) {
+				pid.protocol[3] |= ISDN_PID_L3_DF_PTP;
+				pid.protocol[3] |= ISDN_PID_L3_DF_EXTCID;
+				pid.protocol[3] |= ISDN_PID_L3_DF_CRLEN2;
+			}
+		}
+
+		/* set protocol type */
+		if (protocol[port_cnt] & 0x10) {
+			/* NT-mode */
+			dch->inst.pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_NT_E1:ISDN_PID_L0_NT_S0;
+			dch->inst.pid.protocol[1] = (hc->type==1)?ISDN_PID_L1_NT_E1:ISDN_PID_L1_NT_S0;
+			pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_NT_E1:ISDN_PID_L0_NT_S0;
+			pid.protocol[1] = (hc->type==1)?ISDN_PID_L1_NT_E1:ISDN_PID_L1_NT_S0;
+			dch->inst.pid.layermask |= ISDN_LAYER(1);
+			pid.layermask |= ISDN_LAYER(1);
+			if (layermask[port_cnt] & ISDN_LAYER(2))
+				pid.protocol[2] = ISDN_PID_L2_LAPD_NET;
+			test_and_set_bit(HFC_CFG_NTMODE, &hc->chan[ch].cfg);
+		} else {
+			/* TE-mode */
+			dch->inst.pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_TE_E1:ISDN_PID_L0_TE_S0;
+			pid.protocol[0] = (hc->type==1)?ISDN_PID_L0_TE_E1:ISDN_PID_L0_TE_S0;
+			if (hc->type == 1) {
+				/* own E1 for E1 */
+				dch->inst.pid.protocol[1] = ISDN_PID_L1_TE_E1;
+				pid.protocol[1] = ISDN_PID_L1_TE_E1;
+				dch->inst.pid.layermask |= ISDN_LAYER(1);
+				pid.layermask |= ISDN_LAYER(1);
+			}
+		}
+
+
+		if (hc->type != 1) {
+			/* S/T */
+			/* set master clock */
+			if (protocol[port_cnt] & 0x10000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL set master clock: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				if (test_bit(HFC_CFG_NTMODE, &hc->chan[ch].cfg)) {
+					printk(KERN_ERR "Error: Master clock for port(%d) of card(%d) is only possible with TE-mode\n", pt+1, HFC_cnt+1);
+					ret_err = -EINVAL;
+					goto free_channels;
+				}
+				if (hc->masterclk >= 0) {
+					printk(KERN_ERR "Error: Master clock for port(%d) of card(%d) already defined for port(%d)\n", pt+1, HFC_cnt+1, hc->masterclk+1);
+					ret_err = -EINVAL;
+					goto free_channels;
+				}
+				hc->masterclk = pt;
+			}
+
+			/* set transmitter line to non capacitive */
+			if (protocol[port_cnt] & 0x20000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL set non capacitive transmitter: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				test_and_set_bit(HFC_CFG_NONCAP_TX, &hc->chan[ch].cfg);
+			}
+
+			/* disable E-channel */
+			if (protocol[port_cnt] & 0x40000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL disable E-channel: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				test_and_set_bit(HFC_CFG_DIS_ECHANNEL, &hc->chan[ch].cfg);
+			}
+			/* register E-channel */
+			if (protocol[port_cnt] & 0x80000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL register E-channel: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				test_and_set_bit(HFC_CFG_REG_ECHANNEL, &hc->chan[ch].cfg);
+			}
+		} else {
+			/* E1 */
+			/* set optical line type */
+			if (protocol[port_cnt] & 0x10000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL set optical interfacs: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				test_and_set_bit(HFC_CFG_OPTICAL, &hc->chan[ch].cfg);
+			}
+
+			/* set LOS report */
+			if (protocol[port_cnt] & 0x40000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL set LOS report: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				test_and_set_bit(HFC_CFG_REPORT_LOS, &hc->chan[ch].cfg);
+			}
+
+			/* set AIS report */
+			if (protocol[port_cnt] & 0x80000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL set AIS report: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				test_and_set_bit(HFC_CFG_REPORT_AIS, &hc->chan[ch].cfg);
+			}
+
+			/* set SLIP report */
+			if (protocol[port_cnt] & 0x100000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL set SLIP report: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt);
+				test_and_set_bit(HFC_CFG_REPORT_SLIP, &hc->chan[ch].cfg);
+			}
+
+			/* set elastic jitter buffer */
+			if (protocol[port_cnt] & 0x600000) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL set elastic buffer to %d: card(%d) port(%d)\n", __FUNCTION__, hc->chan[ch].jitter, HFC_cnt+1, pt);
+				hc->chan[ch].jitter = (protocol[port_cnt]>>21) & 0x3;
+			} else
+				hc->chan[ch].jitter = 2; /* default */
+		}
+
+		memcpy(&pids[pt], &pid, sizeof(pid));
+
+		pt++;
+		port_cnt++;
+	}
+
+	/* run card setup */
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: Setting up card(%d)\n", __FUNCTION__, HFC_cnt+1);
+	if ((ret_err = setup_pci(hc,pdev,id_idx))) {
+		goto free_channels;
+	}
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: Initializing card(%d)\n", __FUNCTION__, HFC_cnt+1);
+	if ((ret_err = init_card(hc))) {
+		if (debug & DEBUG_HFCMULTI_INIT) {
+			printk(KERN_DEBUG "%s: do release_io_hfcmulti\n", __FUNCTION__);
+			release_io_hfcmulti(hc);
+		}
+		goto free_channels;
+	}
+
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: Init modes card(%d)\n", __FUNCTION__, HFC_cnt+1);
+	hfcmulti_initmode(hc);
+
+	/* add stacks */
+	pt = 0;
+	while(pt < hc->type) {
+		if (debug & DEBUG_HFCMULTI_INIT)
+			printk(KERN_DEBUG "%s: Adding d-stack: card(%d) port(%d)\n", __FUNCTION__, HFC_cnt+1, pt+1);
+		if (hc->type == 1)
+			dch = hc->chan[16].dch;
+		else
+			dch = hc->chan[(pt<<2)+2].dch;
+		if ((err = HFCM_obj.ctrl(NULL, MGR_NEWSTACK | REQUEST, &dch->inst))) {
+			printk(KERN_ERR  "MGR_ADDSTACK REQUEST dch err(%d)\n", err);
+			free_release:
+			release_port(hc, -1); /* all ports */
+			goto free_object;
+		}
+		/* indicate that this stack is created */
+		hc->created[pt] = 1;
+
+		dst = dch->inst.st;
+
+		i = 0;
+		while(i < bchperport) {
+			if (debug & DEBUG_HFCMULTI_INIT)
+				printk(KERN_DEBUG "%s: Adding b-stack: card(%d) port(%d) B-channel(%d)\n", __FUNCTION__, HFC_cnt+1, pt+1, i+1);
+			if (hc->type == 1)
+				bch = hc->chan[i + 1 + (i>=15)].bch;
+			else
+				bch = hc->chan[(pt<<2) + i].bch;
+			if ((err = HFCM_obj.ctrl(dst, MGR_NEWSTACK | REQUEST, &bch->inst))) {
+				printk(KERN_ERR "MGR_ADDSTACK bchan error %d\n", err);
+				free_delstack:
+				HFCM_obj.ctrl(dst, MGR_DELSTACK | REQUEST, NULL);
+				goto free_release;
+			}
+			bch->st = bch->inst.st;
+			i++;
+		}
+		if (debug & DEBUG_HFCMULTI_INIT)
+			printk(KERN_DEBUG "%s: (before MGR_SETSTACK REQUEST) layermask=0x%x\n", __FUNCTION__, pids[pt].layermask);
+
+		if ((err = HFCM_obj.ctrl(dst, MGR_SETSTACK | REQUEST, &pids[pt]))) {
+			printk(KERN_ERR "MGR_SETSTACK REQUEST dch err(%d)\n", err);
+			goto free_delstack;
+		}
+		if (debug & DEBUG_HFCMULTI_INIT)
+			printk(KERN_DEBUG "%s: (after MGR_SETSTACK REQUEST)\n", __FUNCTION__);
+
+		/* delay some time */
+		set_current_state(TASK_UNINTERRUPTIBLE);
+		schedule_timeout((100*HZ)/1000); /* Timeout 100ms */
+
+		/* tell stack, that we are ready */
+		HFCM_obj.ctrl(dst, MGR_CTRLREADY | INDICATION, NULL);
+
+		pt++;
+	}
+
+	/* now turning on irq */
+	HFC_outb(hc, R_IRQ_CTRL, hc->hw.r_irq_ctrl);
+
+	HFC_cnt++;
 
 	/* if an error ocurred */
 	free_channels:
@@ -3759,7 +3894,7 @@ HFCmulti_init(void)
 	free_object:
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: brefore mISDN_unregister (refcnt = %d)\n", __FUNCTION__, HFCM_obj.refcnt);
-	if ((err2 = mISDN_unregister(&HFCM_obj))) {
+	if ((err = mISDN_unregister(&HFCM_obj))) {
 		printk(KERN_ERR "Can't unregister HFC-Multi cards error(%d)\n", err);
 	}
 	list_for_each_entry_safe(hc, next, &HFCM_obj.ilist, list) {
@@ -3770,8 +3905,135 @@ HFCmulti_init(void)
 		printk(KERN_DEBUG "%s: after mISDN_unregister (refcnt = %d)\n", __FUNCTION__, HFCM_obj.refcnt);
 
 	if (debug & DEBUG_HFCMULTI_INIT)
-		printk(KERN_DEBUG "%s: exitting with error %d\n", __FUNCTION__, err);
-	return(err);
+		printk(KERN_DEBUG "%s: exitting with error %d\n", __FUNCTION__, ret_err);
+	return(ret_err);
+}
+
+static void __devexit hfc_remove_pci(struct pci_dev *pdev)
+{
+	int i,ch;
+	hfc_multi_t	*card = pci_get_drvdata(pdev);
+
+	printk( KERN_INFO "removing hfc_multi card vendor:%x device:%x subvendor:%x subdevice:%x\n",
+			pdev->vendor,pdev->device,pdev->subsystem_vendor,pdev->subsystem_device);
+	if (card)
+	{
+		for(i=0;i<card->type;i++)  // type is also number of d-channel
+		{
+			if(card->created[i])
+			{
+				if (card->type == 1) ch = 16;
+				else ch = (i*4)+2;
+				// if created elete stack
+				if(card->chan[ch].dch)  HFCM_obj.ctrl(card->chan[ch].dch->inst.st, MGR_DELSTACK | REQUEST, NULL);
+			}
+		}
+		// relase all ports
+		release_port(card,-1);
+		pci_set_drvdata(pdev, NULL);
+	}
+	else printk(KERN_WARNING "%s: drvdata allready removed\n", __FUNCTION__);
+}
+
+static struct pci_device_id hfmultipci_ids[] __devinitdata = {
+	{ CCAG_VID, 0x08B4   , PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ CCAG_VID, 0x16B8   , PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ CCAG_VID, 0x30B1   , PCI_ANY_ID, PCI_ANY_ID, 0, 0, 0 },
+	{ 0x10B5,   0x9030   , CCAG_VID,   0x3136 ,    0, 0, 0 },  // PLX PCI Bridge
+	{ 0x10B5,   0x9030   , PCI_ANY_ID,   PCI_ANY_ID ,  0, 0, 0 },  // PLX PCI Bridge
+	{0, }
+};
+MODULE_DEVICE_TABLE(pci, hfmultipci_ids);
+
+static struct pci_driver hfcmultipci_driver = {
+	name:     "hfc_multi",
+	probe:    hfcpci_probe,
+	remove:   __devexit_p(hfc_remove_pci),
+	id_table: hfmultipci_ids,
+};
+
+static int __init
+HFCmulti_init(void)
+{
+	int err, i;
+	char tmpstr[64];
+
+#if !defined(CONFIG_HOTPLUG) || !defined(MODULE)
+	produce some error
+#endif
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: init entered\n", __FUNCTION__);
+
+#ifdef __BIG_ENDIAN
+#error "not running on big endian machines now"
+#endif
+	strcpy(tmpstr, hfcmulti_revision);
+	printk(KERN_INFO "mISDN: HFC-multi driver Rev. %s\n", mISDN_getrev(tmpstr));
+
+	switch(poll) {
+		case 0:
+		poll_timer = 6;
+		poll = 128;
+		case 8:
+		poll_timer = 2;
+		break;
+		case 16:
+		poll_timer = 3;
+		break;
+		case 32:
+		poll_timer = 4;
+		break;
+		case 64:
+		poll_timer = 5;
+		break;
+		case 128:
+		poll_timer = 6;
+		break;
+		case 256:
+		poll_timer = 7;
+		break;
+		default:
+		printk(KERN_ERR "%s: Wrong poll value (%d).\n", __FUNCTION__, poll);
+		err = -EINVAL;
+		return(err);
+
+	}
+
+	memset(&HFCM_obj, 0, sizeof(HFCM_obj));
+#ifdef MODULE
+	HFCM_obj.owner = THIS_MODULE;
+#endif
+	INIT_LIST_HEAD(&HFCM_obj.ilist);
+	HFCM_obj.name = HFCName;
+	HFCM_obj.own_ctrl = HFC_manager;
+	HFCM_obj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 | ISDN_PID_L0_NT_S0
+				| ISDN_PID_L0_TE_E1 | ISDN_PID_L0_NT_E1;
+	HFCM_obj.DPROTO.protocol[1] = ISDN_PID_L1_NT_S0
+				| ISDN_PID_L1_TE_E1 | ISDN_PID_L1_NT_E1;
+	HFCM_obj.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS | ISDN_PID_L1_B_64HDLC;
+	HFCM_obj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS | ISDN_PID_L2_B_RAWDEV;
+
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: registering HFCM_obj\n", __FUNCTION__);
+	if ((err = mISDN_register(&HFCM_obj))) {
+		printk(KERN_ERR "Can't register HFC-Multi cards error(%d)\n", err);
+		return(err);
+	}
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "%s: new mISDN object (refcnt = %d)\n", __FUNCTION__, HFCM_obj.refcnt);
+
+	for(i=0;i<MAX_CARDS;i++) allocated[i]=0;
+	HFC_cnt = 0;
+
+	err = pci_register_driver(&hfcmultipci_driver);
+	if (err < 0)
+	{
+		printk(KERN_ERR "error registering pci driver:%x\n",err);
+		return(err);
+	}
+	printk(KERN_INFO "%d devices registered\n",err);
+
+	return(0);
 }
 
 
@@ -3796,8 +4058,9 @@ HFCmulti_cleanup(void)
 	}
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: done (refcnt = %d)\n", __FUNCTION__, HFCM_obj.refcnt);
-	return;
+	pci_unregister_driver(&hfcmultipci_driver);
 }
+
 module_init(HFCmulti_init);
 module_exit(HFCmulti_cleanup);
 #endif
