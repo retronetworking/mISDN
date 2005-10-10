@@ -8,7 +8,7 @@ typedef unsigned short WORD;
 typedef unsigned long DWORD;
 
 // IMPORTANT!!! use  CONFIG_PLX_PCI_BRIDGE only in conjunction with  CONFIG_HFCMULTI_PCIMEM
-#define CONFIG_PLX_PCI_BRIDGE   // TODO should be defined in kernel config
+//#define CONFIG_PLX_PCI_BRIDGE   // TODO should be defined in kernel config
 
 #ifdef CONFIG_PLX_PCI_BRIDGE
 #undef FIFO_32BIT_ACCESS
@@ -50,7 +50,6 @@ struct hfc_chan {
 	int		jitter;
 	u_long		cfg; /* port configuration */
 	int		sync; /* sync state (used by E1) */
-	struct sk_buff_head dtmfque;
 	DWORD	protocol; /* current protocol */
 	int		slot_tx; /* current pcm slot */
 	int		bank_tx; /* current pcm bank */
