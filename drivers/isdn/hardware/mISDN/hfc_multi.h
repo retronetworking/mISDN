@@ -103,6 +103,7 @@ typedef struct hfcmulti_hw	hfcmulti_hw_t;
 struct hfc_multi {
 	struct list_head	list;
 	char		name[32];
+	int		idx;	/* chip index for module parameters */
 	int		id;	/* chip number starting with 1 */
 	int		pcm;	/* id of pcm bus */
 	int		type;
