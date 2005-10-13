@@ -276,6 +276,11 @@ release_io_hfcmulti(hfc_multi_t *hc)
 		release_region(hc->pci_iobase, 8);
 #endif
 
+	if (hc->pci_dev) {
+		pci_disable_device(hc->pci_dev);
+		pci_set_drvdata(hc->pci_dev, NULL);
+	}
+
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: done\n", __FUNCTION__);
 }
@@ -2886,7 +2891,7 @@ SelFreeBChannel(hfc_multi_t *hc, int ch, channel_info_t *ci)
 /*********************************/
 
 static int
-setup_pci(hfc_multi_t *hc, struct pci_dev *dev,int id_idx)
+setup_pci(hfc_multi_t *hc, struct pci_dev *pdev,int id_idx)
 {
 	int i;
 	//struct pci_dev *tmp_dev = NULL;
@@ -2900,7 +2905,7 @@ setup_pci(hfc_multi_t *hc, struct pci_dev *dev,int id_idx)
 			hc->chan[i].dch->ph_state = 0;
 	}
 
-	hc->pci_dev = dev;
+	hc->pci_dev = pdev;
 	if (id_list[id_idx].clock2)
 		test_and_set_bit(HFC_CHIP_CLOCK2, &hc->chip);
 	if (hc->pci_dev->irq <= 0) {
@@ -2984,6 +2989,8 @@ setup_pci(hfc_multi_t *hc, struct pci_dev *dev,int id_idx)
 	pci_write_config_word(hc->pci_dev, PCI_COMMAND, PCI_ENA_REGIO);
 #endif
 
+	pci_set_drvdata(hc->pci_dev, hc);
+	
 	/* At this point the needed PCI config is done */
 	/* fifos are still not enabled */
         lock_dev(hc, 0);
@@ -3155,9 +3162,15 @@ release_port(hfc_multi_t *hc, int port)
 		release_io_hfcmulti(hc);
 
 		list_del(&hc->list);
+		printk(KERN_DEBUG "test0\n");
 		unlock_dev(hc);
-		kfree(hc);
+		printk(KERN_DEBUG "test1\n");
+		printk(KERN_DEBUG "test2\n");
+#warning remove m
+//		kfree(hc);
+		printk(KERN_DEBUG "test3\n");
 		HFC_cnt--;
+		printk(KERN_DEBUG "test4\n");
 	} else
 		unlock_dev(hc);
 }
@@ -3401,7 +3414,6 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 		ret_err = -ENOMEM;
 		goto free_object;
 	}
-	pci_set_drvdata(pdev, hc);
 	memset(hc, 0, sizeof(hfc_multi_t));
 	hc->idx = HFC_idx;
 	hc->id = HFC_idx + 1;
@@ -3796,7 +3808,6 @@ static void __devexit hfc_remove_pci(struct pci_dev *pdev)
 		allocated[card->idx] = 0;
 		release_port(card, -1); // card is free ... */
 		printk(KERN_DEBUG "test\n");
-		pci_set_drvdata(pdev, NULL);
 	}
 	else printk(KERN_WARNING "%s: drvdata allready removed\n", __FUNCTION__);
 }
@@ -3824,9 +3835,6 @@ HFCmulti_cleanup(void)
 	hfc_multi_t *hc,*next;
 	int err;
 
-	/* first get rid of all devices of this driver */
-	pci_unregister_driver(&hfcmultipci_driver);
-
 	/* unregister mISDN object */
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: entered (refcnt = %d HFC_cnt = %d)\n", __FUNCTION__, HFCM_obj.refcnt, HFC_cnt);
@@ -3844,6 +3852,10 @@ HFCmulti_cleanup(void)
 	}
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: done (refcnt = %d HFC_cnt = %d)\n", __FUNCTION__, HFCM_obj.refcnt, HFC_cnt);
+
+	/* get rid of all devices of this driver */
+	pci_unregister_driver(&hfcmultipci_driver);
+
 }
 
 static int __init
