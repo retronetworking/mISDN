@@ -3162,15 +3162,9 @@ release_port(hfc_multi_t *hc, int port)
 		release_io_hfcmulti(hc);
 
 		list_del(&hc->list);
-		printk(KERN_DEBUG "test0\n");
 		unlock_dev(hc);
-		printk(KERN_DEBUG "test1\n");
-		printk(KERN_DEBUG "test2\n");
-#warning remove m
-//		kfree(hc);
-		printk(KERN_DEBUG "test3\n");
+		kfree(hc);
 		HFC_cnt--;
-		printk(KERN_DEBUG "test4\n");
 	} else
 		unlock_dev(hc);
 }
