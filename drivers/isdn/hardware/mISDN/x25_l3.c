@@ -539,8 +539,7 @@ void
 X25_release_channel(x25_channel_t *l3c)
 {
 	list_del(&l3c->list);
-	if (l3c->ncpi_data)
-		kfree(l3c->ncpi_data);
+	kfree(l3c->ncpi_data);
 	l3c->ncpi_data = NULL;
 	l3c->ncpi_len = 0;
 	discard_queue(&l3c->dataq);
@@ -548,10 +547,7 @@ X25_release_channel(x25_channel_t *l3c)
 	mISDN_FsmDelTimer(&l3c->TD, 2);
 	discard_queue(&l3c->dataq);
 	discard_confq(l3c);
-	if (l3c->confq) {
-		kfree(l3c->confq);
-		l3c->confq = NULL;
-	}
+	kfree(l3c->confq);
 	kfree(l3c);
 }
 
@@ -590,8 +586,7 @@ X25_realloc_ncpi_data(x25_channel_t *l3c, int len, u_char *data)
 {
 	if (len) {
 		if (len > l3c->ncpi_len) {
-			if (l3c->ncpi_data)
-				kfree(l3c->ncpi_data);
+			kfree(l3c->ncpi_data);
 			l3c->ncpi_data = kmalloc(len, GFP_ATOMIC);
 			if (!l3c->ncpi_data) {
 				l3c->ncpi_len = 0;
@@ -599,7 +594,7 @@ X25_realloc_ncpi_data(x25_channel_t *l3c, int len, u_char *data)
 			}
 		}
 		memcpy(l3c->ncpi_data, data, len);
-	} else if (l3c->ncpi_data) {
+	} else {
 		kfree(l3c->ncpi_data);
 		l3c->ncpi_data = NULL;
 	}
@@ -631,8 +626,7 @@ new_x25_channel(x25_l3_t *l3, x25_channel_t **ch_p, __u16 ch, int dlen, u_char *
 	l3c->confq = kmalloc(l3c->lwin * sizeof(x25_ConfQueue_t), GFP_ATOMIC);
 	if (!l3c->confq) {
 		printk(KERN_ERR "kmalloc confq %d entries failed\n", l3c->lwin);
-		if (l3c->ncpi_data)
-			kfree(l3c->ncpi_data);
+		kfree(l3c->ncpi_data);
 		kfree(l3c);
 		return(-ENOMEM);
 	}

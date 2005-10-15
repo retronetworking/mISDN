@@ -103,18 +103,14 @@ mISDN_free_dch(dchannel_t *dch) {
 		dev_kfree_skb(dch->rx_skb);
 		dch->rx_skb = NULL;
 	}
-	if (dch->tx_buf) {
-		kfree(dch->tx_buf);
-		dch->tx_buf = NULL;
-	}
+	kfree(dch->tx_buf);
+	dch->tx_buf = NULL;
 	if (dch->next_skb) {
 		dev_kfree_skb(dch->next_skb);
 		dch->next_skb = NULL;
 	}
-	if (dch->dlog) {
-		kfree(dch->dlog);
-		dch->dlog = NULL;
-	}
+	kfree(dch->dlog);
+	dch->dlog = NULL;
 	return(0);
 }
 

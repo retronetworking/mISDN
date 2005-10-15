@@ -397,8 +397,7 @@ do_clear_stack(mISDNstack_t *st) {
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%08x)\n", __FUNCTION__, st->id);
-	if (st->pid.pbuf)
-		kfree(st->pid.pbuf);
+	kfree(st->pid.pbuf);
 	memset(&st->pid, 0, sizeof(mISDN_pid_t));
 	memset(&st->para, 0, sizeof(mISDN_stPara_t));
 	release_layers(st, MGR_UNREGLAYER | REQUEST);

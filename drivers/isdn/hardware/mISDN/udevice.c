@@ -443,8 +443,7 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 		}
 		copy_pid(pid, &inst->pid, pid->pbuf);
 		ret = inst->obj->own_ctrl(st, MGR_NEWLAYER | REQUEST, pid);
-		if (pid->pbuf)
-			kfree(pid->pbuf);
+		kfree(pid->pbuf);
 		kfree(pid);
 		if (ret) {
 			printk(KERN_WARNING "%s: MGR_NEWLAYER | REQUEST for clone returns %d\n", __FUNCTION__, ret);

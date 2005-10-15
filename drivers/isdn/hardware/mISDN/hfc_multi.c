@@ -3130,10 +3130,8 @@ release_port(hfc_multi_t *hc, int port)
 				kfree(hc->chan[i].dch);
 				hc->chan[i].dch = NULL;
 			}
-			if (hc->chan[i].rx_buf) {
-				kfree(hc->chan[i].rx_buf);
-				hc->chan[i].rx_buf = NULL;
-			}
+			kfree(hc->chan[i].rx_buf);
+			hc->chan[i].rx_buf = NULL;
 			if (hc->chan[i].bch) {
 				if (debug & DEBUG_HFCMULTI_INIT)
 					printk(KERN_DEBUG "%s: free port %d B-channel %d (1..32)\n", __FUNCTION__, hc->chan[i].port, i);
@@ -3755,10 +3753,8 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 			kfree(hc->chan[i].dch);
 			hc->chan[i].dch = NULL;
 		}
-		if (hc->chan[i].rx_buf) {
-			kfree(hc->chan[i].rx_buf);
-			hc->chan[i].rx_buf = NULL;
-		}
+		kfree(hc->chan[i].rx_buf);
+		hc->chan[i].rx_buf = NULL;
 		if (hc->chan[i].bch) {
 			if (debug & DEBUG_HFCMULTI_INIT)
 				printk(KERN_DEBUG "%s: free B-channel %d (1..32)\n", __FUNCTION__, i);

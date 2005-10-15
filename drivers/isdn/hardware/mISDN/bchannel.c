@@ -133,18 +133,12 @@ mISDN_free_bch(bchannel_t *bch) {
 #endif
 	discard_queue(&bch->rqueue);
 #endif
-	if (bch->blog) {
-		kfree(bch->blog);
-		bch->blog = NULL;
-	}
-	if (bch->rx_buf) {
-		kfree(bch->rx_buf);
-		bch->rx_buf = NULL;
-	}
-	if (bch->tx_buf) {
-		kfree(bch->tx_buf);
-		bch->tx_buf = NULL;
-	}
+	kfree(bch->blog);
+	bch->blog = NULL;
+	kfree(bch->rx_buf);
+	bch->rx_buf = NULL;
+	kfree(bch->tx_buf);
+	bch->tx_buf = NULL;
 	if (bch->next_skb) {
 		dev_kfree_skb(bch->next_skb);
 		bch->next_skb = NULL;

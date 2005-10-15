@@ -722,14 +722,10 @@ mISDN_isac_free(dchannel_t *dch) {
 	}
 	if (!isac)
 		return;
-	if (isac->mon_rx) {
-		kfree(isac->mon_rx);
-		isac->mon_rx = NULL;
-	}
-	if (isac->mon_tx) {
-		kfree(isac->mon_tx);
-		isac->mon_tx = NULL;
-	}
+	kfree(isac->mon_rx);
+	isac->mon_rx = NULL;
+	kfree(isac->mon_tx);
+	isac->mon_tx = NULL;
 }
 
 static void
