@@ -153,9 +153,6 @@ There are three things that need to transmit data to card:
  - software cmx
  - upper layer, if tx-data is written to tx-buffer
 
-Whenever cmx is changed, or data is sent from upper layer, the transmission is triggered by an silence freame (if not already tx_pending==1). When the confirm is received from card, next frame is
-sent using software cmx, if tx-data is still available, or if software tone generation is used,
-or if cmx is currently using software.
 
 
  
@@ -196,42 +193,6 @@ MODULE_PARM(poll, "1i");
 MODULE_LICENSE("GPL");
 #endif
 #endif
-
-/*
- * sending next frame to card (triggered by PH_DATA_IND)
- */
-static void
-sendevent(dsp_t *dsp)
-{
-	struct sk_buff *nskb;
-
-	lock_HW(&dsp_lock, 0);
-	if (dsp->b_active && dsp->tx_pending) {
-		/* get data from cmx */
-		nskb = dsp_cmx_send(dsp, dsp->tx_pending, 0);
-		dsp->tx_pending = 0;
-		if (!nskb) {
-			unlock_HW(&dsp_lock);
-			printk(KERN_ERR "%s: failed to create tx packet\n", __FUNCTION__);
-			return;
-		}
-		/* crypt if enabled */
-		if (dsp->bf_enable)
-			dsp_bf_encrypt(dsp, nskb->data, nskb->len);
-		/* change volume if requested */
-		if (dsp->tx_volume)
-			dsp_change_volume(nskb, dsp->tx_volume);
-		/* send subsequent requests to card */
-		unlock_HW(&dsp_lock);
-		if (dsp->inst.down.func(&dsp->inst.down, nskb)) {
-			dev_kfree_skb(nskb);
-			printk(KERN_ERR "%s: failed to send tx packet\n", __FUNCTION__);
-		}
-	} else {
-		dsp->tx_pending = 0;
-		unlock_HW(&dsp_lock);
-	}
-}
 
 
 /*
@@ -395,12 +356,8 @@ dsp_control_req(dsp_t *dsp, mISDN_head_t *hh, struct sk_buff *skb)
 				cont = BF_REJECT;
 			/* send indication if it worked to set it */
 			nskb = create_link_skb(PH_CONTROL | INDICATION, 0, sizeof(int), &cont, 0);
-			unlock_HW(&dsp_lock);
-			if (nskb) {
-				if (dsp->inst.up.func(&dsp->inst.up, nskb))
-					dev_kfree_skb(nskb);
-			}
-			lock_HW(&dsp_lock, 0);
+			if (mISDN_queue_up(&dsp->inst, 0, nskb))
+				dev_kfree_skb(nskb);
 			if (!ret)
 				dsp_cmx_hardware(dsp->conf, dsp);
 			break;
@@ -415,6 +372,8 @@ dsp_control_req(dsp_t *dsp, mISDN_head_t *hh, struct sk_buff *skb)
 				printk(KERN_DEBUG "%s: ctrl req %x unhandled\n", __FUNCTION__, cont);
 			ret = -EINVAL;
 	}
+	if (!ret)
+		dev_kfree_skb(skb);
 	return(ret);
 }
 
@@ -423,23 +382,26 @@ dsp_control_req(dsp_t *dsp, mISDN_head_t *hh, struct sk_buff *skb)
  * messages from upper layers
  */
 static int
-dsp_from_up(mISDNif_t *hif, struct sk_buff *skb)
+dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	dsp_t			*dsp;
 	mISDN_head_t		*hh;
 	int			ret = 0;
 
-	if (!hif || !hif->fdata || !skb)
+	if (!skb)
 		return(-EINVAL);
-	dsp = hif->fdata;
-	if (!dsp->inst.down.func)
-		return(-ENXIO);
+	dsp = inst->privat;
+	if (!dsp) {
+		dev_kfree_skb(skb);
+		return(-EIO);
+	}
 
 	hh = mISDN_HEAD_P(skb);
 	switch(hh->prim) {
 		case DL_DATA | RESPONSE:
 		case PH_DATA | RESPONSE:
 			/* ignore response */
+			dev_kfree_skb(skb);
 			break;
 		case DL_DATA | REQUEST:
 		case PH_DATA | REQUEST:
@@ -448,6 +410,7 @@ dsp_from_up(mISDNif_t *hif, struct sk_buff *skb)
 			if (!dsp->tone.tone)
 				dsp_cmx_transmit(dsp, skb);
 			unlock_HW(&dsp_lock);
+			dev_kfree_skb(skb);
 			break;
 		case PH_CONTROL | REQUEST:
 			lock_HW(&dsp_lock, 0);
@@ -459,32 +422,30 @@ dsp_from_up(mISDNif_t *hif, struct sk_buff *skb)
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: activating b_channel %s\n", __FUNCTION__, dsp->inst.name);
 			lock_HW(&dsp_lock, 0);
-			dsp->tx_pending = 0;
 			if (dsp->dtmf.hardware || dsp->dtmf.software)
 				dsp_dtmf_goertzel_init(dsp);
-			unlock_HW(&dsp_lock);
 			hh->prim = PH_ACTIVATE | REQUEST;
-			return(dsp->inst.down.func(&dsp->inst.down, skb));
+			ret = mISDN_queue_down(&dsp->inst, 0, skb);
+			unlock_HW(&dsp_lock);
+			break;
 		case DL_RELEASE | REQUEST:
 		case PH_DEACTIVATE | REQUEST:
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: releasing b_channel %s\n", __FUNCTION__, dsp->inst.name);
 			lock_HW(&dsp_lock, 0);
-			dsp->tx_pending = 0;
 			dsp->tone.tone = dsp->tone.hardware = dsp->tone.software = 0;
 			if (timer_pending(&dsp->tone.tl))
 				del_timer(&dsp->tone.tl);
-			unlock_HW(&dsp_lock);
 			hh->prim = PH_DEACTIVATE | REQUEST;
-			return(dsp->inst.down.func(&dsp->inst.down, skb));
+			ret = mISDN_queue_down(&dsp->inst, 0, skb);
+			unlock_HW(&dsp_lock);
+			break;
 		default:
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: msg %x unhandled %s\n", __FUNCTION__, hh->prim, dsp->inst.name);
 			ret = -EINVAL;
 			break;
 	}
-	if (!ret)
-		dev_kfree_skb(skb);
 	return(ret);
 }
 
@@ -493,7 +454,7 @@ dsp_from_up(mISDNif_t *hif, struct sk_buff *skb)
  * messages from lower layers
  */
 static int
-dsp_from_down(mISDNif_t *hif,  struct sk_buff *skb)
+dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 {
 	dsp_t		*dsp;
 	mISDN_head_t	*hh;
@@ -502,11 +463,13 @@ dsp_from_down(mISDNif_t *hif,  struct sk_buff *skb)
 	int 		cont;
 	struct		sk_buff *nskb;
 
-	if (!hif || !hif->fdata || !skb)
+	if (!skb)
 		return(-EINVAL);
-	dsp = hif->fdata;
-	if (!dsp->inst.up.func)
-		return(-ENXIO);
+	dsp = inst->privat;
+	if (!dsp) {
+		dev_kfree_skb(skb);
+		return(-EIO);
+	}
 
 	hh = mISDN_HEAD_P(skb);
 	switch(hh->prim)
@@ -530,14 +493,8 @@ dsp_from_down(mISDNif_t *hif,  struct sk_buff *skb)
 						printk(KERN_DEBUG "%s: sending software decoded digit(%c) to upper layer %s\n", __FUNCTION__, *digits, dsp->inst.name);
 					cont = DTMF_TONE_VAL | *digits;
 					nskb = create_link_skb(PH_CONTROL | INDICATION, 0, sizeof(int), &cont, 0);
-					unlock_HW(&dsp_lock);
-					if (!nskb) {
-						lock_HW(&dsp_lock, 0);
-						break;
-					}
-					if (dsp->inst.up.func(&dsp->inst.up, nskb))
+					if (mISDN_queue_up(&dsp->inst, 0, nskb))
 						dev_kfree_skb(nskb);
-					lock_HW(&dsp_lock, 0);
 					digits++;
 				}
 			}
@@ -556,19 +513,37 @@ dsp_from_down(mISDNif_t *hif,  struct sk_buff *skb)
 			 || dsp->R_tx != dsp->W_tx /* data in buffer */
 			 || (dsp->echo==1 && dsp->pcm_slot_tx<0) /* software echo */
 			 || (dsp->tone.tone && dsp->tone.software)) { /* software loops */
-				/* schedule sending skb->len bytes */
-				dsp->tx_pending = skb->len;
-				schedule_work(&dsp->sendwork);
+// NOTE: b_active will be importaint to trigger sending by a forthcoming dsp clock.
+				if (dsp->b_active) {
+					/* get data from cmx */
+					nskb = dsp_cmx_send(dsp, skb->len, 0);
+					if (!nskb) {
+						dev_kfree_skb(skb);
+						printk(KERN_ERR "%s: failed to create tx packet\n", __FUNCTION__);
+					}
+					/* crypt if enabled */
+					if (dsp->bf_enable)
+						dsp_bf_encrypt(dsp, nskb->data, nskb->len);
+					/* change volume if requested */
+					if (dsp->tx_volume)
+						dsp_change_volume(nskb, dsp->tx_volume);
+					/* send subsequent requests to card */
+					if (mISDN_queue_down(&dsp->inst, 0, nskb)) {
+						dev_kfree_skb(nskb);
+						printk(KERN_ERR "%s: failed to send tx packet\n", __FUNCTION__);
+					}
+				}
 			}
 			if (dsp->rx_disabled) {
 				/* if receive is not allowed */
 				dev_kfree_skb(skb);
 				unlock_HW(&dsp_lock);
-				return(0);
+				break;
 			}
-			unlock_HW(&dsp_lock);
 			hh->prim = DL_DATA | INDICATION;
-			return(dsp->inst.up.func(&dsp->inst.up, skb));
+			ret = mISDN_queue_up(&dsp->inst, 0, skb);
+			unlock_HW(&dsp_lock);
+			break;
 		case PH_CONTROL | INDICATION:
 			lock_HW(&dsp_lock, 0);
 			if (dsp_debug & DEBUG_DSP_DTMFCOEFF)
@@ -578,28 +553,22 @@ dsp_from_down(mISDNif_t *hif,  struct sk_buff *skb)
 				if (!dsp->dtmf.hardware) {
 					if (dsp_debug & DEBUG_DSP_DTMFCOEFF)
 						printk(KERN_DEBUG "%s: ignoring DTMF coefficients from HFC\n", __FUNCTION__);
+					dev_kfree_skb(skb);
 					break;
 				}
-				if (dsp->inst.up.func) {
-					digits = dsp_dtmf_goertzel_decode(dsp, skb->data, skb->len, 2);
-					if (digits) while(*digits) {
-						int k;
-						struct sk_buff *nskb;
-						if (dsp_debug & DEBUG_DSP_DTMF)
-							printk(KERN_DEBUG "%s: now sending software decoded digit(%c) to upper layer %s\n", __FUNCTION__, *digits, dsp->inst.name);
-						k = *digits | DTMF_TONE_VAL;
-						nskb = create_link_skb(PH_CONTROL | INDICATION, 0, sizeof(int), &k, 0);
-						unlock_HW(&dsp_lock);
-						if (!nskb) {
-							lock_HW(&dsp_lock, 0);
-							break;
-						}
-						if (dsp->inst.up.func(&dsp->inst.up, nskb))
-							dev_kfree_skb(nskb);
-						lock_HW(&dsp_lock, 0);
-						digits++;
-					}
+				digits = dsp_dtmf_goertzel_decode(dsp, skb->data, skb->len, 2);
+				if (digits) while(*digits) {
+					int k;
+					struct sk_buff *nskb;
+					if (dsp_debug & DEBUG_DSP_DTMF)
+						printk(KERN_DEBUG "%s: now sending software decoded digit(%c) to upper layer %s\n", __FUNCTION__, *digits, dsp->inst.name);
+					k = *digits | DTMF_TONE_VAL;
+					nskb = create_link_skb(PH_CONTROL | INDICATION, 0, sizeof(int), &k, 0);
+					if (mISDN_queue_up(&dsp->inst, 0, nskb))
+						dev_kfree_skb(nskb);
+					digits++;
 				}
+				dev_kfree_skb(skb);
 				break;
 
 				default:
@@ -621,17 +590,13 @@ dsp_from_down(mISDNif_t *hif,  struct sk_buff *skb)
 				dsp->W_rx = dsp->R_rx = dsp->conf->W_max;
 			memset(dsp->rx_buff, 0, sizeof(dsp->rx_buff));
 			dsp_cmx_hardware(dsp->conf, dsp);
-//			/* now trigger transmission */
-//#ifndef AUTOJITTER
-//			dsp->tx_pending = 1;
-//			schedule_work(&dsp->sendwork);
-//#endif
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: done with activation, sending confirm to user space. %s\n", __FUNCTION__, dsp->inst.name);
 			/* send activation to upper layer */
 			hh->prim = DL_ESTABLISH | CONFIRM;
+			ret = mISDN_queue_up(&dsp->inst, 0, skb);
 			unlock_HW(&dsp_lock);
-			return(dsp->inst.up.func(&dsp->inst.up, skb));
+			break;
 		case PH_DEACTIVATE | CONFIRM:
 			lock_HW(&dsp_lock, 0);
 			if (dsp_debug & DEBUG_DSP_CORE)
@@ -640,15 +605,37 @@ dsp_from_down(mISDNif_t *hif,  struct sk_buff *skb)
 			dsp->b_active = 0;
 			dsp_cmx_hardware(dsp->conf, dsp);
 			hh->prim = DL_RELEASE | CONFIRM;
+			ret = mISDN_queue_up(&dsp->inst, 0, skb);
 			unlock_HW(&dsp_lock);
-			return(dsp->inst.up.func(&dsp->inst.up, skb));
+			break;
 		default:
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: msg %x unhandled %s\n", __FUNCTION__, hh->prim, dsp->inst.name);
 			ret = -EINVAL;
 	}
-	if (!ret)
-		dev_kfree_skb(skb);
+	return(ret);
+}
+
+
+/*
+ * messages from queue
+ */
+static int
+dsp_function(mISDNinstance_t *inst, struct sk_buff *skb)
+{
+	mISDN_head_t *hh;
+	int ret = -EINVAL;
+
+	hh = mISDN_HEAD_P(skb);
+	switch (hh->addr & MSG_DIR_MASK) {
+		case FLG_MSG_DOWN:
+			ret = dsp_from_up(inst, skb);
+			break;
+		case FLG_MSG_UP:
+			ret = dsp_from_down(inst, skb);
+			break;
+	}
+
 	return(ret);
 }
 
@@ -663,15 +650,10 @@ release_dsp(dsp_t *dsp)
 	conference_t *conf;
 
 	lock_HW(&dsp_lock, 0);
+	if (timer_pending(&dsp->feature_tl))
+		del_timer(&dsp->feature_tl);
 	if (timer_pending(&dsp->tone.tl))
 		del_timer(&dsp->tone.tl);
-#ifdef HAS_WORKQUEUE
-	if (dsp->sendwork.pending)
-		printk(KERN_ERR "%s: pending sendwork: %lx %s\n", __FUNCTION__, dsp->sendwork.pending, dsp->inst.name);
-#else
-	if (dsp->sendwork.sync)
-		printk(KERN_ERR "%s: pending sendwork: %lx %s\n", __FUNCTION__, dsp->sendwork.sync, dsp->inst.name);
-#endif
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: removing conferences %s\n", __FUNCTION__, dsp->inst.name);
 	conf = dsp->conf;
@@ -683,17 +665,6 @@ release_dsp(dsp_t *dsp)
 	}
 
 	if (dsp_debug & DEBUG_DSP_MGR)
-		printk(KERN_DEBUG "%s: disconnecting instances %s\n", __FUNCTION__, dsp->inst.name);
-	if (inst->up.peer) {
-		inst->up.peer->obj->ctrl(inst->up.peer,
-			MGR_DISCONNECT | REQUEST, &inst->up);
-	}
-	if (inst->down.peer) {
-		inst->down.peer->obj->ctrl(inst->down.peer,
-			MGR_DISCONNECT | REQUEST, &inst->down);
-	}
-
-	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: remove & destroy object %s\n", __FUNCTION__, dsp->inst.name);
 	list_del(&dsp->list);
 	dsp_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
@@ -702,6 +673,48 @@ release_dsp(dsp_t *dsp)
 
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: dsp instance released\n", __FUNCTION__);
+}
+
+
+/*
+ * ask for hardware features
+ */
+static void
+dsp_feat(void *arg)
+{
+	dsp_t *dsp = arg;
+	struct sk_buff *nskb;
+	void *feat;
+
+	switch (dsp->feature_state) {
+		case FEAT_STATE_INIT:
+			feat = &dsp->features;
+			nskb = create_link_skb(PH_CONTROL | REQUEST, HW_FEATURES, sizeof(feat), &feat, 0);
+			if (!nskb)
+				break;
+			if (mISDN_queue_down(&dsp->inst, 0, nskb)) {
+				dev_kfree_skb(nskb);
+				break;
+			}
+			if (dsp_debug & DEBUG_DSP_MGR)
+				printk(KERN_DEBUG "%s: features will be quered now for instance %s\n", __FUNCTION__, dsp->inst.name);
+			dsp->feature_state = FEAT_STATE_WAIT;
+			init_timer(&dsp->feature_tl);
+			dsp->feature_tl.expires = jiffies + (HZ / 100);
+			add_timer(&dsp->feature_tl);
+			break;
+		case FEAT_STATE_WAIT:
+			if (dsp_debug & DEBUG_DSP_MGR)
+				printk(KERN_DEBUG "%s: features of %s are: hfc_id=%d hfc_dtmf=%d hfc_loops=%d pcm_id=%d pcm_slots=%d pcm_banks=%d\n",
+				 __FUNCTION__, dsp->inst.name,
+				 dsp->features.hfc_id,
+				 dsp->features.hfc_dtmf,
+				 dsp->features.hfc_loops,
+				 dsp->features.pcm_id,
+				 dsp->features.pcm_slots,
+				 dsp->features.pcm_banks);
+			break;
+	}
 }
 
 
@@ -725,8 +738,7 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	}
 	memset(ndsp, 0, sizeof(dsp_t));
 	memcpy(&ndsp->inst.pid, pid, sizeof(mISDN_pid_t));
-	ndsp->inst.obj = &dsp_obj;
-	ndsp->inst.data = ndsp;
+	mISDN_init_instance(&ndsp->inst, &dsp_obj, ndsp, dsp_function);
 	if (!mISDN_SetHandledPID(&dsp_obj, &ndsp->inst.pid)) {
 		int_error();
 		err = -ENOPROTOOPT;
@@ -736,8 +748,6 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	}
 	sprintf(ndsp->inst.name, "DSP_S%x/C%x",
 		(st->id&0xff), (st->id&0xff00)>>8);
-	ndsp->inst.up.owner = &ndsp->inst;
-	ndsp->inst.down.owner = &ndsp->inst;
 //#ifndef AUTOJITTER
 	/* set frame size to start */
 	ndsp->largest = 64 << 1;
@@ -753,8 +763,14 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	ndsp->tone.tl.function = (void *)dsp_tone_timeout;
 	ndsp->tone.tl.data = (long) ndsp;
 	init_timer(&ndsp->tone.tl);
-	/* init send que */
-	INIT_WORK(&ndsp->sendwork, (void *)(void *)sendevent, ndsp);
+	ndsp->feature_tl.function = (void *)dsp_feat;
+	ndsp->feature_tl.data = (long) ndsp;
+	ndsp->feature_state = FEAT_STATE_INIT;
+	init_timer(&ndsp->feature_tl);
+	if (!(dsp_options & DSP_OPT_NOHARDWARE)) {
+		ndsp->feature_tl.expires = jiffies + (HZ / 100);
+		add_timer(&ndsp->feature_tl);
+	}
 	lock_HW(&dsp_lock, 0);
 	/* append and register */
 	list_add_tail(&ndsp->list, &dsp_obj.ilist);
@@ -769,39 +785,6 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 		printk(KERN_DEBUG "%s: dsp instance created %s\n", __FUNCTION__, ndsp->inst.name);
 	unlock_HW(&dsp_lock);
 	return(err);
-}
-
-
-/*
- * ask for hardware features
- */
-static void
-dsp_feat(dsp_t *dsp)
-{
-	struct sk_buff *nskb;
-	void *feat;
-
-	if (!(dsp_options & DSP_OPT_NOHARDWARE)) {
-		feat = &dsp->features;
-		nskb = create_link_skb(PH_CONTROL | REQUEST, HW_FEATURES, sizeof(feat), &feat, 0);
-		if (nskb) {
-			if (dsp->inst.down.func(&dsp->inst.down, nskb)) {
-				dev_kfree_skb(nskb);
-				if (dsp_debug & DEBUG_DSP_MGR)
-					printk(KERN_DEBUG "%s: no features supported by %s\n", __FUNCTION__, dsp->inst.name);
-			} else {
-				if (dsp_debug & DEBUG_DSP_MGR)
-					printk(KERN_DEBUG "%s: features of %s: hfc_id=%d hfc_dtmf=%d hfc_loops=%d pcm_id=%d pcm_slots=%d pcm_banks=%d\n",
-					 __FUNCTION__, dsp->inst.name,
-					 dsp->features.hfc_id,
-					 dsp->features.hfc_dtmf,
-					 dsp->features.hfc_loops,
-					 dsp->features.pcm_id,
-					 dsp->features.pcm_slots,
-					 dsp->features.pcm_banks);
-			}
-		}
-	}
 }
 
 
@@ -833,9 +816,11 @@ dsp_manager(void *data, u_int prim, void *arg) {
 	    case MGR_NEWLAYER | REQUEST:
 		ret = new_dsp(data, arg);
 		break;
+	    case MGR_SETSTACK | INDICATION:
+		break;
+#ifdef OBSOLETE
 	    case MGR_CONNECT | REQUEST:
 		ret = mISDN_ConnectIF(inst, arg);
-		dsp_feat(dspl);
 		break;
 	    case MGR_SETIF | REQUEST:
 	    case MGR_SETIF | INDICATION:
@@ -845,6 +830,7 @@ dsp_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | INDICATION:
 		ret = mISDN_DisConnectIF(inst, arg);
 		break;
+#endif
 	    case MGR_UNREGLAYER | REQUEST:
 	    case MGR_RELEASE | INDICATION:
 		if (dsp_debug & DEBUG_DSP_MGR)

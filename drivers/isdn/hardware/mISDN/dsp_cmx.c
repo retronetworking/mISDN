@@ -379,7 +379,7 @@ dsp_cmx_hw_message(dsp_t *dsp, u32 message, u32 param1, u32 param2, u32 param3, 
 		return;
 	}
 	/* unlocking is not required, because we don't expect a response */
-	if (dsp->inst.down.func(&dsp->inst.down, nskb))
+	if (mISDN_queue_down(&dsp->inst, 0, nskb))
 		dev_kfree_skb(nskb);
 }
 

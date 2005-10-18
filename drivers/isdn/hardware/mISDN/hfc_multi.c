@@ -2,7 +2,9 @@
 
  * hfc_multi.c  low level driver for hfc-4s/hfc-8s/hfc-e1 based cards
  *
- * Author     Andreas Eversberg (jolly@jolly.de)
+ * Author	Andreas Eversberg (jolly@jolly.de)
+ * ported to mqueue mechanism:
+ * 		Peter Sprenger (sprengermoving-bytes.de)
  *
  * inspired by existing hfc-pci driver:
  * Copyright 1999  by Werner Cornelius (werner@isdn-development.de)
@@ -25,9 +27,6 @@
  *
  * Thanx to Cologne Chip AG for this great controller!
  */
-
- // warning Experimental version!! This version supports the new mqueue mechanisnm
- // changings by Peter Sprenger (sprengermoving-bytes.de)
 
 /* module parameters:
  * type:
@@ -116,7 +115,11 @@ static void ph_state_change(dchannel_t *dch);
 
 extern const char *CardType[];
 
+<<<<<<< hfc_multi.c
 static const char *hfcmulti_revision = "$Revision$";
+=======
+static const char *hfcmulti_revision = "$Revision$";
+>>>>>>> 1.23.2.9
 
 static int HFC_cnt, HFC_idx;
 
@@ -2803,8 +2806,10 @@ init_card(hfc_multi_t *hc)
 	error:
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_WARNING "%s: free irq %d\n", __FUNCTION__, hc->irq);
-	free_irq(hc->irq, hc);
-	hc->irq = 0;
+	if (hc->irq) {
+		free_irq(hc->irq, hc);
+		hc->irq = 0;
+	}
 
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: done (err=%d)\n", __FUNCTION__, err);
@@ -3057,17 +3062,6 @@ release_port(hfc_multi_t *hc, int port)
 		return;
 	}
 
-	if (all) {
-		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_WARNING "%s: card has no more used stacks, so we release hardware.\n", __FUNCTION__);
-		if (hc->irq) {
-			if (debug & DEBUG_HFCMULTI_INIT)
-				printk(KERN_WARNING "%s: free irq %d\n", __FUNCTION__, hc->irq);
-			free_irq(hc->irq, hc);
-			hc->irq = 0;
-		}
-	}
-
 	/* disable D-channels & B-channels */
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: disable all channels (d and b)\n", __FUNCTION__);
@@ -3130,8 +3124,10 @@ release_port(hfc_multi_t *hc, int port)
 				kfree(hc->chan[i].dch);
 				hc->chan[i].dch = NULL;
 			}
-			kfree(hc->chan[i].rx_buf);
-			hc->chan[i].rx_buf = NULL;
+			if (hc->chan[i].rx_buf) {
+				kfree(hc->chan[i].rx_buf);
+				hc->chan[i].rx_buf = NULL;
+			}
 			if (hc->chan[i].bch) {
 				if (debug & DEBUG_HFCMULTI_INIT)
 					printk(KERN_DEBUG "%s: free port %d B-channel %d (1..32)\n", __FUNCTION__, hc->chan[i].port, i);
@@ -3155,14 +3151,30 @@ release_port(hfc_multi_t *hc, int port)
 
 	/* release IO & remove card */
 	if (all) {
+		/* release hardware */
 		if (debug & DEBUG_HFCMULTI_INIT)
-			printk(KERN_DEBUG "%s: do release_io_hfcmulti\n", __FUNCTION__);
+			printk(KERN_WARNING "%s: card has no more used stacks, so we release hardware.\n", __FUNCTION__);
 		release_io_hfcmulti(hc);
 
+		/* release irq */
+		if (hc->irq) {
+			if (debug & DEBUG_HFCMULTI_INIT)
+				printk(KERN_WARNING "%s: free irq %d\n", __FUNCTION__, hc->irq);
+			free_irq(hc->irq, hc);
+			hc->irq = 0;
+		}
+
+		/* remove is from list and delete */
+		if (debug & DEBUG_HFCMULTI_INIT)
+			printk(KERN_WARNING "%s: remove instance from list\n", __FUNCTION__);
 		list_del(&hc->list);
 		unlock_dev(hc);
+		if (debug & DEBUG_HFCMULTI_INIT)
+			printk(KERN_WARNING "%s: delete instance\n", __FUNCTION__);
 		kfree(hc);
 		HFC_cnt--;
+		if (debug & DEBUG_HFCMULTI_INIT)
+			printk(KERN_WARNING "%s: card successfully removed\n", __FUNCTION__);
 	} else
 		unlock_dev(hc);
 }
@@ -3753,8 +3765,10 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 			kfree(hc->chan[i].dch);
 			hc->chan[i].dch = NULL;
 		}
-		kfree(hc->chan[i].rx_buf);
-		hc->chan[i].rx_buf = NULL;
+		if (hc->chan[i].rx_buf) {
+			kfree(hc->chan[i].rx_buf);
+			hc->chan[i].rx_buf = NULL;
+		}
 		if (hc->chan[i].bch) {
 			if (debug & DEBUG_HFCMULTI_INIT)
 				printk(KERN_DEBUG "%s: free B-channel %d (1..32)\n", __FUNCTION__, i);

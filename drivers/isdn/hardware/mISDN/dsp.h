@@ -29,11 +29,9 @@
 #define DSP_OPT_ULAW		(1<<0)
 #define DSP_OPT_NOHARDWARE	(1<<1)
 
-#ifdef HAS_WORKQUEUE
-#include <linux/workqueue.h>
-#else
-#include <linux/tqueue.h>
-#endif
+#define FEAT_STATE_INIT	1
+#define FEAT_STATE_WAIT	2
+
 #include <linux/timer.h>
 
 #ifdef MISDN_MEMDEBUG
@@ -159,8 +157,6 @@ typedef struct _dsp {
 	tone_t		tone;
 	dtmf_t		dtmf;
 	int		tx_volume, rx_volume;
-	struct work_struct sendwork; /* event for sending data */
-	int		tx_pending;
 
 	/* conference stuff */
 	u32		conf_id;
@@ -182,6 +178,8 @@ typedef struct _dsp {
 
 	/* hardware stuff */
 	struct dsp_features features; /* features */
+	struct timer_list feature_tl;
+	int		feature_state;
 	int		pcm_slot_rx; /* current PCM slot (or -1) */
 	int		pcm_bank_rx;
 	int		pcm_slot_tx;

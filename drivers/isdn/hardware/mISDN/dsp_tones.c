@@ -437,7 +437,7 @@ dsp_tone_hw_message(dsp_t *dsp, u8 *sample, int len)
 		return;
 	}
 	/* unlocking is not required, because we don't expect a response */
-	if (dsp->inst.down.func(&dsp->inst.down, nskb))
+	if (mISDN_queue_down(&dsp->inst, 0, nskb))
 		dev_kfree_skb(nskb);
 }
 
