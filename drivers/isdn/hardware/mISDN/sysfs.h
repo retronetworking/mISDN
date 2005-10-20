@@ -2,7 +2,7 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- * mISDN sysfs common macros
+ * mISDN sysfs common defines
  *
  * This file is (c) under GNU PUBLIC LICENSE
  *
