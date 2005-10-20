@@ -4,6 +4,7 @@
  *
  * mISDN sysfs common macros
  *
+ *
  * This file is (c) under GNU PUBLIC LICENSE
  *
  */
