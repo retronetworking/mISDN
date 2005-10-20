@@ -426,10 +426,12 @@
 #define MISDN_ID_DUMMY		0xffff0001
 #define MISDN_ID_GLOBAL		0xffff0002
 
-#define MAX_LAYER_NR	7
-#define ISDN_LAYER(n)	(1<<n)
+#define MAX_LAYER_NR		7
+#define ISDN_LAYER(n)		(1<<n)
 #define LAYER_OUTRANGE(layer)	((layer<0) || (layer>MAX_LAYER_NR))
-#define mISDN_MAX_IDLEN	16
+
+/* should be in sync with linux/kobject.h:KOBJ_NAME_LEN */
+#define mISDN_MAX_IDLEN		20
 
 #ifdef OBSOLATE
 #define IF_NOACTIV	0x00000000
@@ -516,12 +518,22 @@
 //#define EXT_IF_CREATE	0x00040000
 //#define EXT_IF_SPLIT	0x00080000
 
-/* stack status flag (bit position) */
-#define mISDN_STACK_INIT	0
-#define mISDN_STACK_STOPPED	1
-#define mISDN_STACK_ABORT	2
-#define mISDN_STACK_KILLED	3
-#define mISDN_STACK_CLEARING	4
+/* stack status flag */
+#define mISDN_STACK_ACTION_MASK	0x0000ffff
+#define mISDN_STACK_STATUS_MASK 0xffff0000
+/* action bits 0-15 */
+#define mISDN_STACK_WORK	0
+#define mISDN_STACK_ABORT	1
+#define mISDN_STACK_SETUP	2
+#define mISDN_STACK_CLEARING	3
+#define mISDN_STACK_RESTART	4
+#define mISDN_STACK_WAKEUP	5
+/* status bits 16-31 */
+#define mISDN_STACK_STOPPED	16
+#define mISDN_STACK_INIT	17
+#define mISDN_STACK_ACTIVE	29
+#define mISDN_STACK_RUNNING	30
+#define mISDN_STACK_KILLED	31
 
 /* special packet type */
 #define PACKET_NOACK	250
@@ -741,7 +753,7 @@ typedef struct _mISDN_headext {
 struct _mISDNobject {
 	struct list_head	list;
 	char			*name;
-	int			id;
+	u_int			id;
 	int			refcnt;
 	mISDN_pid_t		DPROTO;
 	mISDN_pid_t		BPROTO;
@@ -749,6 +761,7 @@ struct _mISDNobject {
 	ctrl_func_t		*ctrl;
 	struct list_head	ilist;
 	struct module		*owner;
+	struct class_device	class_dev;
 };
 
 #ifdef OBSOLATE
@@ -784,6 +797,7 @@ struct _mISDNinstance {
 //	mISDNif_t		down;
 	lock_func_t		*lock;
 	unlock_func_t		*unlock;
+	struct class_device	class_dev;
 };
 
 #ifdef OBSOLATE
@@ -819,7 +833,11 @@ struct _mISDNstack {
 	mISDNinstance_t		*mgr;
 	mISDNstack_t		*master;
 	mISDNstack_t		*clone;
+	mISDNstack_t		*parent;
 	struct list_head	childlist;
+	struct class_device	class_dev;
+	/* temporary use */
+	mISDN_pid_t		new_pid;
 };
 
 /* lowlevel read/write struct for the mISDNdevice */

@@ -29,14 +29,14 @@
 #define DEBUG_RDATA		0x1000
 #define DEBUG_WDATA		0x2000
 
-/* from mISDN_dev.c */
+/* from udevice.c */
 
 extern int		init_mISDNdev(int);
 extern int		free_mISDNdev(void);
 extern mISDNdevice_t	*get_free_rawdevice(void);
 extern int		free_device(mISDNdevice_t *dev);
 
-/* from mISDN_stack.c */
+/* from stack.c */
 
 extern struct list_head	mISDN_stacklist;
 extern struct list_head	mISDN_instlist;
@@ -57,11 +57,26 @@ extern int		evaluate_stack_pids(mISDNstack_t *, mISDN_pid_t *);
 extern mISDNinstance_t	*getlayer4lay(mISDNstack_t *, int);
 extern mISDNinstance_t	*get_instance(mISDNstack_t *, int, int);
 
-/* from mISDN_core.c */
+/* from sysfs_obj.c */
+extern int		mISDN_register_sysfs_obj(mISDNobject_t *);
+extern int		mISDN_sysfs_init(void);
+extern void		mISDN_sysfs_cleanup(void);
 
+/* from sysfs_inst.c */
+extern int		mISDN_register_sysfs_inst(mISDNinstance_t *);
+extern void		mISDN_unregister_sysfs_inst(mISDNinstance_t *);
+extern int		mISDN_sysfs_inst_init(void);
+extern void		mISDN_sysfs_inst_cleanup(void);
+
+/* from sysfs_stack.c */
+extern int		mISDN_register_sysfs_stack(mISDNstack_t *);
+extern void		mISDN_unregister_sysfs_st(mISDNstack_t *);
+extern int		mISDN_sysfs_st_init(void);
+extern void		mISDN_sysfs_st_cleanup(void);
+
+/* from core.c */
 extern struct list_head	mISDN_objectlist;
 extern int core_debug;
-
 extern int		register_layer(mISDNstack_t *, mISDNinstance_t *);
 extern int		preregister_layer(mISDNstack_t *, mISDNinstance_t *);
 extern int		unregister_instance(mISDNinstance_t *);

@@ -58,8 +58,6 @@ typedef struct entity_item {
 static LIST_HEAD(mISDN_devicelist);
 static rwlock_t	mISDN_device_lock = RW_LOCK_UNLOCKED;
 
-static struct class	*mISDN_class;
-
 static mISDNobject_t	udev_obj;
 static char MName[] = "UserDevice";
 
@@ -1957,6 +1955,7 @@ int init_mISDNdev (int debug) {
 	int err,i;
 
 	udev_obj.name = MName;
+	udev_obj.owner = THIS_MODULE;
 	for (i=0; i<=MAX_LAYER_NR; i++) {
 		udev_obj.DPROTO.protocol[i] = ISDN_PID_ANY;
 		udev_obj.BPROTO.protocol[i] = ISDN_PID_ANY;
@@ -1964,26 +1963,21 @@ int init_mISDNdev (int debug) {
 	INIT_LIST_HEAD(&udev_obj.ilist);
 	udev_obj.own_ctrl = udev_manager;
 	device_debug = debug;
+	
 	if (register_chrdev(mISDN_MAJOR, "mISDN", &mISDN_fops)) {
 		printk(KERN_WARNING "mISDN: Could not register devices\n");
 		return(-EIO);
 	}
-	mISDN_class = class_create(THIS_MODULE, "mISDN");
-	if (IS_ERR(mISDN_class)) {
-		unregister_chrdev(mISDN_MAJOR, "mISDN");
-		return PTR_ERR(mISDN_class);
-	}
 
-	class_device_create(mISDN_class, MKDEV(mISDN_MAJOR, 0), NULL, "mISDN");
-	devfs_mk_cdev(MKDEV(mISDN_MAJOR, 0), S_IFCHR | S_IRUSR | S_IWUSR, "mISDN");
+	udev_obj.class_dev.devt = MKDEV(mISDN_MAJOR, 0);
 
-	if ((err = mISDN_register(&udev_obj))) {
+	err = mISDN_register(&udev_obj);
+	if (err) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
-		class_device_destroy(mISDN_class, MKDEV(mISDN_MAJOR, 0));
-		class_destroy(mISDN_class);
 		unregister_chrdev(mISDN_MAJOR, "mISDN");
-		devfs_remove("mISDN");
-	}
+	} else
+		devfs_mk_cdev(udev_obj.class_dev.devt, S_IFCHR | S_IRUSR | S_IWUSR, "mISDN");
+
 	return(err);
 }
 
@@ -2001,8 +1995,6 @@ int free_mISDNdev(void) {
 	if ((err = mISDN_unregister(&udev_obj))) {
 		printk(KERN_ERR "Can't unregister UserDevice(%d)\n", err);
 	}
-	class_device_destroy(mISDN_class, MKDEV(mISDN_MAJOR, 0));
-	class_destroy(mISDN_class);
 	if ((err = unregister_chrdev(mISDN_MAJOR, "mISDN"))) {
 		printk(KERN_WARNING "mISDN: devices busy on remove\n");
 	}

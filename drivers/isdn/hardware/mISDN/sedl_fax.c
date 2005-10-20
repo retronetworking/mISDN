@@ -110,7 +110,16 @@ const char *Sedlbauer_Types[] =
 
 typedef struct _sedl_fax {
 	struct list_head	list;
-	void			*pdev;
+	union {
+#if defined(CONFIG_PNP)
+#ifdef NEW_ISAPNP
+		struct pnp_dev		*pnp;
+#else
+		struct pci_dev		*pnp;
+#endif
+#endif
+		struct pci_dev		*pci;
+	}			dev;
 	u_int			subtyp;
 	u_int			irq;
 	u_int			irqcnt;
@@ -477,6 +486,8 @@ static int init_card(sedl_fax *sf)
 static int sedl_cnt;
 static mISDNobject_t	speedfax;
 static uint debug;
+static uint protocol_num;
+static uint layermask_num;
 static uint protocol[MAX_CARDS];
 static uint layermask[MAX_CARDS];
 
@@ -485,11 +496,11 @@ MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
-module_param (debug, uint, 0);
+module_param (debug, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC (debug, "sedlfax debug mask");
-module_param_array(protocol, uint, NULL, 0);
+module_param_array(protocol, uint, &protocol_num, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC (protocol, "sedlfax protcol (DSS1 := 2)");
-module_param_array(layermask, uint, NULL, 0);
+module_param_array(layermask, uint, &layermask_num, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC(layermask, "sedlfax layer mask");
 #endif
 
@@ -589,11 +600,13 @@ release_card(sedl_fax *card) {
 	list_del(&card->list);
 	unlock_dev(card);
 	if (card->subtyp == SEDL_SPEEDFAX_ISA) {
-		pnp_disable_dev(card->pdev);
-		pnp_set_drvdata(card->pdev, NULL);
+#if defined(CONFIG_PNP)
+		pnp_disable_dev(card->dev.pnp);
+		pnp_set_drvdata(card->dev.pnp, NULL);
+#endif
 	} else {
-		pci_disable_device(card->pdev);
-		pci_set_drvdata(card->pdev, NULL);
+		pci_disable_device(card->dev.pci);
+		pci_set_drvdata(card->dev.pci, NULL);
 	}
 	kfree(card);
 	sedl_cnt--;
@@ -727,10 +740,20 @@ static int __devinit setup_instance(sedl_fax *card)
 {
 	int		i, err;
 	mISDN_pid_t	pid;
+	struct device	*dev;
 	
 	if (sedl_cnt >= MAX_CARDS) {
 		kfree(card);
 		return(-EINVAL);
+	}
+	if (card->subtyp == SEDL_SPEEDFAX_ISA) {
+#if defined(CONFIG_PNP)
+		dev = &card->dev.pnp->dev;
+#else
+		dev = NULL;
+#endif
+	} else {
+		dev = &card->dev.pci->dev;
 	}
 	list_add_tail(&card->list, &speedfax.ilist);
 	card->dch.debug = debug;
@@ -739,6 +762,7 @@ static int __devinit setup_instance(sedl_fax *card)
 	card->dch.inst.unlock = unlock_dev;
 	card->dch.inst.pid.layermask = ISDN_LAYER(0);
 	card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
+	card->dch.inst.class_dev.dev = dev;
 	mISDN_init_instance(&card->dch.inst, &speedfax, card, mISDN_ISAC_l1hw);
 	sprintf(card->dch.inst.name, "SpeedFax%d", sedl_cnt+1);
 	mISDN_set_dchannel_pid(&pid, protocol[sedl_cnt], layermask[sedl_cnt]);
@@ -750,6 +774,7 @@ static int __devinit setup_instance(sedl_fax *card)
 		card->bch[i].inst.lock = lock_dev;
 		card->bch[i].inst.unlock = unlock_dev;
 		card->bch[i].debug = debug;
+		card->bch[i].inst.class_dev.dev = dev;
 		sprintf(card->bch[i].inst.name, "%s B%d", card->dch.inst.name, i+1);
 		mISDN_init_bch(&card->bch[i]);
 	}
@@ -805,7 +830,7 @@ static int __devinit sedlpci_probe(struct pci_dev *pdev, const struct pci_device
 		return(err);
 	}
 	memset(card, 0, sizeof(sedl_fax));
-	card->pdev = pdev;
+	card->dev.pci = pdev;
 	if (PCI_SUBVENDOR_SPEEDFAX_PYRAMID == pdev->subsystem_vendor)
 		card->subtyp = SEDL_SPEEDFAX_PYRAMID;
 	else
@@ -847,7 +872,7 @@ static int __devinit sedlpnp_probe(struct pci_dev *pdev, const struct isapnp_dev
 	}
 	memset(card, 0, sizeof(sedl_fax));
 	card->subtyp = SEDL_SPEEDFAX_ISA;
-	card->pdev = pdev;
+	card->dev.pnp = pdev;
 	pnp_disable_dev(pdev);
 	err = pnp_activate_dev(pdev);
 	if (err<0) {

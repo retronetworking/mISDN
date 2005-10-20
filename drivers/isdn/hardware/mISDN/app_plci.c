@@ -1575,16 +1575,20 @@ AppPlciLinkUp(AppPlci_t *aplci)
 	}
 	pid.protocol[1] = (1 << aplci->Bprotocol.B1) |
 		ISDN_PID_LAYER(1) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B1cfg[0])
+	if (aplci->Bprotocol.B1cfg[0]) {
 		pid.param[1] = &aplci->Bprotocol.B1cfg[0];
+		pid.maxplen += aplci->Bprotocol.B1cfg[0];
+	}
 	if (aplci->Bprotocol.B2 > 23) {
 		int_errtxt("wrong B2 prot %x", aplci->Bprotocol.B2);
 		return(0x3002);
 	}
 	pid.protocol[2] = (1 << aplci->Bprotocol.B2) |
 		ISDN_PID_LAYER(2) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B2cfg[0])
+	if (aplci->Bprotocol.B2cfg[0]) {
 		pid.param[2] = &aplci->Bprotocol.B2cfg[0];
+		pid.maxplen += aplci->Bprotocol.B2cfg[0];
+	}
 	/* handle DTMF TODO */
 	if ((pid.protocol[2] == ISDN_PID_L2_B_TRANS) &&
 		(pid.protocol[1] == ISDN_PID_L1_B_64TRANS))
@@ -1595,8 +1599,10 @@ AppPlciLinkUp(AppPlci_t *aplci)
 	}
 	pid.protocol[3] = (1 << aplci->Bprotocol.B3) |
 		ISDN_PID_LAYER(3) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B3cfg[0])
+	if (aplci->Bprotocol.B3cfg[0]) {
 		pid.param[3] = &aplci->Bprotocol.B3cfg[0];
+		pid.maxplen += aplci->Bprotocol.B3cfg[0];
+	}
 	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp B1(%x) B2(%x) B3(%x) global(%d) ch(%x)",
    		pid.protocol[1], pid.protocol[2], pid.protocol[3], pid.global, 
 		aplci->channel);
@@ -1674,7 +1680,7 @@ ReleaseLink(AppPlci_t *aplci)
 Ncci_t	*
 getNCCI4addr(AppPlci_t *aplci, __u32 addr, int mode)
 {
-	Ncci_t			*ncci;
+	Ncci_t			*ncci = NULL;
 	struct list_head	*item;
 	int			cnt = 0;
 

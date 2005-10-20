@@ -321,6 +321,16 @@ insertlayer(mISDNstack_t *st, mISDNlayer_t *layer, int layermask)
 }
 #endif
 
+inline void
+_queue_message(mISDNstack_t *st, struct sk_buff *skb)
+{
+	skb_queue_tail(&st->msgq, skb);
+	if (likely(!test_bit(mISDN_STACK_STOPPED, &st->status))) {
+		test_and_set_bit(mISDN_STACK_WORK, &st->status);
+		wake_up_interruptible(&st->workq);
+	}
+}
+
 int
 mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 {
@@ -360,9 +370,7 @@ mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 			st->id, id, inst->id, aflag, hh->prim);
 	}
 	hh->addr = id;
-	skb_queue_tail(&st->msgq, skb);
-	if (!test_bit(mISDN_STACK_STOPPED, &st->status))
-		wake_up_interruptible(&st->workq);
+	_queue_message(st, skb);
 	return(0);
 }
 
@@ -419,15 +427,26 @@ mISDNStackd(void *data)
 	unlock_kernel();
 #endif
 	printk(KERN_DEBUG "mISDNStackd started for id(%08x)\n", st->id);
-	test_and_clear_bit(mISDN_STACK_INIT, &st->status);
 	for (;;) {
 		struct sk_buff	*skb, *c_skb;
 		mISDN_head_t	*hh;
-
-		while ((!test_bit(mISDN_STACK_STOPPED, &st->status)) &&
-			((skb = skb_dequeue(&st->msgq)))) {
+		
+		if (unlikely(test_bit(mISDN_STACK_STOPPED, &st->status))) {
+			test_and_clear_bit(mISDN_STACK_WORK, &st->status);
+			test_and_clear_bit(mISDN_STACK_RUNNING, &st->status);
+		} else
+			test_and_set_bit(mISDN_STACK_RUNNING, &st->status);
+		while (test_bit(mISDN_STACK_WORK, &st->status)) {
 			mISDNinstance_t	*inst;
 
+			skb = skb_dequeue(&st->msgq);
+			if (!skb) {
+				test_and_clear_bit(mISDN_STACK_WORK, &st->status);
+				/* test if a race happens */
+				if (!(skb = skb_dequeue(&st->msgq)))
+					continue;
+				test_and_set_bit(mISDN_STACK_WORK, &st->status);
+			}
 #ifdef MISDN_MSG_STATS
 			st->msg_cnt++;
 #endif
@@ -501,10 +520,24 @@ mISDNStackd(void *data)
 				dev_kfree_skb(skb);
 				continue;
 			}
+			if (unlikely(test_bit(mISDN_STACK_STOPPED, &st->status))) {
+				test_and_clear_bit(mISDN_STACK_WORK, &st->status);
+				test_and_clear_bit(mISDN_STACK_RUNNING, &st->status);
+				break;
+			}
 		}
 		if (test_bit(mISDN_STACK_CLEARING, &st->status)) {
+			test_and_set_bit(mISDN_STACK_STOPPED, &st->status);
+			test_and_clear_bit(mISDN_STACK_RUNNING, &st->status);
 			do_clear_stack(st);
 			test_and_clear_bit(mISDN_STACK_CLEARING, &st->status);
+			test_and_set_bit(mISDN_STACK_RESTART, &st->status);
+		}
+		if (test_and_clear_bit(mISDN_STACK_RESTART, &st->status)) {
+			test_and_clear_bit(mISDN_STACK_STOPPED, &st->status);
+			test_and_set_bit(mISDN_STACK_RUNNING, &st->status);
+			if (!skb_queue_empty(&st->msgq))
+				test_and_set_bit(mISDN_STACK_WORK, &st->status);
 		}
 		if (test_bit(mISDN_STACK_ABORT, &st->status))
 			break;
@@ -515,10 +548,16 @@ mISDNStackd(void *data)
 #ifdef MISDN_MSG_STATS
 		st->sleep_cnt++;
 #endif
-		wait_event_interruptible(st->workq, ((!skb_queue_empty(&st->msgq)) ||
-			test_bit(mISDN_STACK_ABORT, &st->status)));
+		test_and_clear_bit(mISDN_STACK_ACTIVE, &st->status);
+		wait_event_interruptible(st->workq, (st->status & mISDN_STACK_ACTION_MASK));
+		if (core_debug & DEBUG_MSG_THREAD_INFO)
+			printk(KERN_DEBUG "%s: %08x wake status %08lx\n", __FUNCTION__, st->id, st->status);
+		test_and_set_bit(mISDN_STACK_ACTIVE, &st->status);
+
+		test_and_clear_bit(mISDN_STACK_WAKEUP, &st->status);
+
 		if (test_bit(mISDN_STACK_STOPPED, &st->status)) {
-			wait_event_interruptible(st->workq, (!test_bit(mISDN_STACK_STOPPED, &st->status)));
+			test_and_clear_bit(mISDN_STACK_RUNNING, &st->status);
 #ifdef MISDN_MSG_STATS
 			st->stopped_cnt++;
 #endif
@@ -544,7 +583,8 @@ mISDNStackd(void *data)
 mISDNstack_t *
 new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 {
-	mISDNstack_t *newst;
+	mISDNstack_t	*newst;
+	int		err;
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "create %s stack inst(%p)\n",
@@ -578,14 +618,20 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 	newst->mgr = inst;
 	if (master) {
 		list_add_tail(&newst->list, &master->childlist);
+		newst->parent = master;
 	} else if (!(newst->id & FLG_CLONE_STACK)) {
 		list_add_tail(&newst->list, &mISDN_stacklist);
 	}
-	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "Stack id %x added\n", newst->id);
 	if (inst) {
 		inst->st = newst;
 	}
+	err = mISDN_register_sysfs_stack(newst);
+	if (err) {
+		// FIXME error handling
+		printk(KERN_ERR "Stack id %x not registered in sysfs\n", newst->id);
+	}
+	if (core_debug & DEBUG_CORE_FUNC)
+		printk(KERN_DEBUG "Stack id %x added\n", newst->id);
 	kernel_thread(mISDNStackd, (void *)newst, 0);	
 	return(newst);
 }
@@ -597,6 +643,9 @@ mISDN_start_stop(mISDNstack_t *st, int start)
 
 	if (start) {
 		ret = test_and_clear_bit(mISDN_STACK_STOPPED, &st->status);
+		test_and_set_bit(mISDN_STACK_WAKEUP, &st->status);
+		if (!skb_queue_empty(&st->msgq))
+			test_and_set_bit(mISDN_STACK_WORK, &st->status);
 		wake_up_interruptible(&st->workq);
 	} else
 		ret = test_and_set_bit(mISDN_STACK_STOPPED, &st->status);
@@ -669,6 +718,9 @@ delete_stack(mISDNstack_t *st)
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%p:%08x)\n", __FUNCTION__, st, st->id);
+	mISDN_unregister_sysfs_st(st);
+	if (st->parent)
+		st->parent = NULL;
 	if (!list_empty(&st->prereg)) {
 		mISDNinstance_t	*inst, *ni;
 
@@ -786,7 +838,7 @@ get_free_instid(mISDNstack_t *st, mISDNinstance_t *inst) {
 int
 register_layer(mISDNstack_t *st, mISDNinstance_t *inst)
 {
-	int		idx;
+	int		idx, err;
 	mISDNinstance_t	*dup;
 
 	if (!inst || !st)
@@ -841,6 +893,12 @@ register_layer(mISDNstack_t *st, mISDNinstance_t *inst)
 	}
 	inst->st = st;
 	list_add_tail(&inst->list, &mISDN_instlist);
+	err = mISDN_register_sysfs_inst(inst);
+	if (err) {
+		// FIXME error handling
+		printk(KERN_ERR "%s: register_sysfs failed %d st(%08x) inst(%08x)\n",
+			__FUNCTION__, err, st->id, inst->id);
+	}
 	return(0);
 }
 
@@ -872,6 +930,7 @@ unregister_instance(mISDNinstance_t *inst) {
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%p) inst(%p):%x lay(%x)\n",
 			__FUNCTION__, inst->st, inst, inst->id, inst->pid.layermask);
+	mISDN_unregister_sysfs_inst(inst);
 	if (inst->st && inst->id) {
 		i = inst->id & LAYER_ID_MASK;
 		if (i > MAX_LAYER_NR) {
@@ -932,6 +991,33 @@ copy_pid(mISDN_pid_t *dpid, mISDN_pid_t *spid, u_char *pbuf)
 			if (spid->param[i]) {
 				off = (u_int)(spid->param[i] - spid->pbuf);
 				dpid->param[i] = dpid->pbuf + off;
+			}
+		}
+	} else if (spid->maxplen) {
+		off = 0;
+		for (i = 0; i <= MAX_LAYER_NR; i++)
+			if (spid->param[i])
+				off += *spid->param[i];
+		if (off == 0) {
+			int_error(); /* we ignore this */
+			dpid->maxplen = 0;
+			return(0);
+		}
+		if (off > spid->maxplen) {
+			int_errtxt("overflow");
+			dpid->maxplen = 0;
+			return(-EINVAL);
+		}
+		if (!pbuf) {
+			int_error();
+			return(-ENOMEM);
+		}
+		for (i = 0; i <= MAX_LAYER_NR; i++) {
+			if (spid->param[i]) {
+				dpid->param[i] = pbuf;
+				off = *dpid->param[i] +1;
+				memcpy(pbuf, dpid->param[i], off);
+				pbuf += off;
 			}
 		}
 	}
@@ -1020,9 +1106,7 @@ clear_stack(mISDNstack_t *st, int wait) {
 		DECLARE_MUTEX_LOCKED(sem);
 
 		hhe->data[0] = &sem;
-		skb_queue_tail(&st->msgq, skb);
-		if (!test_bit(mISDN_STACK_STOPPED, &st->status))
-			wake_up_interruptible(&st->workq);
+		_queue_message(st, skb);
 		if (st->thread == current) {/* we cannot wait for us */
 			int_error();
 			return(-EBUSY);
@@ -1030,9 +1114,7 @@ clear_stack(mISDNstack_t *st, int wait) {
 		down(&sem);
 	} else {
 		hhe->data[0] = NULL;
-		skb_queue_tail(&st->msgq, skb);
-		if (!test_bit(mISDN_STACK_STOPPED, &st->status))
-			wake_up_interruptible(&st->workq);
+		_queue_message(st, skb);
 	}
 	return(0);
 }

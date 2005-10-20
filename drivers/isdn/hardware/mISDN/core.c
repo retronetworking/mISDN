@@ -29,7 +29,7 @@ int core_debug;
 static u_char		entityarray[MISDN_MAX_ENTITY/8];
 static spinlock_t	entity_lock = SPIN_LOCK_UNLOCKED;
 
-static int debug;
+static uint debug;
 static int obj_id;
 
 #ifdef MODULE
@@ -37,7 +37,8 @@ MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
-MODULE_PARM(debug, "1i");
+module_param (debug, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC (debug, "mISDN core debug mask");
 #endif
 
 typedef struct _mISDN_thread {
@@ -436,6 +437,7 @@ set_stack_req(mISDNstack_t *st, mISDN_pid_t *pid)
 	mISDN_headext_t	*hhe;
 	mISDN_pid_t	*npid;
 	u_char		*pbuf = NULL;
+	int		err;
 
 	if (!(skb = alloc_skb(sizeof(mISDN_pid_t) + pid->maxplen, GFP_ATOMIC)))
 		return(-ENOMEM);
@@ -444,9 +446,11 @@ set_stack_req(mISDNstack_t *st, mISDN_pid_t *pid)
 	hhe->addr = MGR_FUNCTION;
 	hhe->data[0] = st;
 	npid = (mISDN_pid_t *)skb_put(skb, sizeof(mISDN_pid_t));
-	if (pid->pbuf)
+	if (pid->maxplen)
 		pbuf = skb_put(skb, pid->maxplen);
-	copy_pid(npid, pid, pbuf);
+	err = copy_pid(npid, pid, pbuf);
+	if (err) // FIXME error handling
+		int_errtxt("copy_pid error %d", err);
 	hhe->func.ctrl = central_manager;
 	skb_queue_tail(&mISDN_thread.workq, skb);
 	wake_up_interruptible(&mISDN_thread.waitq);
@@ -614,6 +618,7 @@ static int central_manager(void *data, u_int prim, void *arg) {
 
 int mISDN_register(mISDNobject_t *obj) {
 	u_long	flags;
+	int	retval;
 
 	if (!obj)
 		return(-EINVAL);
@@ -628,7 +633,14 @@ int mISDN_register(mISDNobject_t *obj) {
 			obj->id);
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "mISDN_register: obj(%p)\n", obj);
-	return(0);
+	retval = mISDN_register_sysfs_obj(obj);
+	if (retval) {
+		printk(KERN_ERR "mISDN_register class_device_register return(%d)\n", retval);
+		write_lock_irqsave(&mISDN_objects_lock, flags);
+		list_del(&obj->list);
+		write_unlock_irqrestore(&mISDN_objects_lock, flags);
+	}
+	return(retval);
 }
 
 int mISDN_unregister(mISDNobject_t *obj) {
@@ -649,6 +661,7 @@ int mISDN_unregister(mISDNobject_t *obj) {
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "mISDN_unregister: mISDN_objectlist(%p<-%p->%p)\n",
 			mISDN_objectlist.prev, &mISDN_objectlist, mISDN_objectlist.next);
+	class_device_unregister(&obj->class_dev);
 	return(0);
 }
 
@@ -665,9 +678,14 @@ mISDNInit(void)
 	if (err)
 		return(err);
 #endif
+	err = mISDN_sysfs_init();
+	if (err)
+		goto sysfs_fail;
+
 	err = init_mISDNdev(debug);
 	if (err)
-		return(err);
+		goto dev_fail;
+
 	init_waitqueue_head(&mISDN_thread.waitq);
 	skb_queue_head_init(&mISDN_thread.workq);
 	mISDN_thread.notify = &sem;
@@ -676,6 +694,14 @@ mISDNInit(void)
 	mISDN_thread.notify = NULL;
 	test_and_set_bit(mISDN_TFLAGS_TEST, &mISDN_thread.Flags);
 	wake_up_interruptible(&mISDN_thread.waitq);
+	return(err);
+
+dev_fail:
+	mISDN_sysfs_cleanup();
+sysfs_fail:
+#ifdef MISDN_MEMDEBUG
+	__mid_cleanup();
+#endif
 	return(err);
 }
 
@@ -709,6 +735,7 @@ void mISDN_cleanup(void) {
 #ifdef MISDN_MEMDEBUG
 	__mid_cleanup();
 #endif
+	mISDN_sysfs_cleanup();
 	printk(KERN_DEBUG "mISDNcore unloaded\n");
 }
 
