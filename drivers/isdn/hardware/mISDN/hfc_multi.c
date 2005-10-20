@@ -115,11 +115,7 @@ static void ph_state_change(dchannel_t *dch);
 
 extern const char *CardType[];
 
-<<<<<<< hfc_multi.c
 static const char *hfcmulti_revision = "$Revision$";
-=======
-static const char *hfcmulti_revision = "$Revision$";
->>>>>>> 1.23.2.9
 
 static int HFC_cnt, HFC_idx;
 
