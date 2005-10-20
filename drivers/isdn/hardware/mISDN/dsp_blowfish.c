@@ -594,7 +594,7 @@ dsp_bf_init(dsp_t *dsp, const u8 *key, uint keylen)
 	while(i < 9)
 	{
 		dsp->bf_crypt_out[i] = 0xff;
-		dsp->bf_data_out[i] = silence;
+		dsp->bf_data_out[i] = dsp_silence;
 		i++;
 	}
 	dsp->bf_crypt_pos = 0;
