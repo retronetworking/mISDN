@@ -571,6 +571,9 @@ mISDNStackd(void *data)
 #endif
 	printk(KERN_DEBUG "mISDNStackd daemon for id(%08x) killed now\n", st->id);
 	test_and_set_bit(mISDN_STACK_KILLED, &st->status);
+	test_and_clear_bit(mISDN_STACK_RUNNING, &st->status);
+	test_and_clear_bit(mISDN_STACK_ACTIVE, &st->status);
+	test_and_clear_bit(mISDN_STACK_ABORT, &st->status);
 	discard_queue(&st->msgq);
 	st->thread = NULL;
 	if (st->notify != NULL) {
@@ -578,6 +581,19 @@ mISDNStackd(void *data)
 		st->notify = NULL;
 	}
 	return(0);
+}
+
+int
+mISDN_start_stack_thread(mISDNstack_t *st)
+{
+	int	err = 0;
+
+	if (st->thread == NULL && test_bit(mISDN_STACK_KILLED, &st->status)) {
+		test_and_clear_bit(mISDN_STACK_KILLED, &st->status);
+		kernel_thread(mISDNStackd, (void *)st, 0);
+	} else
+		err = -EBUSY;
+	return(err);
 }
 
 mISDNstack_t *
@@ -599,7 +615,6 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 	INIT_LIST_HEAD(&newst->prereg);
 	init_waitqueue_head(&newst->workq);
 	skb_queue_head_init(&newst->msgq);
-	test_and_set_bit(mISDN_STACK_INIT, &newst->status);
 	if (!master) {
 		if (inst && inst->st) {
 			master = inst->st;

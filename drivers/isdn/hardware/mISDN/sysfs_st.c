@@ -33,7 +33,8 @@ static ssize_t store_st_status(struct class_device *class_dev, const char *buf, 
 
 	status = simple_strtol(buf, NULL, 0);
 	printk(KERN_DEBUG "%s: status %08lx\n", __FUNCTION__, status);
-	if (status == (1<<mISDN_STACK_INIT)) { /* we want to make st->new_pid activ */
+	if (status == (1<<mISDN_STACK_INIT)) {
+		/* we want to make st->new_pid activ */
 		err = clear_stack(st, 1);
 		if (err) {
 			int_errtxt("clear_stack:%d", err);
@@ -42,6 +43,14 @@ static ssize_t store_st_status(struct class_device *class_dev, const char *buf, 
 		err = set_stack(st ,&st->new_pid);
 		if (err) {
 			int_errtxt("set_stack:%d", err);
+			return(err);
+		}
+		return(count);
+	} else if (status == (1<<mISDN_STACK_THREADSTART)) {
+		/* we want to start a new process after abort */
+		err = mISDN_start_stack_thread(st);
+		if (err) {
+			int_errtxt("start_stack_thread:%d", err);
 			return(err);
 		}
 		return(count);

@@ -44,6 +44,7 @@ extern struct list_head	mISDN_instlist;
 extern void		get_stack_info(struct sk_buff *);
 extern int		get_stack_cnt(void);
 extern mISDNstack_t	*get_stack4id(u_int);
+extern int		mISDN_start_stack_thread(mISDNstack_t *);
 extern mISDNstack_t	*new_stack(mISDNstack_t *, mISDNinstance_t *);
 extern int		mISDN_start_stop(mISDNstack_t *, int);
 extern int		release_stack(mISDNstack_t *);
