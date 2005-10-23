@@ -102,6 +102,8 @@ typedef struct hfcmulti_hw	hfcmulti_hw_t;
 
 struct hfc_multi {
 	struct list_head	list;
+#warning
+void *davor, *danach;
 	char		name[32];
 	int		idx;	/* chip index for module parameters */
 	int		id;	/* chip number starting with 1 */

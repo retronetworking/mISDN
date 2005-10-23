@@ -105,12 +105,23 @@
 #include "debug.h"
 #include <linux/isdn_compat.h>
 
-#define SPIN_DEBUG
+#warning
+
+//#define SPIN_DEBUG
 #define LOCK_STATISTIC
-//#define IRQ_COUNT_DEBUG
+//#define IRQCOUNT_DEBUG
 #include "hw_lock.h"
 #include "hfc_multi.h"
 
+#warning
+#define bugtest {}
+//#define bugtest \
+	if (hc->irq) free_irq(hc->irq, hc); \
+	hc->irq = 0; \
+	if (request_irq(hc->pci_dev->irq, hfcmulti_interrupt, SA_SHIRQ, "HFC-multi", hc)) { \
+		printk(KERN_WARNING "mISDN: Could not get interrupt %d.\n", hc->pci_dev->irq); \
+	hc->irq = hc->pci_dev->irq; }
+		
 static void ph_state_change(dchannel_t *dch);
 
 extern const char *CardType[];
@@ -509,7 +520,8 @@ init_chip(hfc_multi_t *hc)
 
 	/* setting misc irq */
 	HFC_outb(hc, R_IRQMSK_MISC, hc->hw.r_irqmsk_misc);
-	printk(KERN_DEBUG "r_irqmsk_misc.2:%x\n", hc->hw.r_irqmsk_misc);
+	if (debug & DEBUG_HFCMULTI_INIT)
+		printk(KERN_DEBUG "r_irqmsk_misc.2: 0x%x\n", hc->hw.r_irqmsk_misc);
 
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: done\n", __FUNCTION__);
@@ -1355,7 +1367,7 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 #endif
 
-	spin_lock_irqsave(&hc->lock.lock, flags);
+//	spin_lock_irqsave(&hc->lock.lock, flags);
 #ifdef SPIN_DEBUG
 	hc->lock.spin_adr = (void *)0x3001;
 #endif
@@ -1372,9 +1384,12 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	//*plx_acc=0xc00;  // clear LINTI1 & LINTI2
 	//*plx_acc=0xc41;
 #endif
-		spin_unlock_irqrestore(&hc->lock.lock, flags);
+//		spin_unlock_irqrestore(&hc->lock.lock, flags);
 		return(IRQ_NONE);
 	}
+#warning
+//spin_unlock_irqrestore(&hc->lock.lock, flags);
+//hc->irqcnt++; return(IRQ_HANDLED);
 
 	status = HFC_inb_(hc, R_STATUS);
 	r_irq_statech = HFC_inb_(hc, R_IRQ_STATECH);
@@ -1398,6 +1413,7 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		goto irq_notforus;
 	}
 	hc->irqcnt++;
+#if 0
 	if (test_and_set_bit(STATE_FLAG_BUSY, &hc->lock.state)) {
 		printk(KERN_ERR "%s: STATE_FLAG_BUSY allready activ, should never happen state:%lx\n",
 			__FUNCTION__, hc->lock.state);
@@ -1422,7 +1438,10 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
         hc->lock.spin_adr= NULL;
 #endif
 	spin_unlock_irqrestore(&hc->lock.lock, flags);
+#endif
 
+//#warning
+//goto take_me_out;
 	if (r_irq_statech) {
 		if (hc->type != 1) {
 			/* state machine */
@@ -1640,7 +1659,9 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 			i++;
 		}
 	}
-
+#if 0
+	
+take_me_out:
 	spin_lock_irqsave(&hc->lock.lock, flags);
 #ifdef SPIN_DEBUG
 	hc->lock.spin_adr = (void *)0x3002;
@@ -1655,14 +1676,16 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	hc->lock.busy_adr = NULL;
 	hc->lock.spin_adr = NULL;
 #endif
+#endif
 
 #ifdef CONFIG_PLX_PCI_BRIDGE
 	//plx_acc=(u_short*)(hc->plx_membase+0x4c);
 	//*plx_acc=0xc00;  // clear LINTI1 & LINTI2
 	//*plx_acc=0xc41;
 #endif
-	spin_unlock_irqrestore(&hc->lock.lock, flags);
-	return IRQ_HANDLED;
+
+//	spin_unlock_irqrestore(&hc->lock.lock, flags);
+	return(IRQ_HANDLED);
 }
 
 
@@ -3160,13 +3183,16 @@ release_port(hfc_multi_t *hc, int port)
 			hc->irq = 0;
 		}
 
-		/* remove is from list and delete */
+		/* remove us from list and delete */
 		if (debug & DEBUG_HFCMULTI_INIT)
 			printk(KERN_WARNING "%s: remove instance from list\n", __FUNCTION__);
 		list_del(&hc->list);
 		unlock_dev(hc);
 		if (debug & DEBUG_HFCMULTI_INIT)
 			printk(KERN_WARNING "%s: delete instance\n", __FUNCTION__);
+//#warning
+//		kfree(hc->davor);
+//		kfree(hc->danach);
 		kfree(hc);
 		HFC_cnt--;
 		if (debug & DEBUG_HFCMULTI_INIT)
@@ -3223,15 +3249,18 @@ HFC_manager(void *data, u_int prim, void *arg)
 
 	switch(prim) {
 		case MGR_REGLAYER | CONFIRM:
+bugtest
 		if (debug & DEBUG_HFCMULTI_MGR)
 			printk(KERN_DEBUG "%s: MGR_REGLAYER\n", __FUNCTION__);
 		if (dch)
 			dch_set_para(dch, &inst->st->para);
 		if (bch)
 			bch_set_para(bch, &inst->st->para);
+bugtest
 		break;
 
 		case MGR_UNREGLAYER | REQUEST:
+bugtest
 		if (debug & DEBUG_HFCMULTI_MGR)
 			printk(KERN_DEBUG "%s: MGR_UNREGLAYER\n", __FUNCTION__);
 		if (dch) {
@@ -3245,6 +3274,7 @@ HFC_manager(void *data, u_int prim, void *arg)
 			}
 		}
 		HFCM_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
+bugtest
 		break;
 
 		case MGR_CLRSTPARA | INDICATION:
@@ -3298,6 +3328,7 @@ HFC_manager(void *data, u_int prim, void *arg)
 		return(SelFreeBChannel(hc, ch, arg));
 
 		case MGR_SETSTACK | INDICATION:
+bugtest
 		if (debug & DEBUG_HFCMULTI_MGR)
 			printk(KERN_DEBUG "%s: MGR_SETSTACK\n", __FUNCTION__);
 		if (bch && inst->pid.global==2) {
@@ -3308,6 +3339,7 @@ HFC_manager(void *data, u_int prim, void *arg)
 			mISDN_queue_data(inst, FLG_MSG_UP, DL_ESTABLISH | INDICATION, 0, 0, NULL, 0);
 		else mISDN_queue_data(inst, FLG_MSG_UP, PH_ACTIVATE | INDICATION, 0, 0, NULL, 0);
 		}
+bugtest
 		break;
 
 		PRIM_NOT_HANDLED(MGR_CTRLREADY | INDICATION);
@@ -3409,12 +3441,17 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 
 
 	/* allocate card+fifo structure */
+//#warning
+//void *davor=kmalloc(8, GFP_ATOMIC);
 	if (!(hc = kmalloc(sizeof(hfc_multi_t), GFP_ATOMIC))) {
 		printk(KERN_ERR "No kmem for HFC-Multi card\n");
 		ret_err = -ENOMEM;
 		goto free_object;
 	}
+//void *danach=kmalloc(8, GFP_ATOMIC);
 	memset(hc, 0, sizeof(hfc_multi_t));
+//hc->davor=davor;
+//hc->danach=danach;
 	hc->idx = HFC_idx;
 	hc->id = HFC_idx + 1;
 	hc->pcm = pcm[HFC_idx];
@@ -3743,6 +3780,7 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 	}
 
 	/* now turning on irq */
+#warning
 	HFC_outb(hc, R_IRQ_CTRL, hc->hw.r_irq_ctrl);
 
 	/* we are on air! */
