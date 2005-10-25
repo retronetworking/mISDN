@@ -63,7 +63,7 @@ typedef struct _bchannel_t {
 	u_char			*blog;
 	u_char			*conmsg;
 	struct timer_list	transbusy;
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	struct sk_buff_head	rqueue;	/* B-Channel receive Queue */
 	struct work_struct	work;
 	u_long			event;
@@ -92,7 +92,7 @@ bch_set_para(bchannel_t *bch, mISDN_stPara_t *stp)
 	}
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static inline void
 bch_sched_event(bchannel_t *bch, int event)
 {
