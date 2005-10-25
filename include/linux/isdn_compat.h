@@ -91,6 +91,7 @@ typedef struct wait_queue *wait_queue_head_t;
 #endif
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,13)
+
 /* udev sysfs stuff */
 #define class				class_simple
 #define class_create(m,n)		class_simple_create(m,n)
