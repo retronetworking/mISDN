@@ -397,7 +397,7 @@ dtmf_reset(dtmf_t *dtmf)
 	dtmf->idx = 0;
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static int
 dtmf_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
@@ -584,7 +584,7 @@ dtmf_manager(void *data, u_int prim, void *arg) {
 	switch(prim) {
 	    case MGR_CLRSTPARA | INDICATION:
 		break;
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	    case MGR_CLONELAYER | REQUEST:
 		break;
 	    case MGR_CONNECT | REQUEST:

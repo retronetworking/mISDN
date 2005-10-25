@@ -409,7 +409,7 @@ reterror:
 	return(ret);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 #define B_LL_READY	8
 #define B_LL_NOCARRIER	9
 #define B_LL_CONNECT	10
@@ -426,7 +426,7 @@ deliver_status(bchannel_t *bch, int status)
 	mISDN_queue_data(&bch->inst, FLG_MSG_UP, PH_STATUS | INDICATION, status, 0, NULL, 0);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static void
 isar_bh(bchannel_t *bch)
 {

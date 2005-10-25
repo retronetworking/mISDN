@@ -12,7 +12,7 @@
 #include "memdbg.h"
 #endif
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1
 #define D_L1STATECHANGE	2
