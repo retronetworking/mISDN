@@ -90,7 +90,7 @@ isac_ph_state_change(dchannel_t *dch)
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static void
 isac_hwbh(dchannel_t *dch)
 {
