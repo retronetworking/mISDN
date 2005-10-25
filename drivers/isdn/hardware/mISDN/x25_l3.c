@@ -556,7 +556,7 @@ X25_release_l3(x25_l3_t *l3) {
 	mISDNinstance_t	*inst = &l3->inst;
 	x25_channel_t	*ch, *nch;
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);

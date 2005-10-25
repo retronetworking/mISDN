@@ -166,6 +166,13 @@ static ssize_t store_st_parameter(struct class_device *class_dev, const char *bu
 MISDN_PROTO(mISDNstack, pid, S_IRUGO);
 MISDN_PROTO(mISDNstack, new_pid, S_IRUGO);
 
+static ssize_t show_st_qlen(struct class_device *class_dev, char *buf)
+{
+	mISDNstack_t	*st = to_mISDNstack(class_dev);
+	return sprintf(buf, "%d\n", skb_queue_len(&st->msgq));
+}
+static CLASS_DEVICE_ATTR(qlen, S_IRUGO, show_st_qlen, NULL);
+
 static void release_mISDN_stack(struct class_device *dev)
 {
 	mISDNstack_t	*st = to_mISDNstack(dev);
@@ -223,6 +230,7 @@ mISDN_register_sysfs_stack(mISDNstack_t *st)
 	if (err)
 		goto out_unreg;
 	class_device_create_file(&st->class_dev, &class_device_attr_id);
+	class_device_create_file(&st->class_dev, &class_device_attr_qlen);
 	class_device_create_file(&st->class_dev, &class_device_attr_status);
 	if (st->parent) {
 		sysfs_create_link(&st->class_dev.kobj, &st->parent->class_dev.kobj, "parent");

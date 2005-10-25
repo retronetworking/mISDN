@@ -593,7 +593,7 @@ release_card(sedl_fax *card) {
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);
 	mISDN_free_dch(&card->dch);
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	speedfax.ctrl(card->dch.inst.up.peer, MGR_DISCONNECT | REQUEST, &card->dch.inst.up);
 #endif
 	speedfax.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
@@ -683,7 +683,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			speedfax.refcnt--;
 		}
 		break;
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | REQUEST:

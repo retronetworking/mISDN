@@ -613,7 +613,7 @@ release_l1(layer1_t *l1) {
 	mISDNinstance_t	*inst = &l1->inst;
 
 	mISDN_FsmDelTimer(&l1->timer, 0);
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);
@@ -732,7 +732,7 @@ l1_manager(void *data, u_int prim, void *arg) {
 	    case MGR_NEWLAYER | REQUEST:
 		err = new_l1(data, arg);
 		break;
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	    case MGR_CONNECT | REQUEST:
 		err = mISDN_ConnectIF(inst, arg);
 		break;

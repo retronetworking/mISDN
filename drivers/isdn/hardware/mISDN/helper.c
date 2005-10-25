@@ -240,7 +240,7 @@ mISDN_get_up_layer(int layermask) {
 	return(uplayer);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 int
 mISDN_SetIF(mISDNinstance_t *owner, mISDNif_t *hif, u_int prim, void *upfunc,
 	void *downfunc, void *data)

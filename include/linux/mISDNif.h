@@ -433,7 +433,7 @@
 /* should be in sync with linux/kobject.h:KOBJ_NAME_LEN */
 #define mISDN_MAX_IDLEN		20
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 #define IF_NOACTIV	0x00000000
 #define IF_DOWN		0x01000000
 #define IF_UP		0x02000000
@@ -622,7 +622,7 @@ typedef struct _layer_info {
 	mISDN_pid_t	pid;
 } layer_info_t;
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 typedef struct _interface_info {
 	int		extentions;
 	u_int		owner;
@@ -766,7 +766,7 @@ struct _mISDNobject {
 	struct class_device	class_dev;
 };
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 /* the interface between two mISDNinstances */
 struct _mISDNif {
 	if_func_t		*func;
@@ -802,7 +802,7 @@ struct _mISDNinstance {
 	struct class_device	class_dev;
 };
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 /* a list of parallel (horizontal) mISDNinstances in the same layer
  * normally here is only one instance per layer only if the information
  * will be splitted here are more instances */

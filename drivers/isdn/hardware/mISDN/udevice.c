@@ -596,7 +596,7 @@ del_layer(devicelayer_t *dl)
 	return(0);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static mISDNinstance_t *
 clone_instance(devicelayer_t *dl, mISDNstack_t  *st, mISDNinstance_t *peer)
 {
@@ -1295,7 +1295,7 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 		else
 			hp->len = -ENXIO;
 		break;
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	    case (MGR_GETIF | REQUEST):
 		hp->prim = MGR_GETIF | CONFIRM;
 		hp->dinfo = 0;
@@ -1862,7 +1862,7 @@ static struct file_operations mISDN_fops =
 };
 
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static int
 set_if(devicelayer_t *dl, u_int prim, mISDNif_t *hif)
 {
@@ -1914,7 +1914,7 @@ udev_manager(void *data, u_int prim, void *arg) {
 		goto out;
 	}
 	switch(prim) {
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	    case MGR_CONNECT | REQUEST:
 	    	err = mISDN_ConnectIF(inst, arg);
 	    	break;

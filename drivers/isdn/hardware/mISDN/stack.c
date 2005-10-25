@@ -283,7 +283,7 @@ get_instance4id(u_int id)
 	return(NULL);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 int
 get_layermask(mISDNlayer_t *layer)
 {
@@ -826,7 +826,7 @@ release_stacks(mISDNobject_t *obj)
 			obj->name, obj->refcnt);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static void
 get_free_instid(mISDNstack_t *st, mISDNinstance_t *inst) {
 	mISDNinstance_t *il;

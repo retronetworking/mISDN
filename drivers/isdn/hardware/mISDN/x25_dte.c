@@ -1300,7 +1300,7 @@ dte_manager(void *data, u_int prim, void *arg) {
 	    	}
 	    	break;
 	    case MGR_CLRSTPARA | INDICATION:
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	    case MGR_CLONELAYER | REQUEST:
 		break;
 	    case MGR_CONNECT | REQUEST:

@@ -187,7 +187,7 @@ l2down_create(layer2_t *l2, u_int prim, int dinfo, int len, void *arg)
 	return(err);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static int
 l2_chain_down(mISDNinstance_t *inst, struct sk_buff *skb) {
 	return(l2down_raw(inst->privat, skb));
@@ -2117,7 +2117,7 @@ release_l2(layer2_t *l2)
 	ReleaseWin(l2);
 	if (test_bit(FLG_LAPD, &l2->flag))
 		release_tei(l2->tm);
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	if (inst->up.peer) {
 		inst->up.peer->obj->ctrl(inst->up.peer,
 			MGR_DISCONNECT | REQUEST, &inst->up);
@@ -2288,7 +2288,7 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
 	return(err);
 }
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static int
 clone_l2(layer2_t *l2, mISDNinstance_t **new_ip) {
 	int err;
@@ -2409,7 +2409,7 @@ l2_manager(void *data, u_int prim, void *arg) {
 		    	l2l->maxlen = ((mISDN_stPara_t *)arg)->maxdatalen;
 	    case MGR_CLRSTPARA | INDICATION:
 		break;
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	    case MGR_CLONELAYER | REQUEST:
 		return(clone_l2(l2l, arg));
 	    case MGR_CONNECT | REQUEST:
