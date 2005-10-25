@@ -12,7 +12,7 @@
 #include "bchannel.h"
 #include "helper.h"
 
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 static void
 bchannel_bh(bchannel_t *bch)
 {
@@ -100,7 +100,7 @@ mISDN_init_bch(bchannel_t *bch) {
 		bch->rx_buf = NULL;
 		return (-ENOMEM);
 	}
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 	skb_queue_head_init(&bch->rqueue);
 	bch->event = 0;
 	INIT_WORK(&bch->work, (void *)(void *)bchannel_bh, bch);
@@ -123,7 +123,7 @@ mISDN_init_bch(bchannel_t *bch) {
 
 int
 mISDN_free_bch(bchannel_t *bch) {
-#ifdef OBSOLATE
+#ifdef OBSOLETE
 #ifdef HAS_WORKQUEUE
 	if (bch->work.pending)
 		printk(KERN_ERR "mISDN_free_bch work:(%lx)\n", bch->work.pending);
