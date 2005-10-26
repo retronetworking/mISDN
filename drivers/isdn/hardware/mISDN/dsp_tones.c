@@ -373,7 +373,7 @@ void dsp_tone_copy(dsp_t *dsp, u8 *data, int len)
  
 	/* if we have no tone, we copy silence */
 	if (!tone->tone) {
-		memset(data, silence, len);
+		memset(data, dsp_silence, len);
 		return;
 	}
 

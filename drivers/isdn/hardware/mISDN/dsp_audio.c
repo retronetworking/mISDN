@@ -301,7 +301,7 @@ u8 dsp_audio_ulaw_to_alaw[256] =
 	0x8a, 0x8a, 0x6a, 0x6a, 0xea, 0xea, 0x2a, 0x2a
 };
 
-u8 silence;
+u8 dsp_silence;
 
 
 /*****************************************************

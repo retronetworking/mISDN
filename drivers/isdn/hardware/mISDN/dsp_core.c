@@ -910,7 +910,7 @@ static int dsp_init(void)
 	INIT_LIST_HEAD(&dsp_obj.ilist);
 
 	/* initialize audio tables */
-	silence = (dsp_options&DSP_OPT_ULAW)?0xff:0x2a;
+	dsp_silence = (dsp_options&DSP_OPT_ULAW)?0xff:0x2a;
 	dsp_audio_law_to_s32 = (dsp_options&DSP_OPT_ULAW)?dsp_audio_ulaw_to_s32:dsp_audio_alaw_to_s32;
 	dsp_audio_generate_s2law_table();
 	dsp_audio_generate_seven();

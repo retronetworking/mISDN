@@ -60,7 +60,7 @@ extern void dsp_audio_generate_seven(void);
 extern void dsp_audio_generate_mix_table(void);
 extern void dsp_audio_generate_ulaw_samples(void);
 extern void dsp_audio_generate_volume_changes(void);
-extern u8 silence;
+extern u8 dsp_silence;
 
 
 /*************
