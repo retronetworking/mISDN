@@ -92,7 +92,7 @@ typedef struct _mISDN_HWlock {
  */
 static inline int lock_HW(mISDN_HWlock_t *lock, int nowait)
 {
-	register u_long	flags;
+	u_long	flags;
 #ifdef LOCK_STATISTIC
 	int	wait = 0;
 #endif
