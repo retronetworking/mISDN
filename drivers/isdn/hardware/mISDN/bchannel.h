@@ -5,7 +5,8 @@
  * This file is (c) under GNU PUBLIC LICENSE
  *
  */
-
+#ifndef _mISDN_BCHANNEL_H
+#define _mISDN_BCHANNEL_H
 #include <linux/mISDNif.h>
 #ifdef HAS_WORKQUEUE
 #include <linux/workqueue.h>
@@ -22,6 +23,7 @@
 #ifdef MISDN_MEMDEBUG
 #include "memdbg.h"
 #endif
+#include "helper.h"
 
 #define MAX_BLOG_SPACE		256
 
@@ -92,6 +94,19 @@ bch_set_para(bchannel_t *bch, mISDN_stPara_t *stp)
 	}
 }
 
+static inline void
+queue_bch_frame(bchannel_t *bch, u_int	pr, int dinfo, struct sk_buff *skb)
+{
+	if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
+		pr |= DL_DATA;
+	else
+		pr |= PH_DATA;
+	if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, dinfo, skb))) {
+		int_error();
+		dev_kfree_skb(skb);
+	}
+}
+
 #ifdef OBSOLETE
 static inline void
 bch_sched_event(bchannel_t *bch, int event)
@@ -99,4 +114,5 @@ bch_sched_event(bchannel_t *bch, int event)
 	test_and_set_bit(event, &bch->event);
 	schedule_work(&bch->work);
 }
+#endif
 #endif

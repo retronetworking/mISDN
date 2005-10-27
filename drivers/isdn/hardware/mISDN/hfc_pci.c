@@ -34,7 +34,6 @@
 #include "bchannel.h"
 #include "hfc_pci.h"
 #include "layer1.h"
-#include "helper.h"
 #include "debug.h"
 #include <linux/isdn_compat.h>
 
@@ -546,7 +545,6 @@ hfcpci_empty_fifo_trans(bchannel_t *bch, bzfifo_type * bz, u_char * bdata)
 {
 	unsigned short	*z1r, *z2r;
 	int		new_z2, fcnt, maxlen;
-	u_int		pr;
 	struct sk_buff	*skb;
 	u_char		*ptr, *ptr1;
 
@@ -583,14 +581,7 @@ hfcpci_empty_fifo_trans(bchannel_t *bch, bzfifo_type * bz, u_char * bdata)
 			ptr1 = bdata;	/* start of buffer */
 			memcpy(ptr, ptr1, fcnt);	/* rest */
 		}
-		if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-			pr = DL_DATA | INDICATION;
-		else
-			pr = PH_DATA | INDICATION;
-		if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-			int_error();
-			dev_kfree_skb(skb);
-		}
+		queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 	}
 
 	*z2r = new_z2;		/* new position */
@@ -606,7 +597,6 @@ main_rec_hfcpci(bchannel_t *bch)
 	hfc_pci_t	*hc = bch->hw;
 	int		rcnt, real_fifo;
 	int		receive, count = 5;
-	u_int		pr;
 	struct sk_buff	*skb;
 	bzfifo_type	*bz;
 	u_char		*bdata;
@@ -638,14 +628,7 @@ main_rec_hfcpci(bchannel_t *bch)
 			mISDN_debugprint(&bch->inst, "hfcpci rec ch(%x) z1(%x) z2(%x) cnt(%d)",
 				bch->channel, zp->z1, zp->z2, rcnt);
 		if ((skb = hfcpci_empty_fifo(bch, bz, bdata, rcnt))) {
-			if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-				pr = DL_DATA | INDICATION;
-			else
-				pr = PH_DATA | INDICATION;
-			if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-				int_error();
-				dev_kfree_skb(skb);
-			}
+			queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 		}
 		rcnt = bz->f1 - bz->f2;
 		if (rcnt < 0)
@@ -814,28 +797,23 @@ next_t_frame:
 			} else if (bch->debug & L1_DEB_HSCX)
 				mISDN_debugprint(&bch->inst, "hfcpci_fill_fifo_trans ch(%x) frame length %d discarded",
 					bch->channel, bch->tx_len);
-			if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
+			if (test_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 				struct sk_buff	*skb = bch->next_skb;
 				mISDN_head_t	*hh;
-				u_int		pr;
 				if (skb) {
 					bch->next_skb = NULL;
+					test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 					hh = mISDN_HEAD_P(skb);
 					bch->tx_idx = 0;
 					bch->tx_len = skb->len;
 					memcpy(bch->tx_buf, skb->data, bch->tx_len);
 					skb_trim(skb, 0);
-					if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-						pr = DL_DATA | CONFIRM;
-					else
-						pr = PH_DATA | CONFIRM;
-					if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, hh->dinfo, skb))) {
-						int_error();
-						dev_kfree_skb(skb);
-					}
+					queue_bch_frame(bch, CONFIRM, hh->dinfo, skb);
 					goto next_t_frame;
-				} else
+				} else {
+					test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 					printk(KERN_WARNING "hfcB tx irq TX_NEXT without skb\n");
+				}
 			}
 			bch->tx_len = 0;
 			test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
@@ -1288,28 +1266,22 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 				hfcpci_fill_fifo(bch);
 			} else {
 				bch->tx_idx = 0;
-				if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
+				if (test_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 					struct sk_buff	*skb = bch->next_skb;
 					mISDN_head_t	*hh;
-					u_int		pr;
 					if (skb) {
 						bch->next_skb = NULL;
+						test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 						hh = mISDN_HEAD_P(skb);
 						bch->tx_idx = 0;
 						bch->tx_len = skb->len;
 						memcpy(bch->tx_buf, skb->data, bch->tx_len);
 						skb_trim(skb, 0);
-						if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-							pr = DL_DATA | CONFIRM;
-						else
-							pr = PH_DATA | CONFIRM;
-						if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, hh->dinfo, skb))) {
-							int_error();
-							dev_kfree_skb(skb);
-						}
+						queue_bch_frame(bch, CONFIRM, hh->dinfo, skb);
 						hfcpci_fill_fifo(bch);
 					} else {
 						printk(KERN_WARNING "hfcB tx irq TX_NEXT without skb\n");
+						test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 						test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 						bch->tx_len = 0;
 					}
@@ -1330,28 +1302,22 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 				hfcpci_fill_fifo(bch);
 			} else {
 				bch->tx_idx = 0;
-				if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
+				if (test_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 					struct sk_buff	*skb = bch->next_skb;
 					mISDN_head_t	*hh;
-					u_int		pr;
 					if (skb) {
 						bch->next_skb = NULL;
+						test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 						hh = mISDN_HEAD_P(skb);
 						bch->tx_idx = 0;
 						bch->tx_len = skb->len;
 						memcpy(bch->tx_buf, skb->data, bch->tx_len);
 						skb_trim(skb, 0);
-						if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-							pr = DL_DATA | CONFIRM;
-						else
-							pr = PH_DATA | CONFIRM;
-						if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, hh->dinfo, skb))) {
-							int_error();
-							dev_kfree_skb(skb);
-						}
+						queue_bch_frame(bch, CONFIRM, hh->dinfo, skb);
 						hfcpci_fill_fifo(bch);
 					} else {
 						printk(KERN_WARNING "hfcB tx irq TX_NEXT without skb\n");
+						test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 						test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 						bch->tx_len = 0;
 					}
@@ -1376,22 +1342,23 @@ hfcpci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		if (hc->dch.tx_idx < hc->dch.tx_len) {
 			hfcpci_fill_dfifo(hc);
 		} else {
-			if (test_and_clear_bit(FLG_TX_NEXT, &hc->dch.DFlags)) {
-				if (hc->dch.next_skb) {
-					mISDN_head_t	*hh;
-					hc->dch.tx_len = hc->dch.next_skb->len;
-					memcpy(hc->dch.tx_buf,
-						hc->dch.next_skb->data,
-						hc->dch.tx_len);
+			if (test_bit(FLG_TX_NEXT, &hc->dch.DFlags)) {
+				struct sk_buff	*skb = hc->dch.next_skb;
+				if (skb) {
+					mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+
+					hc->dch.next_skb= NULL;
+					test_and_clear_bit(FLG_TX_NEXT, &hc->dch.DFlags);
+					hc->dch.tx_len = skb->len;
+					memcpy(hc->dch.tx_buf, skb->data, hc->dch.tx_len);
 					hc->dch.tx_idx = 0;
 					hfcpci_fill_dfifo(hc);
-					skb_trim(hc->dch.next_skb, 0);
-					hh = mISDN_HEAD_P(hc->dch.next_skb);
-					if (mISDN_queueup_newhead(&hc->dch.inst, 0, PH_DATA_CNF, hh->dinfo, hc->dch.next_skb))
-						dev_kfree_skb(hc->dch.next_skb);
-					hc->dch.next_skb= NULL;
+					skb_trim(skb, 0);
+					if (mISDN_queueup_newhead(&hc->dch.inst, 0, PH_DATA_CNF, hh->dinfo, skb))
+						dev_kfree_skb(skb);
 				} else {
 					printk(KERN_WARNING "hfcd tx irq TX_NEXT without skb\n");
+					test_and_clear_bit(FLG_TX_NEXT, &hc->dch.DFlags);
 					test_and_clear_bit(FLG_TX_BUSY, &hc->dch.DFlags);
 				}
 			} else
@@ -1432,13 +1399,12 @@ HFCD_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	dchannel_t	*dch;
 	hfc_pci_t	*hc;
-	int		ret = -EINVAL;
+	int		ret = 0;
 	mISDN_head_t	*hh;
 
 	hh = mISDN_HEAD_P(skb);
 	dch = container_of(inst, dchannel_t, inst);
 	hc = inst->privat;
-	ret = 0;
 	if (hh->prim == PH_DATA_REQ) {
 		if (dch->next_skb) {
 			printk(KERN_WARNING "%s: next_skb exist ERROR\n", __FUNCTION__);
@@ -1571,7 +1537,7 @@ HFCD_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
 			if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
 				del_timer(&dch->dbusytimer);
-#if 0
+#ifdef FIXME
 			if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
 				dchannel_sched_event(&hc->dch, D_CLEARBUSY);
 #endif
@@ -1884,12 +1850,13 @@ hfcpci_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 	hh = mISDN_HEAD_P(skb);
 	if ((hh->prim == PH_DATA_REQ) ||
 		(hh->prim == (DL_DATA | REQUEST))) {
-#warning TODO: hier muss abgefragt werden, ob skb->len <= 0 ist, und ggf. ein -EINVAL zurückliefern, sonst wird zwar einmal confirmed, aber es regt sich nichts mehr. dies bitte auch für den d-kanal überdenken, sowie für alle andere kartentreiber.
 		if (bch->next_skb) {
 			printk(KERN_WARNING "%s: next_skb exist ERROR\n",
 				__FUNCTION__);
 			return(-EBUSY);
 		}
+		if (skb->len <= 0)
+			return(-EINVAL);
 		bch->inst.lock(hc, 0);
 		if (test_and_set_bit(BC_FLG_TX_BUSY, &bch->Flag)) {
 			test_and_set_bit(BC_FLG_TX_NEXT, &bch->Flag);

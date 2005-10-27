@@ -101,7 +101,6 @@
 #include "bchannel.h"
 #include "layer1.h"
 #include "dsp.h"
-#include "helper.h"
 #include "debug.h"
 #include <linux/isdn_compat.h>
 
@@ -1013,11 +1012,12 @@ next_frame:
 		} */
 
 		// check for next frame
-		if (test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags)) {
+		if (test_bit(FLG_TX_NEXT, &dch->DFlags)) {
 			struct sk_buff	*skb = dch->next_skb;
 			mISDN_head_t	*hh;
 			if (skb) {
 				dch->next_skb = NULL;
+				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
 				hh = mISDN_HEAD_P(skb);
 				dch->tx_idx = 0;
 				dch->tx_len = skb->len;
@@ -1025,8 +1025,10 @@ next_frame:
 				skb_trim(skb, 0);
 				if (mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb)) dev_kfree_skb(skb);
 				goto next_frame;
-			} else
+			} else {
+				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
 				printk(KERN_WARNING "%s: tx irq TX_NEXT without skb (dch ch=%d)\n", __FUNCTION__, ch);
+			}
 		}
 
 		test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
@@ -1034,28 +1036,23 @@ next_frame:
 	}
 	if (bch) {
 		// check for next frame
-		if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
+		if (test_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 			struct sk_buff	*skb = bch->next_skb;
 			mISDN_head_t	*hh;
-			u_int		pr;
 			if (skb) {
 				bch->next_skb = NULL;
+				test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 				hh = mISDN_HEAD_P(skb);
 				bch->tx_idx = 0;
 				bch->tx_len = skb->len;
 				memcpy(bch->tx_buf, skb->data, bch->tx_len);
 				skb_trim(skb, 0);
-				if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-					pr = DL_DATA | CONFIRM;
-				else
-					pr = PH_DATA | CONFIRM;
-				if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, hh->dinfo, skb))) {
-					int_error();
-					dev_kfree_skb(skb);
-				}
+				queue_bch_frame(bch, CONFIRM, hh->dinfo, skb);
 				goto next_frame;
-			} else
+			} else {
+				test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 				printk(KERN_WARNING "hfcB tx irq TX_NEXT without skb\n");
+			}
 		}
 
 		test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
@@ -1262,17 +1259,8 @@ next_frame:
 				// schedule D-channel event
 				mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_IND, MISDN_ID_ANY, skb);
 			}
-			if (bch) {
-				// schedule B-channel event
-				if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-					pr = DL_DATA | INDICATION;
-				else
-					pr = PH_DATA | INDICATION;
-				if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-					int_error();
-					dev_kfree_skb(skb);
-				}
-			}
+			if (bch)
+				queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 			*idx = 0;
 			goto next_frame;
 		}
@@ -1301,19 +1289,8 @@ next_frame:
 			//dchannel_sched_event(dch, D_RCVBUFREADY);
 			mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_IND, MISDN_ID_ANY, skb);
 		}
-		if (bch) {
-			// schedule B-channel event
-			//skb_queue_tail(&bch->rqueue, skb);
-			//bch_sched_event(bch, B_RCVBUFREADY);
-			if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-				pr = DL_DATA | INDICATION;
-			else
-				pr = PH_DATA | INDICATION;
-			if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-				int_error();
-				dev_kfree_skb(skb);
-			}
-		}
+		if (bch)
+			queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 	}
 }
 

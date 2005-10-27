@@ -10,7 +10,6 @@
 
 #include <linux/delay.h>
 #include "layer1.h"
-#include "helper.h"
 #include "bchannel.h"
 #include "isar.h"
 #include "debug.h"
@@ -462,7 +461,6 @@ isar_rcv_frame(bchannel_t *bch)
 {
 	u_char		*ptr;
 	struct sk_buff	*skb;
-	u_int		pr;
 	isar_hw_t	*ih = bch->hw;
 	
 	if (!ih->reg->clsb) {
@@ -483,14 +481,7 @@ isar_rcv_frame(bchannel_t *bch)
 	    case ISDN_PID_L1_B_MODEM_ASYNC:
 		if ((skb = alloc_stack_skb(ih->reg->clsb, bch->up_headerlen))) {
 			rcv_mbox(bch, ih->reg, (u_char *)skb_put(skb, ih->reg->clsb));
-			if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-				pr = DL_DATA | INDICATION;
-			else
-				pr = PH_DATA | INDICATION;
-			if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-				int_error();
-				dev_kfree_skb(skb);
-			}
+			queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 		} else {
 			printk(KERN_WARNING "mISDN: skb out of memory\n");
 			bch->Write_Reg(bch->inst.privat, 1, ISAR_IIA, 0);
@@ -530,14 +521,7 @@ isar_rcv_frame(bchannel_t *bch)
 				} else {
 					memcpy(skb_put(skb, bch->rx_idx-2),
 						bch->rx_buf, bch->rx_idx-2);
-					if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-						pr = DL_DATA | INDICATION;
-					else
-						pr = PH_DATA | INDICATION;
-					if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-						int_error();
-						dev_kfree_skb(skb);
-					}
+					queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 				}
 				bch->rx_idx = 0;
 			}
@@ -569,14 +553,7 @@ isar_rcv_frame(bchannel_t *bch)
 					ih->state = STFAX_ESCAPE;
 //					set_skb_flag(skb, DF_NOMOREDATA);
 				}
-				if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-					pr = DL_DATA | INDICATION;
-				else
-					pr = PH_DATA | INDICATION;
-				if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-					int_error();
-					dev_kfree_skb(skb);
-				}
+				queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 				if (ih->reg->cmsb & SART_NMD)
 					deliver_status(bch, HW_MOD_NOCARR);
 			} else {
@@ -623,14 +600,7 @@ isar_rcv_frame(bchannel_t *bch)
 //					if (ih->reg->cmsb & SART_NMD)
 						 /* ABORT */
 //						set_skb_flag(skb, DF_NOMOREDATA);
-					if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-						pr = DL_DATA | INDICATION;
-					else
-						pr = PH_DATA | INDICATION;
-					if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, MISDN_ID_ANY, skb))) {
-						int_error();
-						dev_kfree_skb(skb);
-					}
+					queue_bch_frame(bch, INDICATION, MISDN_ID_ANY, skb);
 				}
 				bch->rx_idx = 0;
 			}
@@ -772,29 +742,23 @@ send_frames(bchannel_t *bch)
 				}
 			}
 		}
-		if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
+		if (test_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 			struct sk_buff	*skb = bch->next_skb;
 			mISDN_head_t	*hh;
-			u_int		pr;
 			if (skb) {
 				bch->next_skb = NULL;
+				test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 				hh = mISDN_HEAD_P(skb);
 				bch->tx_idx = 0;
 				bch->tx_len = skb->len;
 				memcpy(bch->tx_buf, skb->data, bch->tx_len);
 				isar_fill_fifo(bch);
 				skb_trim(skb, 0);
-				if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
-					pr = DL_DATA | CONFIRM;
-				else
-					pr = PH_DATA | CONFIRM;
-				if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, hh->dinfo, skb))) {
-					int_error();
-					dev_kfree_skb(skb);
-				}
+				queue_bch_frame(bch, CONFIRM, hh->dinfo, skb);
 			} else {
 				bch->tx_len = 0;
 				printk(KERN_WARNING "isar tx irq TX_NEXT without skb\n");
+				test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag);
 				test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 			}
 		} else {
@@ -1597,18 +1561,19 @@ int
 isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	bchannel_t	*bch;
-	int		ret = -EINVAL;
+	int		ret = 0;
 	mISDN_head_t	*hh;
 
 	hh = mISDN_HEAD_P(skb);
 	bch = container_of(inst, bchannel_t, inst);
-	ret = 0;
 	if ((hh->prim == PH_DATA_REQ) ||
 		(hh->prim == (DL_DATA | REQUEST))) {
 		if (bch->next_skb) {
 			mISDN_debugprint(&bch->inst, " l2l1 next_skb exist this shouldn't happen");
 			return(-EBUSY);
 		}
+		if (skb->len <= 0)
+			return(-EINVAL);
 		bch->inst.lock(bch->inst.privat, 0);
 		if (test_and_set_bit(BC_FLG_TX_BUSY, &bch->Flag)) {
 			test_and_set_bit(BC_FLG_TX_NEXT, &bch->Flag);
@@ -1627,9 +1592,7 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		}
 	} else if ((hh->prim == (PH_ACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_ESTABLISH  | REQUEST))) {
-		if (test_and_set_bit(BC_FLG_ACTIV, &bch->Flag))
-			ret = 0;
-		else {
+		if (!test_and_set_bit(BC_FLG_ACTIV, &bch->Flag)) {
 			u_int	bp = bch->inst.pid.protocol[1];
 
 			if (bch->inst.pid.global == 1)
@@ -1657,8 +1620,7 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		bch->inst.unlock(bch->inst.privat);
 		skb_trim(skb, 0);
 		if (hh->prim != (PH_CONTROL | REQUEST))
-			if (!mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, 0, skb))
-				return(0);
+			ret = mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, 0, skb);
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
 		int  *val;
 		int  len;
@@ -1704,6 +1666,7 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 				int_errtxt("wrong modulation");
 				/* wrong modulation or not activ */
 				// TODO
+				ret = -EINVAL;
 			}
 		} else if (hh->dinfo == HW_MOD_LASTDATA) {
 			test_and_set_bit(BC_FLG_DLEETX, &bch->Flag);

@@ -243,16 +243,16 @@ isac_xpr_irq(dchannel_t *dch)
 	if (dch->tx_idx < dch->tx_len) {
 		isac_fill_fifo(dch);
 	} else {
-		if (test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags)) {
-			struct sk_buff	*skb;
-			mISDN_head_t	*hh;
-			if ((skb = dch->next_skb)) {
+		if (test_bit(FLG_TX_NEXT, &dch->DFlags)) {
+			struct sk_buff	*skb = dch->next_skb;
+			mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+			if (skb) {
 				dch->next_skb = NULL;
+				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
 				dch->tx_len = skb->len;
 				memcpy(dch->tx_buf, skb->data, dch->tx_len);
 				dch->tx_idx = 0;
 				isac_fill_fifo(dch);
-				hh = mISDN_HEAD_P(skb);
 				skb_trim(skb, 0);
 				if (unlikely(mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb))) {
 					int_error();
@@ -260,6 +260,7 @@ isac_xpr_irq(dchannel_t *dch)
 				}
 			} else {
 				printk(KERN_WARNING "isac tx irq TX_NEXT without skb\n");
+				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
 				test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
 			}
 		} else
@@ -283,11 +284,12 @@ isac_retransmit(dchannel_t *dch)
 	} else {
 		printk(KERN_WARNING "mISDN: ISAC XDU no TX_BUSY\n");
 		mISDN_debugprint(&dch->inst, "ISAC XDU no TX_BUSY");
-		if (test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags)) {
-			struct sk_buff	*skb;
-			mISDN_head_t	*hh;
-			if ((skb = dch->next_skb)) {
+		if (test_bit(FLG_TX_NEXT, &dch->DFlags)) {
+			struct sk_buff	*skb = dch->next_skb;
+			mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+			if (skb) {
 				dch->next_skb = NULL;
+				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
 				dch->tx_len = skb->len;
 				memcpy(dch->tx_buf, skb->data, dch->tx_len);
 				dch->tx_idx = 0;
@@ -300,6 +302,7 @@ isac_retransmit(dchannel_t *dch)
 				}
 			} else {
 				printk(KERN_WARNING "isac xdu irq TX_NEXT without skb\n");
+				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
 			}
 		}
 	}
