@@ -1287,6 +1287,7 @@ next_d_tx_frame(hfcsusb_t * card)
 			card->dch.tx_len = skb->len;
 			memcpy(card->dch.tx_buf, skb->data, card->dch.tx_len);
 			card->dch.tx_idx = 0;
+			skb_trim(skb, 0);
 			if (mISDN_queueup_newhead(&card->dch.inst, 0, PH_DATA_CNF, hh->dinfo, skb))
 				dev_kfree_skb(skb);
 		} else {
@@ -1312,7 +1313,7 @@ next_b_tx_frame(hfcsusb_t * card, __u8 bch_idx)
 			card->bch[bch_idx].tx_idx = 0;
 			card->bch[bch_idx].tx_len = skb->len;
 			memcpy(card->bch[bch_idx].tx_buf, skb->data, card->bch[bch_idx].tx_len);
-			
+			skb_trim(skb, 0);
 			queue_bch_frame(&card->bch[bch_idx], CONFIRM, hh->dinfo, skb);
 		} else {
 			printk(KERN_WARNING
