@@ -355,16 +355,16 @@ dsp_control_req(dsp_t *dsp, mISDN_head_t *hh, struct sk_buff *skb)
 		case ECHOCAN_ON: /* turn echo calcellation on */
 			if (len<4) {
 				ret = -EINVAL;
-				break;
+			} else {
+				int ec_arr[2];
+				memcpy(&ec_arr,data,sizeof(ec_arr));
+				if (dsp_debug & DEBUG_DSP_CORE)
+					printk(KERN_DEBUG "%s: turn echo cancelation on (delay=%d attenuation-shift=%d\n",
+						__FUNCTION__, ec_arr[0], ec_arr[1]);
+			
+				ret = dsp_cancel_init(dsp, ec_arr[0], ec_arr[1] ,1);
+				dsp_cmx_hardware(dsp->conf, dsp);
 			}
-			int ec_arr[2];
-			memcpy(&ec_arr,data,sizeof(ec_arr));
-			if (dsp_debug & DEBUG_DSP_CORE)
-				printk(KERN_DEBUG "%s: turn echo cancelation on (delay=%d attenuation-shift=%d\n", __FUNCTION__, ec_arr[0], ec_arr[1]);
-			
-			ret = dsp_cancel_init(dsp, ec_arr[0], ec_arr[1] ,1);
-			
-			dsp_cmx_hardware(dsp->conf, dsp);
 			break;
 		case ECHOCAN_OFF: /* turn echo calcellation off */
 			if (dsp_debug & DEBUG_DSP_CORE)
