@@ -2,7 +2,7 @@
  *
  * Audio support data for ISDN4Linux.
  *
- * Copyright 2002/2003 by Andreas Eversberg (jolly@jolly.de)
+ * Copyright Andreas Eversberg (jolly@jolly.de)
  *
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.

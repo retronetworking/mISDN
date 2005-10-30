@@ -1184,7 +1184,7 @@ next_frame:
 	while(z1 != (temp=(HFC_inw_(hc, A_Z1) - hc->Zmin))) {
 		if (debug & DEBUG_HFCMULTI_FIFO)
 			printk(KERN_DEBUG "%s: reread z2 because %d!=%d\n", __FUNCTION__, temp, z2);
-		z1 = temp; /* repeat unti Z1 is equal */
+		z1 = temp; /* repeat until Z1 is equal */
 	}
 	z2 = HFC_inw_(hc, A_Z2) - hc->Zmin;
 	Zsize = z1-z2;
@@ -1367,6 +1367,7 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 #warning
 //spin_unlock_irqrestore(&hc->lock.lock, flags);
 //hc->irqcnt++; return(IRQ_HANDLED);
+lock_dev(hc, 0);
 
 	status = HFC_inb_(hc, R_STATUS);
 	r_irq_statech = HFC_inb_(hc, R_IRQ_STATECH);
@@ -1387,6 +1388,8 @@ hfcmulti_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (!r_irq_statech && !(status & (V_DTMF_STA | V_LOST_STA | V_EXT_IRQSTA | V_MISC_IRQSTA | V_FR_IRQSTA))) {
 		/* irq is not for us */
 		//if(status) printk(KERN_WARNING "nofus:%x\n",status);
+#warning
+unlock_dev(hc);
 		goto irq_notforus;
 	}
 	hc->irqcnt++;
@@ -1660,7 +1663,7 @@ take_me_out:
 	//*plx_acc=0xc00;  // clear LINTI1 & LINTI2
 	//*plx_acc=0xc41;
 #endif
-
+unlock_dev(hc);
 //	spin_unlock_irqrestore(&hc->lock.lock, flags);
 	return(IRQ_HANDLED);
 }
@@ -3880,7 +3883,7 @@ HFCmulti_init(void)
 	char tmpstr[64];
 
 #if !defined(CONFIG_HOTPLUG) || !defined(MODULE)
-	produce some error
+#error	"CONFIG_HOTPLUG and MODULE are not defined."
 #endif
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: init entered\n", __FUNCTION__);
@@ -3895,6 +3898,7 @@ HFCmulti_init(void)
 		case 0:
 		poll_timer = 6;
 		poll = 128;
+		break; /* wenn dieses break nochmal verschwindet, gibt es heisse ohren :-) */
 		case 8:
 		poll_timer = 2;
 		break;

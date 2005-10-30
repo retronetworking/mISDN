@@ -38,6 +38,13 @@
 #include "memdbg.h"
 #endif
 
+#include "dsp_ecdis.h"
+#include "dsp_mec2.h"
+
+//#include "dsp_mec.h"
+//#include "dsp_mec3.h"
+
+
 extern int dsp_options;
 extern int dsp_debug;
 
@@ -107,6 +114,8 @@ extern mISDNobject_t dsp_obj;
 
 #define DSP_DTMF_NPOINTS 102
 
+#define ECHOCAN_BUFLEN 4*128
+
 typedef struct _dtmf_t {
 	int		software; /* dtmf uses software decoding */
 	int 		hardware; /* dtmf uses hardware decoding */
@@ -116,6 +125,12 @@ typedef struct _dtmf_t {
 	int		count;
 	u8		digits[16]; /* just the dtmf result */
 } dtmf_t;
+
+
+/****************
+ * cancel stuff *
+ ****************/
+
 
 
 /***************
@@ -198,6 +213,25 @@ typedef struct _dsp {
 	u8		bf_crypt_inring[16];
 	u8		bf_data_out[9];
 	int		bf_sync;
+
+	/* echo cancellation stuff */
+	int		cancel_enable;
+	echo_can_state_t* ec;      /**< == NULL: echo cancellation disabled;
+				      != NULL: echo cancellation enabled */
+	
+	echo_can_disable_detector_state_t* ecdis_rd;
+	echo_can_disable_detector_state_t* ecdis_wr;
+	
+	uint16_t echotimer;
+	uint16_t echostate;
+	uint16_t echolastupdate;
+	
+	char txbuf[ECHOCAN_BUFLEN];
+	int txbuflen;
+	
+	char rxbuf[ECHOCAN_BUFLEN];
+	int rxbuflen;
+	
 } dsp_t;
 
 /* functions */
@@ -225,5 +259,9 @@ extern void dsp_bf_encrypt(dsp_t *dsp, u8 *data, int len);
 extern void dsp_bf_decrypt(dsp_t *dsp, u8 *data, int len);
 extern int dsp_bf_init(dsp_t *dsp, const u8 *key, unsigned int keylen);
 extern void dsp_bf_cleanup(dsp_t *dsp);
+
+extern void dsp_cancel_tx(dsp_t *dsp, u8 *data, int len);
+extern void dsp_cancel_rx(dsp_t *dsp, u8 *data, int len);
+extern int dsp_cancel_init(dsp_t *dsp, int taps, int training, int delay);
 
 
