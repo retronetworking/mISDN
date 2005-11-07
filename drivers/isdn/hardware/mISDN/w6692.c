@@ -35,10 +35,6 @@
 
 #include <linux/isdn_compat.h>
 
-#define SPIN_DEBUG
-#define LOCK_STATISTIC
-#include "hw_lock.h"
-
 extern const char *CardType[];
 
 const char *w6692_rev = "$Revision$";
@@ -58,7 +54,7 @@ typedef struct _w6692pci {
 	u_int			addr;
 	int			pots;
 	int			led;
-	mISDN_HWlock_t		lock;
+	spinlock_t		lock;
 	u_char			imask;
 	u_char			pctl;
 	u_char			xaddr;
@@ -70,20 +66,6 @@ typedef struct _w6692pci {
 
 #define W_LED1_ON	1
 #define W_LED1_S0STATUS	2
-
-static int lock_dev(void *data, int nowait)
-{
-	register mISDN_HWlock_t	*lock = &((w6692pci *)data)->lock;
-
-	return(lock_HW(lock, nowait));
-} 
-
-static void unlock_dev(void *data)
-{
-	register mISDN_HWlock_t *lock = &((w6692pci *)data)->lock;
-
-	unlock_HW(lock);
-}
 
 static __inline__ u_char
 ReadW6692(w6692pci *card, u_char offset)
@@ -152,9 +134,7 @@ W6692_new_ph(dchannel_t *dch)
 
 	switch (dch->ph_state) {
 		case W_L1CMD_RST:
-			dch->inst.lock(dch->inst.privat, 0);
 			ph_command(dch->hw, W_L1CMD_DRC);
-			dch->inst.unlock(dch->inst.privat);
 			mISDN_queue_data(&dch->inst, FLG_MSG_UP, PH_CONTROL | INDICATION, HW_RESET, 0, NULL, 0);
 			/* fall trough */
 		case W_L1IND_CD:
@@ -804,47 +784,16 @@ static irqreturn_t
 w6692_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	w6692pci	*card = dev_id;
-	u_long		flags;
 	u_char		ista;
 
-	spin_lock_irqsave(&card->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	card->lock.spin_adr = (void *)0x2001;
-#endif
+	spin_lock(&card->lock);
 	ista = ReadW6692(card, W_ISTA);
 	if ((ista | card->imask) == card->imask) {
 		/* possible a shared  IRQ reqest */
-#ifdef SPIN_DEBUG
-		card->lock.spin_adr = NULL;
-#endif
-		spin_unlock_irqrestore(&card->lock.lock, flags);
+		spin_unlock(&card->lock);
 		return IRQ_NONE;
 	}
 	card->irqcnt++;
-	if (test_and_set_bit(STATE_FLAG_BUSY, &card->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY allready activ, should never happen state:%lx\n",
-			__FUNCTION__, card->lock.state);
-#ifdef SPIN_DEBUG
-		printk(KERN_ERR "%s: previous lock:%p\n",
-			__FUNCTION__, card->lock.busy_adr);
-#endif
-#ifdef LOCK_STATISTIC
-		card->lock.irq_fail++;
-#endif
-	} else {
-#ifdef LOCK_STATISTIC
-		card->lock.irq_ok++;
-#endif
-#ifdef SPIN_DEBUG
-		card->lock.busy_adr = w6692_interrupt;
-#endif
-	}
-
-	test_and_set_bit(STATE_FLAG_INIRQ, &card->lock.state);
-#ifdef SPIN_DEBUG
-	card->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&card->lock.lock, flags);
 /* Begin IRQ handler */
 	if (card->dch.debug & L1_DEB_ISAC)
 		mISDN_debugprint(&card->dch.inst, "ista %02x", ista);
@@ -864,21 +813,7 @@ w6692_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	if (ista & (W_INT_XINT0 | W_INT_XINT1)) /* XINT0/1 - never */
 		mISDN_debugprint(&card->dch.inst, "W6692 spurious XINT!");
 /* End IRQ Handler */
-	spin_lock_irqsave(&card->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	card->lock.spin_adr = (void *)0x2002;
-#endif
-	if (!test_and_clear_bit(STATE_FLAG_INIRQ, &card->lock.state)) {
-	}
-	if (!test_and_clear_bit(STATE_FLAG_BUSY, &card->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY not locked state(%lx)\n",
-			__FUNCTION__, card->lock.state);
-	}
-#ifdef SPIN_DEBUG
-	card->lock.busy_adr = NULL;
-	card->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&card->lock.lock, flags);
+	spin_unlock(&card->lock);
 	return IRQ_HANDLED;
 }
 
@@ -886,14 +821,11 @@ static void
 dbusy_timer_handler(dchannel_t *dch)
 {
 	w6692pci	*card = dch->hw;
-	int	rbch, star;
+	int		rbch, star;
+	u_long		flags;
 
 	if (test_bit(FLG_DBUSY_TIMER, &dch->DFlags)) {
-		if (dch->inst.lock(dch->inst.privat, 1)) {
-			dch->dbusytimer.expires = jiffies + 1;
-			add_timer(&dch->dbusytimer);
-			return;
-		}
+		spin_lock_irqsave(dch->inst.hwlock, flags);
 		rbch = ReadW6692(card, W_D_RBCH);
 		star = ReadW6692(card, W_D_STAR);
 		if (dch->debug) 
@@ -913,7 +845,7 @@ dbusy_timer_handler(dchannel_t *dch)
 			/* Transmitter reset */
 			WriteW6692(card, W_D_CMDR, W_D_CMDR_XRST);	/* Transmitter reset */
 		}
-		dch->inst.unlock(dch->inst.privat);
+		spin_unlock_irqrestore(dch->inst.hwlock, flags);
 	}
 }
 
@@ -973,20 +905,19 @@ static void reset_w6692(w6692pci *card)
 
 static int init_card(w6692pci *card)
 {
-	int		cnt = 3;
+	int	cnt = 3;
+	u_long	flags;
 
-	lock_dev(card, 0);
-	if (request_irq(card->irq, w6692_interrupt, SA_SHIRQ,
-		"w6692", card)) {
-		printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n",
-			card->irq);
-		unlock_dev(card);
+	spin_lock_irqsave(&card->lock, flags);
+	if (request_irq(card->irq, w6692_interrupt, SA_SHIRQ, "w6692", card)) {
+		printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n", card->irq);
+		spin_unlock_irqrestore(&card->lock, flags);
 		return(-EIO);
 	}
 	while (cnt) {
 		initW6692(card);
 		/* RESET Receiver and Transmitter */
-		unlock_dev(card);
+		spin_unlock_irqrestore(&card->lock, flags);
 		/* Timeout 10ms */
 		current->state = TASK_UNINTERRUPTIBLE;
 		schedule_timeout((10*HZ)/1000);
@@ -999,15 +930,15 @@ static int init_card(w6692pci *card)
 			if (cnt == 1) {
 				return (-EIO);
 			} else {
+				spin_lock_irqsave(&card->lock, flags);
 				reset_w6692(card);
 				cnt--;
 			}
 		} else {
 			return(0);
 		}
-		lock_dev(card, 0);
 	}
-	unlock_dev(card);
+	spin_unlock_irqrestore(&card->lock, flags);
 	return(-EIO);
 }
 
@@ -1043,28 +974,36 @@ w6692_l2l1B(mISDNinstance_t *inst, struct sk_buff *skb)
 	bchannel_t	*bch = container_of(inst, bchannel_t, inst);
 	int		ret = 0;
 	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+	u_long		flags;
 
-	if ((hh->prim == PH_DATA_REQ) ||
-		(hh->prim == (DL_DATA | REQUEST))) {
+	if ((hh->prim == PH_DATA_REQ)
+	 || (hh->prim == (DL_DATA | REQUEST))) {
+		if (skb->len <= 0) {
+			printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		if (skb->len > MAX_DATA_MEM) {
+			printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		/* check for pending next_skb */
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (bch->next_skb) {
-			printk(KERN_WARNING "%s: next_skb exist ERROR\n",
-				__FUNCTION__);
+			printk(KERN_WARNING "%s: next_skb exist ERROR\n", __FUNCTION__);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(-EBUSY);
 		}
-		if (skb->len <= 0)
-			return(-EINVAL);
-		bch->inst.lock(bch->inst.privat, 0);
 		if (test_and_set_bit(BC_FLG_TX_BUSY, &bch->Flag)) {
 			test_and_set_bit(BC_FLG_TX_NEXT, &bch->Flag);
 			bch->next_skb = skb;
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(0);
 		} else {
 			bch->tx_len = skb->len;
 			memcpy(bch->tx_buf, skb->data, bch->tx_len);
 			bch->tx_idx = 0;
 			W6692_fill_Bfifo(bch);
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 #ifdef FIXME
 			if ((bch->inst.pid.protocol[2] == ISDN_PID_L2_B_RAWDEV)
 				&& bch->dev)
@@ -1079,9 +1018,9 @@ w6692_l2l1B(mISDNinstance_t *inst, struct sk_buff *skb)
 	} else if ((hh->prim == (PH_ACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_ESTABLISH  | REQUEST))) {
 		if (!test_and_set_bit(BC_FLG_ACTIV, &bch->Flag)) {
-			bch->inst.lock(bch->inst.privat, 0);
+			spin_lock_irqsave(inst->hwlock, flags);
 			ret = mode_w6692(bch, bch->channel, bch->inst.pid.protocol[1]);
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 		}
 #ifdef FIXME
 		if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_RAWDEV)
@@ -1094,7 +1033,7 @@ w6692_l2l1B(mISDNinstance_t *inst, struct sk_buff *skb)
 	} else if ((hh->prim == (PH_DEACTIVATE | REQUEST)) ||
 		  (hh->prim == (DL_RELEASE | REQUEST)) ||
 		  ((hh->prim == (PH_CONTROL | REQUEST) && (hh->dinfo == HW_DEACTIVATE)))) {
-		bch->inst.lock(bch->inst.privat, 0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 			dev_kfree_skb(bch->next_skb);
 			bch->next_skb = NULL;
@@ -1102,7 +1041,7 @@ w6692_l2l1B(mISDNinstance_t *inst, struct sk_buff *skb)
 		test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 		mode_w6692(bch, bch->channel, ISDN_PID_NONE);
 		test_and_clear_bit(BC_FLG_ACTIV, &bch->Flag);
-		bch->inst.unlock(bch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 		skb_trim(skb, 0);
 		if (hh->prim != (PH_CONTROL | REQUEST)) {
 #ifdef FIXME
@@ -1115,7 +1054,7 @@ w6692_l2l1B(mISDNinstance_t *inst, struct sk_buff *skb)
 				return(0);
 		}
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
-		bch->inst.lock(bch->inst.privat, 0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == HW_POTS_ON) {
 			ret = enable_pots(bch);
 		} else if (hh->dinfo == HW_POTS_OFF) {
@@ -1126,7 +1065,7 @@ w6692_l2l1B(mISDNinstance_t *inst, struct sk_buff *skb)
 			ret = setvolume(bch, 0, skb);
 		} else
 			ret = -EINVAL;
-		bch->inst.unlock(bch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 	} else {
 		printk(KERN_WARNING "%s: unknown prim(%x)\n",
 			__FUNCTION__, hh->prim);
@@ -1143,38 +1082,50 @@ w6692_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
 	dchannel_t	*dch = container_of(inst, dchannel_t, inst);
 	int		ret = 0;
 	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+	u_long		flags;
 
 	if (hh->prim == PH_DATA_REQ) {
+		/* check oversize */
+		if (skb->len <= 0) {
+			printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		if (skb->len > MAX_DFRAME_LEN_L1) {
+			printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		/* check for pending next_skb */
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (dch->next_skb) {
 			mISDN_debugprint(&dch->inst, "w6692 l2l1 next_skb exist this shouldn't happen");
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(-EBUSY);
 		}
-		dch->inst.lock(dch->inst.privat,0);
 		if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
 			test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
 			dch->next_skb = skb;
-			dch->inst.unlock(dch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(0);
 		} else {
 			dch->tx_len = skb->len;
 			memcpy(dch->tx_buf, skb->data, dch->tx_len);
 			dch->tx_idx = 0;
 			W6692_fill_Dfifo(dch->hw);
-			dch->inst.unlock(dch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(mISDN_queueup_newhead(inst, 0, PH_DATA_CNF,
 				hh->dinfo, skb));
 		}
 	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
-		dch->inst.lock(dch->inst.privat,0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == INFO3_P8)
 			ph_command(dch->hw, W_L1CMD_AR8);
 		else if (hh->dinfo == INFO3_P10)
 			ph_command(dch->hw, W_L1CMD_AR10);
 		else
 			ret = -EINVAL;
-		dch->inst.unlock(dch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
-		dch->inst.lock(dch->inst.privat,0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == HW_RESET) {
 			if (dch->ph_state != W_L1IND_DRD)
 				ph_command(dch->hw, W_L1CMD_RST);
@@ -1208,7 +1159,7 @@ w6692_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
 					hh->dinfo);
 			ret = -EINVAL;
 		}
-		dch->inst.unlock(dch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 	} else {
 		if (dch->debug & L1_DEB_WARN)
 			mISDN_debugprint(&dch->inst, "w6692_l1hw unknown prim %x",
@@ -1224,6 +1175,7 @@ int __init
 setup_w6692(w6692pci *card)
 {
 	u_int	val;
+
 	if (!request_region(card->addr, 256, "w6692")) {
 		printk(KERN_WARNING
 		       "mISDN: %s config port %x-%x already in use\n",
@@ -1254,16 +1206,14 @@ setup_w6692(w6692pci *card)
 static void
 release_card(w6692pci *card)
 {
-#ifdef LOCK_STATISTIC
-	printk(KERN_INFO "try_ok(%d) try_wait(%d) try_mult(%d) try_inirq(%d)\n",
-		card->lock.try_ok, card->lock.try_wait, card->lock.try_mult, card->lock.try_inirq);
-	printk(KERN_INFO "irq_ok(%d) irq_fail(%d)\n",
-		card->lock.irq_ok, card->lock.irq_fail);
-#endif
-	lock_dev(card, 0);
+	u_long	flags;
+
+	spin_lock_irqsave(&card->lock, flags);
 	/* disable all IRQ */
 	WriteW6692(card, W_IMASK, 0xff);
+	spin_unlock_irqrestore(&card->lock, flags);
 	free_irq(card->irq, card);
+	spin_lock_irqsave(&card->lock, flags);
 	mode_w6692(&card->bch[0], 0, ISDN_PID_NONE);
 	mode_w6692(&card->bch[1], 1, ISDN_PID_NONE);
 	if (card->led) {
@@ -1274,9 +1224,11 @@ release_card(w6692pci *card)
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);
 	mISDN_free_dch(&card->dch);
+	spin_unlock_irqrestore(&card->lock, flags);
 	w6692.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
+	spin_lock_irqsave(&w6692.lock, flags);
 	list_del(&card->list);
-	unlock_dev(card);
+	spin_unlock_irqrestore(&w6692.lock, flags);
 	pci_disable_device(card->pdev);
 	pci_set_drvdata(card->pdev, NULL);
 	kfree(card);
@@ -1288,6 +1240,7 @@ w6692_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	struct sk_buff	*skb;
 	int		channel = -1;
+	u_long		flags;
 
 	if (debug & 0x10000)
 		printk(KERN_DEBUG "%s: data(%p) prim(%x) arg(%p)\n",
@@ -1298,6 +1251,7 @@ w6692_manager(void *data, u_int prim, void *arg) {
 			__FUNCTION__, prim, arg);
 		return(-EINVAL);
 	}
+	spin_lock_irqsave(&w6692.lock, flags);
 	list_for_each_entry(card, &w6692.ilist, list) {
 		if (&card->dch.inst == inst) {
 			channel = 2;
@@ -1312,6 +1266,7 @@ w6692_manager(void *data, u_int prim, void *arg) {
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&w6692.lock, flags);
 	if (channel<0) {
 		printk(KERN_WARNING "%s: no channel data %p prim %x arg %p\n",
 			__FUNCTION__, data, prim, arg);
@@ -1395,12 +1350,14 @@ static int __devinit setup_instance(w6692pci *card)
 {
 	int		i, err;
 	mISDN_pid_t	pid;
+	u_long		flags;
 	
+	spin_lock_irqsave(&w6692.lock, flags);
 	list_add_tail(&card->list, &w6692.ilist);
+	spin_unlock_irqrestore(&w6692.lock, flags);
 	card->dch.debug = debug;
-	lock_HW_init(&card->lock);
-	card->dch.inst.lock = lock_dev;
-	card->dch.inst.unlock = unlock_dev;
+	spin_lock_init(&card->lock);
+	card->dch.inst.hwlock = &card->lock;
 	card->dch.inst.pid.layermask = ISDN_LAYER(0);
 	card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
 	mISDN_init_instance(&card->dch.inst, &w6692, card, w6692_l1hwD);
@@ -1412,8 +1369,7 @@ static int __devinit setup_instance(w6692pci *card)
 		card->bch[i].channel = i;
 		mISDN_init_instance(&card->bch[i].inst, &w6692, card, w6692_l2l1B);
 		card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
-		card->bch[i].inst.lock = lock_dev;
-		card->bch[i].inst.unlock = unlock_dev;
+		card->bch[i].inst.hwlock = &card->lock;
 		card->bch[i].debug = debug;
 		sprintf(card->bch[i].inst.name, "%s B%d", card->dch.inst.name, i+1);
 		mISDN_init_bch(&card->bch[i]);
@@ -1543,6 +1499,7 @@ static int __init w6692_init(void)
 #ifdef MODULE
 	w6692.owner = THIS_MODULE;
 #endif
+	spin_lock_init(&w6692.lock);
 	INIT_LIST_HEAD(&w6692.ilist);
 	w6692.name = W6692Name;
 	w6692.own_ctrl = w6692_manager;

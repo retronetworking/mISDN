@@ -491,16 +491,20 @@ dtmf_function(mISDNinstance_t *inst,  struct sk_buff *skb)
 static void
 release_dtmf(dtmf_t *dtmf) {
 	mISDNinstance_t	*inst = &dtmf->inst;
+	u_long		flags;
 
+	spin_lock_irqsave(&dtmf_obj.lock, flags);
 	list_del(&dtmf->list);
+	spin_unlock_irqrestore(&dtmf_obj.lock, flags);
 	dtmf_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(dtmf);
 }
 
 static int
 new_dtmf(mISDNstack_t *st, mISDN_pid_t *pid) {
-	dtmf_t *n_dtmf;
-	int err;
+	dtmf_t	*n_dtmf;
+	int	err;
+	u_long	flags;
 
 	if (!st || !pid)
 		return(-EINVAL);
@@ -517,7 +521,9 @@ new_dtmf(mISDNstack_t *st, mISDN_pid_t *pid) {
 		return(-ENOPROTOOPT);
 	}
 	n_dtmf->debug = debug;
+	spin_lock_irqsave(&dtmf_obj.lock, flags);
 	list_add_tail(&n_dtmf->list, &dtmf_obj.ilist);
+	spin_unlock_irqrestore(&dtmf_obj.lock, flags);
 	err = dtmf_obj.ctrl(st, MGR_REGLAYER | INDICATION, &n_dtmf->inst);
 	if (err) {
 		list_del(&n_dtmf->list);
@@ -564,17 +570,20 @@ dtmf_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	dtmf_t		*dtmf_l;
 	int		ret = -EINVAL;
+	u_long		flags;
 
 	if (debug & DEBUG_DTMF_MGR)
 		printk(KERN_DEBUG "dtmf_manager data:%p prim:%x arg:%p\n", data, prim, arg);
 	if (!data)
 		return(ret);
+	spin_lock_irqsave(&dtmf_obj.lock, flags);
 	list_for_each_entry(dtmf_l, &dtmf_obj.ilist, list) {
 		if (&dtmf_l->inst == inst) {
 			ret = 0;
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&dtmf_obj.lock, flags);
 	if (prim == (MGR_NEWLAYER | REQUEST))
 		return(new_dtmf(data, arg));
 	if (ret) {
@@ -623,6 +632,7 @@ static int dtmf_init(void)
 	dtmf_obj.name = MName;
 	dtmf_obj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
 	dtmf_obj.own_ctrl = dtmf_manager;
+	spin_lock_init(&dtmf_obj.lock);
 	INIT_LIST_HEAD(&dtmf_obj.ilist);
 	if ((err = mISDN_register(&dtmf_obj))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);

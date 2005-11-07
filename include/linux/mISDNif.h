@@ -724,16 +724,11 @@ typedef struct _Q931_info {
 
 typedef struct _mISDNobject	mISDNobject_t;
 typedef struct _mISDNinstance	mISDNinstance_t;
-// typedef struct _mISDNlayer	mISDNlayer_t;
 typedef struct _mISDNstack	mISDNstack_t;
 typedef struct _mISDNport	mISDNport_t;
 typedef struct _mISDNdevice	mISDNdevice_t;
-//typedef struct _mISDNif		mISDNif_t;
 typedef int	(ctrl_func_t)(void *, u_int, void *);
-//typedef int	(if_func_t)(struct _mISDNif *, struct sk_buff *);
 typedef int	(if_func_t)(mISDNinstance_t *, struct sk_buff *);
-typedef int	(lock_func_t)(void *, int);
-typedef void	(unlock_func_t)(void *);
 
 #define mISDN_HEAD_P(s)		((mISDN_head_t *)&s->cb[0])
 #define mISDN_HEAD_PRIM(s)	((mISDN_head_t *)&s->cb[0])->prim
@@ -764,6 +759,7 @@ struct _mISDNobject {
 	ctrl_func_t		*own_ctrl;
 	ctrl_func_t		*ctrl;
 	struct list_head	ilist;
+	spinlock_t		lock;
 	struct module		*owner;
 	struct class_device	class_dev;
 };
@@ -797,10 +793,7 @@ struct _mISDNinstance {
 	mISDNinstance_t		*clone;
 	mISDNinstance_t		*parent;
 	if_func_t		*function;
-//	mISDNif_t		up;
-//	mISDNif_t		down;
-	lock_func_t		*lock;
-	unlock_func_t		*unlock;
+	spinlock_t		*hwlock;
 	struct class_device	class_dev;
 };
 

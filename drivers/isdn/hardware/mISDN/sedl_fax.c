@@ -44,10 +44,6 @@
 #include "helper.h"
 #include "debug.h"
 
-#define SPIN_DEBUG
-#define LOCK_STATISTIC
-#include "hw_lock.h"
-
 extern const char *CardType[];
 
 const char *Sedlfax_revision = "$Revision$";
@@ -127,27 +123,13 @@ typedef struct _sedl_fax {
 	u_int			addr;
 	u_int			isac;
 	u_int			isar;
-	mISDN_HWlock_t		lock;
+	spinlock_t		lock;
 	isar_reg_t		ir;
 	isac_chip_t		isac_hw;
 	isar_hw_t		isar_hw[2];
 	dchannel_t		dch;
 	bchannel_t		bch[2];
 } sedl_fax;
-
-static int lock_dev(void *data, int nowait)
-{
-	register mISDN_HWlock_t	*lock = &((sedl_fax *)data)->lock;
-	
-	return(lock_HW(lock, nowait));
-} 
-
-static void unlock_dev(void *data)
-{
-	register mISDN_HWlock_t	*lock = &((sedl_fax *)data)->lock;
-
-	unlock_HW(lock);
-}
 
 static inline u_char
 readreg(unsigned int ale, unsigned int adr, u_char off)
@@ -275,53 +257,11 @@ static irqreturn_t
 speedfax_isa_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	sedl_fax	*sf = dev_id;
-	u_long		flags;
 	
-	spin_lock_irqsave(&sf->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	sf->lock.spin_adr = (void *)0x2001;
-#endif
-	if (test_and_set_bit(STATE_FLAG_BUSY, &sf->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY allready activ, should never happen state:%lx\n",
-			__FUNCTION__, sf->lock.state);
-#ifdef SPIN_DEBUG
-		printk(KERN_ERR "%s: previous lock:%p\n",
-			__FUNCTION__, sf->lock.busy_adr);
-#endif
-#ifdef LOCK_STATISTIC
-		sf->lock.irq_fail++;
-#endif
-	} else {
-#ifdef LOCK_STATISTIC
-		sf->lock.irq_ok++;
-#endif
-#ifdef SPIN_DEBUG
-		sf->lock.busy_adr = speedfax_isa_interrupt;
-#endif
-	}
-
-	test_and_set_bit(STATE_FLAG_INIRQ, &sf->lock.state);
-#ifdef SPIN_DEBUG
-	sf->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&sf->lock.lock, flags);
+	spin_lock(&sf->lock);
 	sf->irqcnt++;
 	do_sedl_interrupt(sf);
-	spin_lock_irqsave(&sf->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	sf->lock.spin_adr = (void *)0x2002;
-#endif
-	if (!test_and_clear_bit(STATE_FLAG_INIRQ, &sf->lock.state)) {
-	}
-	if (!test_and_clear_bit(STATE_FLAG_BUSY, &sf->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY not locked state(%lx)\n",
-			__FUNCTION__, sf->lock.state);
-	}
-#ifdef SPIN_DEBUG
-	sf->lock.busy_adr = NULL;
-	sf->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&sf->lock.lock, flags);
+	spin_unlock(&sf->lock);
 	return IRQ_HANDLED;
 }
 
@@ -329,62 +269,17 @@ static irqreturn_t
 speedfax_pci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	sedl_fax	*sf = dev_id;
-	u_long		flags;
 	u_char		val;
 
-	spin_lock_irqsave(&sf->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	sf->lock.spin_adr = (void *)0x3001;
-#endif
+	spin_lock(&sf->lock);
 	val = bytein(sf->cfg + TIGER_AUX_STATUS);
 	if (val & SEDL_TIGER_IRQ_BIT) { /* for us or shared ? */
-#ifdef SPIN_DEBUG
-		sf->lock.spin_adr = NULL;
-#endif
-		spin_unlock_irqrestore(&sf->lock.lock, flags);
+		spin_unlock(&sf->lock);
 		return IRQ_NONE; /* shared */
 	}
 	sf->irqcnt++;
-	if (test_and_set_bit(STATE_FLAG_BUSY, &sf->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY allready activ, should never happen state:%lx\n",
-			__FUNCTION__, sf->lock.state);
-#ifdef SPIN_DEBUG
-		printk(KERN_ERR "%s: previous lock:%p\n",
-			__FUNCTION__, sf->lock.busy_adr);
-#endif
-#ifdef LOCK_STATISTIC
-		sf->lock.irq_fail++;
-#endif
-	} else {
-#ifdef LOCK_STATISTIC
-		sf->lock.irq_ok++;
-#endif
-#ifdef SPIN_DEBUG
-		sf->lock.busy_adr = speedfax_pci_interrupt;
-#endif
-	}
-
-	test_and_set_bit(STATE_FLAG_INIRQ, &sf->lock.state);
-#ifdef SPIN_DEBUG
-	sf->lock.spin_adr= NULL;
-#endif
-	spin_unlock_irqrestore(&sf->lock.lock, flags);
 	do_sedl_interrupt(sf);
-	spin_lock_irqsave(&sf->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	sf->lock.spin_adr = (void *)0x3002;
-#endif
-	if (!test_and_clear_bit(STATE_FLAG_INIRQ, &sf->lock.state)) {
-	}
-	if (!test_and_clear_bit(STATE_FLAG_BUSY, &sf->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY not locked state(%lx)\n",
-			__FUNCTION__, sf->lock.state);
-	}
-#ifdef SPIN_DEBUG
-	sf->lock.busy_adr = NULL;
-	sf->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&sf->lock.lock, flags);
+	spin_unlock(&sf->lock);
 	return IRQ_HANDLED;
 }
 
@@ -425,6 +320,7 @@ reset_speedfax(sedl_fax *sf)
 static int init_card(sedl_fax *sf)
 {
 	int	cnt = 3;
+	u_long	flags;
 	u_int	shared = SA_SHIRQ;
 	void	*irq_func = speedfax_pci_interrupt;
 
@@ -432,11 +328,11 @@ static int init_card(sedl_fax *sf)
 		irq_func = speedfax_isa_interrupt;
 		shared = 0;
 	}
-	lock_dev(sf, 0);
+	spin_lock_irqsave(&sf->lock, flags);
 	if (request_irq(sf->irq, irq_func, shared, "speedfax", sf)) {
 		printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n",
 			sf->irq);
-		unlock_dev(sf);
+		spin_unlock_irqrestore(&sf->lock, flags);
 		return(-EIO);
 	}
 	while (cnt) {
@@ -455,7 +351,7 @@ static int init_card(sedl_fax *sf)
 		WriteISAR(sf, 0, ISAR_IRQBIT, ISAR_IRQMSK);
 		/* RESET Receiver and Transmitter */
 		WriteISAC(sf, ISAC_CMDR, 0x41);
-		unlock_dev(sf);
+		spin_unlock_irqrestore(&sf->lock, flags);
 		current->state = TASK_UNINTERRUPTIBLE;
 		/* Timeout 10ms */
 		schedule_timeout((10*HZ)/1000);
@@ -468,7 +364,7 @@ static int init_card(sedl_fax *sf)
 			if (cnt == 1) {
 				return (-EIO);
 			} else {
-				lock_dev(sf, 0);
+				spin_lock_irqsave(&sf->lock, flags);
 				reset_speedfax(sf);
 				cnt--;
 			}
@@ -476,7 +372,7 @@ static int init_card(sedl_fax *sf)
 			return(0);
 		}
 	}
-	unlock_dev(sf);
+	spin_unlock_irqrestore(&sf->lock, flags);
 	return(-EIO);
 }
 
@@ -509,7 +405,8 @@ static char SpeedfaxName[] = "Speedfax";
 int
 setup_speedfax(sedl_fax *sf)
 {
-	int bytecnt, ver;
+	int	bytecnt, ver;
+	u_long	flags;
 
 	bytecnt = (sf->subtyp == SEDL_SPEEDFAX_ISA) ? 16 : 256;
 	if (!request_region(sf->cfg, bytecnt, (sf->subtyp == SEDL_SPEEDFAX_ISA) ? "sedl PnP" : "sedl PCI")) {
@@ -552,15 +449,11 @@ setup_speedfax(sedl_fax *sf)
 	sf->bch[0].Write_Reg = &WriteISAR;
 	sf->bch[1].Read_Reg = &ReadISAR;
 	sf->bch[1].Write_Reg = &WriteISAR;
-	lock_dev(sf, 0);
-#ifdef SPIN_DEBUG
-	printk(KERN_DEBUG "spin_lock_adr=%p now(%p)\n", &sf->lock.spin_adr, sf->lock.spin_adr);
-	printk(KERN_DEBUG "busy_lock_adr=%p now(%p)\n", &sf->lock.busy_adr, sf->lock.busy_adr);
-#endif
+	spin_lock_irqsave(&sf->lock, flags);
 	writereg(sf->addr, sf->isar, ISAR_IRQBIT, 0);
 	writereg(sf->addr, sf->isac, ISAC_MASK, 0xFF);
 	ver = ISARVersion(&sf->bch[0], "Sedlbauer:");
-	unlock_dev(sf);
+	spin_unlock_irqrestore(&sf->lock, flags);
 	if (ver < 0) {
 		printk(KERN_WARNING
 			"Sedlbauer: wrong ISAR version (ret = %d)\n", ver);
@@ -572,15 +465,10 @@ setup_speedfax(sedl_fax *sf)
 
 static void
 release_card(sedl_fax *card) {
+	u_long	flags;
 
-#ifdef LOCK_STATISTIC
-	printk(KERN_INFO "try_ok(%d) try_wait(%d) try_mult(%d) try_inirq(%d)\n",
-		card->lock.try_ok, card->lock.try_wait, card->lock.try_mult, card->lock.try_inirq);
-	printk(KERN_INFO "irq_ok(%d) irq_fail(%d)\n",
-		card->lock.irq_ok, card->lock.irq_fail);
-#endif
-	lock_dev(card, 0);
 	free_irq(card->irq, card);
+	spin_lock_irqsave(&card->lock, flags);
 	free_isar(&card->bch[1]);
 	free_isar(&card->bch[0]);
 	mISDN_isac_free(&card->dch);
@@ -593,12 +481,11 @@ release_card(sedl_fax *card) {
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);
 	mISDN_free_dch(&card->dch);
-#ifdef OBSOLETE
-	speedfax.ctrl(card->dch.inst.up.peer, MGR_DISCONNECT | REQUEST, &card->dch.inst.up);
-#endif
+	spin_unlock_irqrestore(&card->lock, flags);
 	speedfax.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
+	spin_lock_irqsave(&speedfax.lock, flags);
 	list_del(&card->list);
-	unlock_dev(card);
+	spin_unlock_irqrestore(&speedfax.lock, flags);
 	if (card->subtyp == SEDL_SPEEDFAX_ISA) {
 #if defined(CONFIG_PNP)
 		pnp_disable_dev(card->dev.pnp);
@@ -618,6 +505,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst=data;
 	int		channel = -1;
 	struct sk_buff	*skb;
+	u_long		flags;
 
 	if (debug & MISDN_DEBUG_MANAGER)
 		printk(KERN_DEBUG "%s: data:%p prim:%x arg:%p\n",
@@ -628,6 +516,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			prim, arg);
 		return(-EINVAL);
 	}
+	spin_lock_irqsave(&speedfax.lock, flags);
 	list_for_each_entry(card, &speedfax.ilist, list) {
 		if (&card->dch.inst == inst) {
 			channel = 2;
@@ -642,6 +531,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&speedfax.lock, flags);
 	if (channel<0) {
 		printk(KERN_ERR "speedfax_manager no channel data %p prim %x arg %p\n",
 			data, prim, arg);
@@ -741,6 +631,7 @@ static int __devinit setup_instance(sedl_fax *card)
 	int		i, err;
 	mISDN_pid_t	pid;
 	struct device	*dev;
+	u_long		flags;
 	
 	if (sedl_cnt >= MAX_CARDS) {
 		kfree(card);
@@ -755,11 +646,12 @@ static int __devinit setup_instance(sedl_fax *card)
 	} else {
 		dev = &card->dev.pci->dev;
 	}
+	spin_lock_irqsave(&speedfax.lock, flags);
 	list_add_tail(&card->list, &speedfax.ilist);
+	spin_unlock_irqrestore(&speedfax.lock, flags);
 	card->dch.debug = debug;
-	lock_HW_init(&card->lock);
-	card->dch.inst.lock = lock_dev;
-	card->dch.inst.unlock = unlock_dev;
+	spin_lock_init(&card->lock);
+	card->dch.inst.hwlock = &card->lock;
 	card->dch.inst.pid.layermask = ISDN_LAYER(0);
 	card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
 	card->dch.inst.class_dev.dev = dev;
@@ -771,8 +663,7 @@ static int __devinit setup_instance(sedl_fax *card)
 		card->bch[i].channel = i;
 		mISDN_init_instance(&card->bch[i].inst, &speedfax, card, isar_down);
 		card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
-		card->bch[i].inst.lock = lock_dev;
-		card->bch[i].inst.unlock = unlock_dev;
+		card->bch[i].inst.hwlock = &card->lock;
 		card->bch[i].debug = debug;
 		card->bch[i].inst.class_dev.dev = dev;
 		sprintf(card->bch[i].inst.name, "%s B%d", card->dch.inst.name, i+1);
@@ -785,7 +676,9 @@ static int __devinit setup_instance(sedl_fax *card)
 		mISDN_free_dch(&card->dch);
 		mISDN_free_bch(&card->bch[1]);
 		mISDN_free_bch(&card->bch[0]);
+		spin_lock_irqsave(&speedfax.lock, flags);
 		list_del(&card->list);
+		spin_unlock_irqrestore(&speedfax.lock, flags);
 		kfree(card);
 		return(err);
 	}
@@ -975,6 +868,7 @@ static int __init Speedfax_init(void)
 #ifdef MODULE
 	speedfax.owner = THIS_MODULE;
 #endif
+	spin_lock_init(&speedfax.lock);
 	INIT_LIST_HEAD(&speedfax.ilist);
 	speedfax.name = SpeedfaxName;
 	speedfax.own_ctrl = speedfax_manager;

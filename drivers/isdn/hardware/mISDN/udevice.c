@@ -1960,6 +1960,7 @@ int init_mISDNdev (int debug) {
 		udev_obj.DPROTO.protocol[i] = ISDN_PID_ANY;
 		udev_obj.BPROTO.protocol[i] = ISDN_PID_ANY;
 	}
+	spin_lock_init(&udev_obj.lock);
 	INIT_LIST_HEAD(&udev_obj.ilist);
 	udev_obj.own_ctrl = udev_manager;
 	device_debug = debug;

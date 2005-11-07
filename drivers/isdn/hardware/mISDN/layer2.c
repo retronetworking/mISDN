@@ -2107,7 +2107,8 @@ l2m_debug(struct FsmInst *fi, char *fmt, ...)
 static void
 release_l2(layer2_t *l2)
 {
-	mISDNinstance_t  *inst = &l2->inst;
+	mISDNinstance_t	*inst = &l2->inst;
+	u_long		flags;
 
 	mISDN_FsmDelTimer(&l2->t200, 21);
 	mISDN_FsmDelTimer(&l2->t203, 16);
@@ -2140,7 +2141,9 @@ release_l2(layer2_t *l2)
 		l2->cloneif = NULL;
 	}
 #endif
+	spin_lock_irqsave(&isdnl2.lock, flags);
 	list_del(&l2->list);
+	spin_unlock_irqrestore(&isdnl2.lock, flags);
 	isdnl2.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l2->entity != MISDN_ENTITY_NONE)
 		isdnl2.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)l2->entity);
@@ -2149,9 +2152,10 @@ release_l2(layer2_t *l2)
 
 static int
 new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
-	layer2_t *nl2;
-	int err;
-	u_char *p;
+	layer2_t	*nl2;
+	int		err;
+	u_char		*p;
+	u_long		flags;
 
 	if (!st || !pid)
 		return(-EINVAL);
@@ -2262,7 +2266,9 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
 
 	mISDN_FsmInitTimer(&nl2->l2m, &nl2->t200);
 	mISDN_FsmInitTimer(&nl2->l2m, &nl2->t203);
+	spin_lock_irqsave(&isdnl2.lock, flags);
 	list_add_tail(&nl2->list, &isdnl2.ilist);
+	spin_unlock_irqrestore(&isdnl2.lock, flags);
 	err = isdnl2.ctrl(&nl2->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
 		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
@@ -2381,18 +2387,21 @@ l2_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	layer2_t	*l2l;
 	int		err = -EINVAL;
+	u_long		flags;
 
 	if (debug & 0x1000)
 		printk(KERN_DEBUG "%s: data:%p prim:%x arg:%p\n", __FUNCTION__,
 			data, prim, arg);
 	if (!data)
 		return(err);
+	spin_lock_irqsave(&isdnl2.lock, flags);
 	list_for_each_entry(l2l, &isdnl2.ilist, list) {
 		if (&l2l->inst == inst) {
 			err = 0;
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&isdnl2.lock, flags);
 	if (prim == (MGR_NEWLAYER | REQUEST))
 		return(new_l2(data, arg));
 	if (err) {
@@ -2458,6 +2467,7 @@ int Isdnl2_Init(void)
 		ISDN_PID_L2_DF_PTP;
 	isdnl2.BPROTO.protocol[2] = ISDN_PID_L2_B_X75SLP;
 	isdnl2.own_ctrl = l2_manager;
+	spin_lock_init(&isdnl2.lock);
 	INIT_LIST_HEAD(&isdnl2.ilist);
 	l2fsm.state_count = L2_STATE_COUNT;
 	l2fsm.event_count = L2_EVENT_COUNT;

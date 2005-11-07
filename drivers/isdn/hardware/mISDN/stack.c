@@ -8,8 +8,10 @@
 
 #include "core.h"
 
-LIST_HEAD(mISDN_stacklist);
-LIST_HEAD(mISDN_instlist);
+static LIST_HEAD(mISDN_stacklist);
+static rwlock_t	stacklist_lock = RW_LOCK_UNLOCKED;
+static LIST_HEAD(mISDN_instlist);
+static rwlock_t	instlist_lock = RW_LOCK_UNLOCKED;
 
 int
 get_stack_cnt(void)
@@ -17,8 +19,10 @@ get_stack_cnt(void)
 	int cnt = 0;
 	mISDNstack_t *st;
 
+	read_lock(&stacklist_lock);
 	list_for_each_entry(st, &mISDN_stacklist, list)
 		cnt++;
+	read_unlock(&stacklist_lock);
 	return(cnt);
 }
 
@@ -38,11 +42,13 @@ get_stack_info(struct sk_buff *skb)
 	} else if (hp->addr <= 127 && hp->addr <= get_stack_cnt()) {
 		/* stack nr */
 		i = 1;
+		read_lock(&stacklist_lock);
 		list_for_each_entry(st, &mISDN_stacklist, list) {
 			if (i == hp->addr)
 				break;
 			i++;
 		}
+		read_unlock(&stacklist_lock);
 	} else
 		st = get_stack4id(hp->addr);
 	if (core_debug & DEBUG_CORE_FUNC)
@@ -99,12 +105,14 @@ get_free_stackid(mISDNstack_t *mst, int flag)
 		while(id < STACK_ID_MAX) {
 			found = 0;
 			id += STACK_ID_INC;
+			read_lock(&stacklist_lock);
 			list_for_each_entry(st, &mISDN_stacklist, list) {
 				if (st->id == id) {
 					found++;
 					break;
 				}
 			}
+			read_unlock(&stacklist_lock);
 			if (!found)
 				return(id);
 		}
@@ -151,24 +159,32 @@ get_stack4id(u_int id)
 		printk(KERN_DEBUG "get_stack4id(%x)\n", id);
 	if (!id) /* 0 isn't a valid id */
 		return(NULL);
+	read_lock(&stacklist_lock);
 	list_for_each_entry(st, &mISDN_stacklist, list) {	
-		if (id == st->id)
+		if (id == st->id) {
+			read_unlock(&stacklist_lock);
 			return(st);
+		}
 		if ((id & FLG_CHILD_STACK) && ((id & MASTER_ID_MASK) == st->id)) {
 			list_for_each_entry(cst, &st->childlist, list) {
-				if (cst->id == id)
+				if (cst->id == id) {
+					read_unlock(&stacklist_lock);
 					return(cst);
+				}
 			}
 		}
 		if ((id & FLG_CLONE_STACK) && ((id & MASTER_ID_MASK) == st->id)) {
 			cst = st->clone;
 			while (cst) {
-				if (cst->id == id)
+				if (cst->id == id) {
+					read_unlock(&stacklist_lock);
 					return(cst);
+				}
 				cst = cst->clone;
 			}
 		}
 	}
+	read_unlock(&stacklist_lock);
 	return(NULL);
 }
 
@@ -277,9 +293,13 @@ get_instance4id(u_int id)
 {
 	mISDNinstance_t *inst;
 
+	read_lock(&instlist_lock);
 	list_for_each_entry(inst, &mISDN_instlist, list)
-		if (inst->id == id)
+		if (inst->id == id) {
+			read_unlock(&instlist_lock);
 			return(inst);
+		}
+	read_unlock(&instlist_lock);
 	return(NULL);
 }
 
@@ -601,6 +621,7 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 {
 	mISDNstack_t	*newst;
 	int		err;
+	u_long		flags;
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "create %s stack inst(%p)\n",
@@ -635,7 +656,9 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 		list_add_tail(&newst->list, &master->childlist);
 		newst->parent = master;
 	} else if (!(newst->id & FLG_CLONE_STACK)) {
+		write_lock_irqsave(&stacklist_lock, flags);
 		list_add_tail(&newst->list, &mISDN_stacklist);
+		write_unlock_irqrestore(&stacklist_lock, flags);
 	}
 	if (inst) {
 		inst->st = newst;
@@ -730,6 +753,7 @@ static int
 delete_stack(mISDNstack_t *st)
 {
 	DECLARE_MUTEX_LOCKED(sem);
+	u_long	flags;
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%p:%08x)\n", __FUNCTION__, st, st->id);
@@ -759,7 +783,9 @@ delete_stack(mISDNstack_t *st)
 			down(&sem);
 	}
 	release_layers(st, MGR_RELEASE | INDICATION);
+	write_lock_irqsave(&stacklist_lock, flags);
 	list_del(&st->list);
+	write_unlock_irqrestore(&stacklist_lock, flags);
 	kfree(st);
 	return(0);
 }
@@ -796,31 +822,73 @@ release_stack(mISDNstack_t *st) {
 }
 
 void
+cleanup_object(mISDNobject_t *obj)
+{
+	mISDNstack_t	*st, *nst;
+	mISDNinstance_t	*inst;
+	int		i;
+
+	read_lock(&stacklist_lock);
+	list_for_each_entry_safe(st, nst, &mISDN_stacklist, list) {
+		for (i = 0; i < MAX_LAYER_NR; i++) {
+			inst = st->i_array[i];
+			if (inst && inst->obj == obj) {
+				read_unlock(&stacklist_lock);
+				inst->obj->own_ctrl(st, MGR_RELEASE | INDICATION, inst);
+				read_lock(&stacklist_lock);
+			}
+		}
+	}
+	read_unlock(&stacklist_lock);
+}
+
+void
+check_stacklist(void)
+{
+	mISDNstack_t	*st, *nst;
+
+	read_lock(&stacklist_lock);
+	if (!list_empty(&mISDN_stacklist)) {
+		printk(KERN_WARNING "mISDNcore mISDN_stacklist not empty\n");
+		list_for_each_entry_safe(st, nst, &mISDN_stacklist, list) {
+			printk(KERN_WARNING "mISDNcore st %x still in list\n", st->id);
+			if (list_empty(&st->list)) {
+				printk(KERN_WARNING "mISDNcore st == next\n");
+				break;
+			}
+		}
+	}
+	read_unlock(&stacklist_lock);
+}
+
+void
 release_stacks(mISDNobject_t *obj)
 {
 	mISDNstack_t	*st, *tmp;
 	int		rel, i;
 
 	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "%s: obj(%p) %s\n",
-			__FUNCTION__, obj, obj->name);
+		printk(KERN_DEBUG "%s: obj(%p) %s\n", __FUNCTION__, obj, obj->name);
+	read_lock(&stacklist_lock);
 	list_for_each_entry_safe(st, tmp, &mISDN_stacklist, list) {
 		rel = 0;
 		if (core_debug & DEBUG_CORE_FUNC)
-			printk(KERN_DEBUG "%s: st(%p)\n",
-				__FUNCTION__, st);
+			printk(KERN_DEBUG "%s: st(%p)\n", __FUNCTION__, st);
 		for (i = 0; i <= MAX_LAYER_NR; i++) {
 			if (!st->i_array[i])
 				continue;
 			if (core_debug & DEBUG_CORE_FUNC)
-				printk(KERN_DEBUG "%s: inst%d(%p)\n",
-					__FUNCTION__, i, st->i_array[i]);
+				printk(KERN_DEBUG "%s: inst%d(%p)\n", __FUNCTION__, i, st->i_array[i]);
 			if (st->i_array[i]->obj == obj)
 				rel++;
 		}		
-		if (rel)
+		if (rel) {
+			read_unlock(&stacklist_lock);
 			release_stack(st);
+			read_lock(&stacklist_lock);
+		}
 	}
+	read_unlock(&stacklist_lock);
 	if (obj->refcnt)
 		printk(KERN_WARNING "release_stacks obj %s refcnt is %d\n",
 			obj->name, obj->refcnt);
@@ -855,6 +923,7 @@ register_layer(mISDNstack_t *st, mISDNinstance_t *inst)
 {
 	int		idx, err;
 	mISDNinstance_t	*dup;
+	u_long		flags;
 
 	if (!inst || !st)
 		return(-EINVAL);
@@ -907,7 +976,9 @@ register_layer(mISDNstack_t *st, mISDNinstance_t *inst)
 		list_del_init(&inst->list);
 	}
 	inst->st = st;
+	write_lock_irqsave(&instlist_lock, flags);
 	list_add_tail(&inst->list, &mISDN_instlist);
+	write_unlock_irqrestore(&instlist_lock, flags);
 	err = mISDN_register_sysfs_inst(inst);
 	if (err) {
 		// FIXME error handling
@@ -939,6 +1010,7 @@ preregister_layer(mISDNstack_t *st, mISDNinstance_t *inst)
 int
 unregister_instance(mISDNinstance_t *inst) {
 	int	i;
+	u_long	flags;
 
 	if (!inst)
 		return(-EINVAL);
@@ -978,11 +1050,13 @@ unregister_instance(mISDNinstance_t *inst) {
 		inst->clone->parent = NULL;
 		inst->clone = NULL;
 	}
+	write_lock_irqsave(&instlist_lock, flags);
 	if (inst->list.prev && inst->list.next)
 		list_del_init(&inst->list);
 	else
 		int_errtxt("uninitialized list inst(%08x)", inst->id);
 	inst->id = 0;
+	write_unlock_irqrestore(&instlist_lock, flags);
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: mISDN_instlist(%p<-%p->%p)\n", __FUNCTION__,
 			mISDN_instlist.prev, &mISDN_instlist, mISDN_instlist.next);

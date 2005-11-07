@@ -183,23 +183,24 @@ ISARVersion(bchannel_t *bch, char *s)
 int
 isar_load_firmware(bchannel_t *bch, u_char *buf, int size)
 {
-	int ret, cnt, debug;
-	u_char len, nom, noc;
-	u_short sadr, left, *sp;
-	u_char *p = buf;
-	u_char *msg, *tmpmsg, *mp, tmp[64];
-	isar_hw_t *ih = bch->hw;
+	int		ret, cnt, debug;
+	u_char		len, nom, noc;
+	u_short		sadr, left, *sp;
+	u_char		*p = buf;
+	u_char		*msg, *tmpmsg, *mp, tmp[64];
+	isar_hw_t	*ih = bch->hw;
+	u_long		flags;
 	
 	struct {u_short sadr;
 		u_short len;
 		u_short d_key;
 	} *blk_head;
 		
-	bch->inst.lock(bch->inst.privat, 0);
+	spin_lock_irqsave(bch->inst.hwlock, flags);
 #define	BLK_HEAD_SIZE 6
 	if (1 != (ret = ISARVersion(bch, "Testing"))) {
 		printk(KERN_ERR"isar_load_firmware wrong isar version %d\n", ret);
-		bch->inst.unlock(bch->inst.privat);
+		spin_unlock_irqrestore(bch->inst.hwlock, flags);
 		return(1);
 	}
 	debug = bch->debug;
@@ -213,7 +214,7 @@ isar_load_firmware(bchannel_t *bch, u_char *buf, int size)
 	bch->Write_Reg(bch->inst.privat, 0, ISAR_IRQBIT, 0);
 	if (!(msg = kmalloc(256, GFP_ATOMIC))) {
 		printk(KERN_ERR"isar_load_firmware no buffer\n");
-		bch->inst.unlock(bch->inst.privat);
+		spin_unlock_irqrestore(bch->inst.hwlock, flags);
 		return (1);
 	}
 	while (cnt < size) {
@@ -320,7 +321,7 @@ isar_load_firmware(bchannel_t *bch, u_char *buf, int size)
 	/* NORMAL mode entered */
 	/* Enable IRQs of ISAR */
 	bch->Write_Reg(bch->inst.privat, 0, ISAR_IRQBIT, ISAR_IRQSTA);
-	bch->inst.unlock(bch->inst.privat);
+	spin_unlock_irqrestore(bch->inst.hwlock, flags);
 	cnt = 1000; /* max 1s */
 	while ((!ih->reg->bstat) && cnt) {
 		mdelay(1);
@@ -339,12 +340,12 @@ isar_load_firmware(bchannel_t *bch, u_char *buf, int size)
 	while (cnt--)
 		mdelay(1);
 	ih->reg->iis = 0;
-	bch->inst.lock(bch->inst.privat, 0);
+	spin_lock_irqsave(bch->inst.hwlock, flags);
 	if (!sendmsg(bch, ISAR_HIS_DIAG, ISAR_CTRL_STST, 0, NULL)) {
 		printk(KERN_ERR"isar sendmsg self tst failed\n");
 		ret = 1;goto reterror;
 	}
-	bch->inst.unlock(bch->inst.privat);
+	spin_unlock_irqrestore(bch->inst.hwlock, flags);
 	cnt = 10000; /* max 100 ms */
 	while ((ih->reg->iis != ISAR_IIS_DIAG) && cnt) {
 		udelay(10);
@@ -363,13 +364,13 @@ isar_load_firmware(bchannel_t *bch, u_char *buf, int size)
 			ih->reg->cmsb, ih->reg->clsb, ih->reg->par[0]);
 		ret = 1;goto reterrflg;
 	}
-	bch->inst.lock(bch->inst.privat, 0);
+	spin_lock_irqsave(bch->inst.hwlock, flags);
 	ih->reg->iis = 0;
 	if (!sendmsg(bch, ISAR_HIS_DIAG, ISAR_CTRL_SWVER, 0, NULL)) {
 		printk(KERN_ERR"isar RQST SVN failed\n");
 		ret = 1;goto reterror;
 	}
-	bch->inst.unlock(bch->inst.privat);
+	spin_unlock_irqrestore(bch->inst.hwlock, flags);
 	cnt = 30000; /* max 300 ms */
 	while ((ih->reg->iis != ISAR_IIS_DIAG) && cnt) {
 		udelay(10);
@@ -391,19 +392,19 @@ isar_load_firmware(bchannel_t *bch, u_char *buf, int size)
 		}
 	}
 	bch->debug = debug;
-	bch->inst.lock(bch->inst.privat, 0);
+	spin_lock_irqsave(bch->inst.hwlock, flags);
 	isar_setup(bch);
-	bch->inst.unlock(bch->inst.privat);
+	spin_unlock_irqrestore(bch->inst.hwlock, flags);
 	bch->inst.obj->own_ctrl(&bch->inst, MGR_LOADFIRM | CONFIRM, NULL);
 	ret = 0;
 reterrflg:
-	bch->inst.lock(bch->inst.privat, 0);
+	spin_lock_irqsave(bch->inst.hwlock, flags);
 reterror:
 	bch->debug = debug;
 	if (ret)
 		/* disable ISAR IRQ */
 		bch->Write_Reg(bch->inst.privat, 0, ISAR_IRQBIT, 0);
-	bch->inst.unlock(bch->inst.privat);
+	spin_unlock_irqrestore(bch->inst.hwlock, flags);
 	kfree(msg);
 	return(ret);
 }
@@ -1563,29 +1564,38 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 	bchannel_t	*bch;
 	int		ret = 0;
 	mISDN_head_t	*hh;
+	u_long		flags;
 
 	hh = mISDN_HEAD_P(skb);
 	bch = container_of(inst, bchannel_t, inst);
 	if ((hh->prim == PH_DATA_REQ) ||
 		(hh->prim == (DL_DATA | REQUEST))) {
+		if (skb->len <= 0) {
+			printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		if (skb->len > MAX_DATA_MEM) {
+			printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		/* check for pending next_skb */
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (bch->next_skb) {
 			mISDN_debugprint(&bch->inst, " l2l1 next_skb exist this shouldn't happen");
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(-EBUSY);
 		}
-		if (skb->len <= 0)
-			return(-EINVAL);
-		bch->inst.lock(bch->inst.privat, 0);
 		if (test_and_set_bit(BC_FLG_TX_BUSY, &bch->Flag)) {
 			test_and_set_bit(BC_FLG_TX_NEXT, &bch->Flag);
 			bch->next_skb = skb;
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(0);
 		} else {
 			bch->tx_len = skb->len;
 			memcpy(bch->tx_buf, skb->data, bch->tx_len);
 			bch->tx_idx = 0;
 			isar_fill_fifo(bch);
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			skb_trim(skb, 0);
 			return(mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM,
 				hh->dinfo, skb));
@@ -1600,16 +1610,16 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 			if ((bp == ISDN_PID_L1_B_64TRANS) &&
 				(bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANSDTMF))
 				bp = ISDN_PID_L2_B_TRANSDTMF;
-			bch->inst.lock(bch->inst.privat, 0);
+			spin_lock_irqsave(inst->hwlock, flags);
 			ret = modeisar(bch, bch->channel, bp, NULL);
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 		}
 		skb_trim(skb, 0);
 		return(mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, ret, skb));
 	} else if ((hh->prim == (PH_DEACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_RELEASE | REQUEST)) ||
 		((hh->prim == (PH_CONTROL | REQUEST) && (hh->dinfo == HW_DEACTIVATE)))) {
-		bch->inst.lock(bch->inst.privat, 0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 			dev_kfree_skb(bch->next_skb);
 			bch->next_skb = NULL;
@@ -1617,7 +1627,7 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 		modeisar(bch, bch->channel, 0, NULL);
 		test_and_clear_bit(BC_FLG_ACTIV, &bch->Flag);
-		bch->inst.unlock(bch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 		skb_trim(skb, 0);
 		if (hh->prim != (PH_CONTROL | REQUEST))
 			ret = mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, 0, skb);
@@ -1640,9 +1650,9 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 				else if (tt > '9')
 					tt -= 7;
 				tt &= 0x1f;
-				bch->inst.lock(bch->inst.privat, 0);
+				spin_lock_irqsave(inst->hwlock, flags);
 				isar_pump_cmd(bch, PCTRL_CMD_TDTMF, tt);
-				bch->inst.unlock(bch->inst.privat);
+				spin_unlock_irqrestore(inst->hwlock, flags);
 				skb_trim(skb, 0);
 				if (!mISDN_queueup_newhead(inst, 0, PH_CONTROL | CONFIRM, 0, skb))
 					return(0);

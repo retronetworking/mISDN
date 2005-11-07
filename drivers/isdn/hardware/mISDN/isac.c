@@ -96,17 +96,6 @@ isac_hwbh(dchannel_t *dch)
 {
 	if (dch->debug)
 		printk(KERN_DEBUG "%s: event %lx\n", __FUNCTION__, dch->event);
-#if 0
-	if (test_and_clear_bit(D_CLEARBUSY, &dch->event)) {
-		if (dch->debug)
-			mISDN_debugprint(&dch->inst, "D-Channel Busy cleared");
-		stptr = dch->stlist;
-		while (stptr != NULL) {
-			stptr->l1.l1l2(stptr, PH_PAUSE | CONFIRM, NULL);
-			stptr = stptr->next;
-		}
-	}
-#endif
 	if (test_and_clear_bit(D_L1STATECHANGE, &dch->event))
 		isac_new_ph(dch);		
 #if ARCOFI_USE
@@ -236,10 +225,6 @@ isac_xpr_irq(dchannel_t *dch)
 {
 	if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
 		del_timer(&dch->dbusytimer);
-#if 0
-	if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
-		dchannel_sched_event(dch, D_CLEARBUSY);
-#endif
 	if (dch->tx_idx < dch->tx_len) {
 		isac_fill_fifo(dch);
 	} else {
@@ -273,10 +258,6 @@ isac_retransmit(dchannel_t *dch)
 {
 	if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
 		del_timer(&dch->dbusytimer);
-#if 0
-	if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
-		dchannel_sched_event(dch, D_CLEARBUSY);
-#endif
 	if (test_bit(FLG_TX_BUSY, &dch->DFlags)) {
 		/* Restart frame */
 		dch->tx_idx = 0;
@@ -598,44 +579,54 @@ int
 mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	dchannel_t	*dch;
-	int		ret = -EINVAL;
+	int		ret = 0;
 	mISDN_head_t	*hh;
+	u_long		flags;
 
 	hh = mISDN_HEAD_P(skb);
 	dch = container_of(inst, dchannel_t, inst);
-	ret = 0;
 	if (hh->prim == PH_DATA_REQ) {
+		/* check oversize */
+		if (skb->len <= 0) {
+			printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		if (skb->len > MAX_DFRAME_LEN_L1) {
+			printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (dch->next_skb) {
 			mISDN_debugprint(&dch->inst, " l2l1 next_skb exist this shouldn't happen");
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(-EBUSY);
 		}
-		dch->inst.lock(dch->inst.privat,0);
 		if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
 			test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
 			dch->next_skb = skb;
-			dch->inst.unlock(dch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(0);
 		} else {
 			dch->tx_len = skb->len;
 			memcpy(dch->tx_buf, skb->data, dch->tx_len);
 			dch->tx_idx = 0;
 			isac_fill_fifo(dch);
-			dch->inst.unlock(dch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			skb_trim(skb, 0);
 			return(mISDN_queueup_newhead(inst, 0, PH_DATA_CNF,
 				hh->dinfo, skb));
 		}
 	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
-		dch->inst.lock(dch->inst.privat,0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == INFO3_P8)
 			ph_command(dch, ISAC_CMD_AR8);
 		else if (hh->dinfo == INFO3_P10)
 			ph_command(dch, ISAC_CMD_AR10);
 		else
 			ret = -EINVAL;
-		dch->inst.unlock(dch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
-		dch->inst.lock(dch->inst.privat,0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == HW_RESET) {
 			if ((dch->ph_state == ISAC_IND_EI) ||
 				(dch->ph_state == ISAC_IND_DR) ||
@@ -654,10 +645,6 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
 			if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
 				del_timer(&dch->dbusytimer);
-#if 0
-			if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
-				dchannel_sched_event(dch, D_CLEARBUSY);
-#endif
 		} else if ((hh->dinfo & HW_TESTLOOP) == HW_TESTLOOP) {
 			u_char		tl;
 			if (dch->type & ISAC_TYPE_ISACSX) {
@@ -692,7 +679,7 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 					hh->dinfo);
 			ret = -EINVAL;
 		}
-		dch->inst.unlock(dch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 	} else if (hh->prim == (PH_SIGNAL | INDICATION)) {
 #if ARCOFI_USE
 		if ((ISAC_TYPE_ARCOFI & dch->type)) {
@@ -735,13 +722,10 @@ static void
 dbusy_timer_handler(dchannel_t *dch)
 {
 	int	rbch, star;
+	u_long	flags;
 
 	if (test_bit(FLG_DBUSY_TIMER, &dch->DFlags)) {
-		if (dch->inst.lock(dch->inst.privat, 1)) {
-			dch->dbusytimer.expires = jiffies + 1;
-			add_timer(&dch->dbusytimer);
-			return;
-		}
+		spin_lock_irqsave(dch->inst.hwlock, flags);
 		rbch = dch->read_reg(dch->inst.privat, ISAC_RBCH);
 		star = dch->read_reg(dch->inst.privat, ISAC_STAR);
 		if (dch->debug) 
@@ -749,13 +733,6 @@ dbusy_timer_handler(dchannel_t *dch)
 				rbch, star);
 		if (rbch & ISAC_RBCH_XAC) { /* D-Channel Busy */
 			test_and_set_bit(FLG_L1_DBUSY, &dch->DFlags);
-#if 0
-			stptr = dch->stlist;
-			while (stptr != NULL) {
-				stptr->l1.l1l2(stptr, PH_PAUSE | INDICATION, NULL);
-				stptr = stptr->next;
-			}
-#endif
 		} else {
 			/* discard frame; reset transceiver */
 			test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags);
@@ -768,7 +745,7 @@ dbusy_timer_handler(dchannel_t *dch)
 			/* Transmitter reset */
 			dch->write_reg(dch->inst.privat, ISAC_CMDR, 0x01);
 		}
-		dch->inst.unlock(dch->inst.privat);
+		spin_unlock_irqrestore(dch->inst.hwlock, flags);
 	}
 }
 

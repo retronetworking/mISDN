@@ -38,11 +38,10 @@ extern int		free_device(mISDNdevice_t *dev);
 
 /* from stack.c */
 
-extern struct list_head	mISDN_stacklist;
-extern struct list_head	mISDN_instlist;
-
 extern void		get_stack_info(struct sk_buff *);
 extern int		get_stack_cnt(void);
+extern void		check_stacklist(void);
+extern void		cleanup_object(mISDNobject_t *);
 extern mISDNstack_t	*get_stack4id(u_int);
 extern int		mISDN_start_stack_thread(mISDNstack_t *);
 extern mISDNstack_t	*new_stack(mISDNstack_t *, mISDNinstance_t *);
@@ -76,7 +75,6 @@ extern int		mISDN_sysfs_st_init(void);
 extern void		mISDN_sysfs_st_cleanup(void);
 
 /* from core.c */
-extern struct list_head	mISDN_objectlist;
 extern int core_debug;
 extern int		register_layer(mISDNstack_t *, mISDNinstance_t *);
 extern int		preregister_layer(mISDNstack_t *, mISDNinstance_t *);

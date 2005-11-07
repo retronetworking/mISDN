@@ -143,12 +143,10 @@
 #include "helper.h"
 #include "debug.h"
 #include "dsp.h"
-#include "hw_lock.h"
 
 //#define CMX_CONF_DEBUG /* debugging of multi party conference, by using conference even with two members */
 //#define CMX_DEBUG /* massive read/write pointer output */
 
-extern mISDN_HWlock_t dsp_lock;
 LIST_HEAD(Conf_list);
 
 /*
@@ -157,11 +155,13 @@ LIST_HEAD(Conf_list);
 void
 dsp_cmx_debug(dsp_t *dsp)
 {
-	conference_t *conf;
-	conf_member_t *member;
-	dsp_t *odsp;
+	conference_t	*conf;
+	conf_member_t	*member;
+	dsp_t		*odsp;
+	u_long		flags;
 
 	printk(KERN_DEBUG "-----Current DSP\n");
+	spin_lock_irqsave(&dsp_obj.lock, flags);
 	list_for_each_entry(odsp, &dsp_obj.ilist, list)
 	{
 		printk(KERN_DEBUG "* %s echo=%d txmix=%d", odsp->inst.name, odsp->echo, odsp->tx_mix);
@@ -171,7 +171,7 @@ dsp_cmx_debug(dsp_t *dsp)
 			printk(" *this*");
 		printk("\n");
 	}
-	
+	spin_unlock_irqrestore(&dsp_obj.lock, flags);
 	printk(KERN_DEBUG "-----Current Conf:\n");
 	list_for_each_entry(conf, &Conf_list, list)
 	{
@@ -231,13 +231,10 @@ dsp_cmx_add_conf_member(dsp_t *dsp, conference_t *conf)
 		return(-EINVAL);
 	}
 
-	unlock_HW(&dsp_lock);
-	if (!(member = vmalloc(sizeof(conf_member_t)))) {
-		lock_HW(&dsp_lock, 0);
-		printk(KERN_ERR "vmalloc conf_member_t failed\n");
+	if (!(member = kmalloc(sizeof(conf_member_t), GFP_ATOMIC))) {
+		printk(KERN_ERR "kmalloc conf_member_t failed\n");
 		return(-ENOMEM);
 	}
-	lock_HW(&dsp_lock, 0);
 	memset(member, 0, sizeof(conf_member_t));
 	memset(dsp->rx_buff, dsp_silence, sizeof(dsp->rx_buff));
 	member->dsp = dsp;
@@ -290,9 +287,7 @@ dsp_cmx_del_conf_member(dsp_t *dsp)
 			list_del(&member->list);
 			dsp->conf = NULL;
 			dsp->member = NULL;
-			unlock_HW(&dsp_lock);
-			vfree(member);
-			lock_HW(&dsp_lock, 0);
+			kfree(member);
 			return(0);
 		}
 	}
@@ -317,13 +312,10 @@ static conference_t
 		return(NULL);
 	}
 
-	unlock_HW(&dsp_lock);
-	if (!(conf = vmalloc(sizeof(conference_t)))) {
-		lock_HW(&dsp_lock, 0);
-		printk(KERN_ERR "vmalloc conference_t failed\n");
+	if (!(conf = kmalloc(sizeof(conference_t), GFP_ATOMIC))) {
+		printk(KERN_ERR "kmalloc conference_t failed\n");
 		return(NULL);
 	}
-	lock_HW(&dsp_lock, 0);
 	memset(conf, 0, sizeof(conference_t));
 	INIT_LIST_HEAD(&conf->mlist);
 	conf->id = id;
@@ -352,9 +344,7 @@ dsp_cmx_del_conf(conference_t *conf)
 		return(-EINVAL);
 	}
 	list_del(&conf->list);
-	unlock_HW(&dsp_lock);
-	vfree(conf);
-	lock_HW(&dsp_lock, 0);
+	kfree(conf);
 
 	return(0);
 }
@@ -395,12 +385,13 @@ dsp_cmx_hw_message(dsp_t *dsp, u32 message, u32 param1, u32 param2, u32 param3, 
 void 
 dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 {
-	conf_member_t *member, *nextm;
-	dsp_t *finddsp;
-	int memb = 0, i, ii, i1, i2;
-	int freeunits[8];
-	u_char freeslots[256];
-	int same_hfc = -1, same_pcm = -1, current_conf = -1, all_conf = 1;
+	conf_member_t	*member, *nextm;
+	dsp_t		*finddsp;
+	int		memb = 0, i, ii, i1, i2;
+	int		freeunits[8];
+	u_char		freeslots[256];
+	int		same_hfc = -1, same_pcm = -1, current_conf = -1, all_conf = 1;
+	u_long		flags;
 
 	/* dsp gets updated (no conf) */
 //printk("-----1\n");
@@ -451,6 +442,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 		dsp->pcm_slot_tx = -1;
 		dsp->pcm_slot_rx = -1;
 		memset(freeslots, 1, sizeof(freeslots));
+		spin_lock_irqsave(&dsp_obj.lock, flags);
 		list_for_each_entry(finddsp, &dsp_obj.ilist, list) {
 			 if (finddsp->features.pcm_id==dsp->features.pcm_id) {
 				if (finddsp->pcm_slot_rx>=0
@@ -461,6 +453,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 					freeslots[finddsp->pcm_slot_rx] = 0;
 			}
 		}
+		spin_unlock_irqrestore(&dsp_obj.lock, flags);
 		i = 0;
 		ii = dsp->features.pcm_slots;
 		while(i < ii) {
@@ -652,6 +645,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 			}
 			/* find a new slot */
 			memset(freeslots, 1, sizeof(freeslots));
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			list_for_each_entry(dsp, &dsp_obj.ilist, list) {
 				if (dsp!=member->dsp
 				 && dsp!=nextm->dsp
@@ -664,6 +658,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 						freeslots[dsp->pcm_slot_rx] = 0;
 				}
 			}
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			i = 0;
 			ii = member->dsp->features.pcm_slots;
 			while(i < ii) {
@@ -721,6 +716,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 			}
 			/* find two new slot */
 			memset(freeslots, 1, sizeof(freeslots));
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			list_for_each_entry(dsp, &dsp_obj.ilist, list) {
 				if (dsp!=member->dsp
 				 && dsp!=nextm->dsp
@@ -733,6 +729,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 						freeslots[dsp->pcm_slot_rx] = 0;
 				}
 			}
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			i1 = 0;
 			ii = member->dsp->features.pcm_slots;
 			while(i1 < ii) {
@@ -808,6 +805,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 			}
 			/* get a free timeslot first */
 			memset(freeslots, 1, sizeof(freeslots));
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			list_for_each_entry(dsp, &dsp_obj.ilist, list) {
 				/* not checking current member, because
 				 * slot will be overwritten.
@@ -824,6 +822,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 						freeslots[dsp->pcm_slot_rx] = 0;
 				}
 			}
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			i = 0;
 			ii = member->dsp->features.pcm_slots;
 			while(i < ii) {
@@ -854,6 +853,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 	/* no member is in a conference yet, so we find a free one
 	 */
 	memset(freeunits, 1, sizeof(freeunits));
+	spin_lock_irqsave(&dsp_obj.lock, flags);
 	list_for_each_entry(dsp, &dsp_obj.ilist, list) {
 		/* dsp must be on the same chip */
 		if (dsp->features.hfc_id==same_hfc
@@ -863,6 +863,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 		 && dsp->hfc_conf<8)
 			freeunits[dsp->hfc_conf] = 0;
 	}
+	spin_unlock_irqrestore(&dsp_obj.lock, flags);
 	i = 0;
 	ii = 8;
 	while(i < ii) {

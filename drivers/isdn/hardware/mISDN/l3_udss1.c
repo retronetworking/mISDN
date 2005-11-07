@@ -2785,6 +2785,7 @@ static void
 release_udss1(layer3_t *l3)
 {
 	mISDNinstance_t  *inst = &l3->inst;
+	u_long		flags;
 
 	printk(KERN_DEBUG "release_udss1 refcnt %d l3(%p) inst(%p)\n",
 		u_dss1.refcnt, l3, inst);
@@ -2799,7 +2800,9 @@ release_udss1(layer3_t *l3)
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
 #endif
+	spin_lock_irqsave(&u_dss1.lock, flags);
 	list_del(&l3->list);
+	spin_unlock_irqrestore(&u_dss1.lock, flags);
 	u_dss1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l3->entity != MISDN_ENTITY_NONE)
 		u_dss1.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)l3->entity);
@@ -2811,6 +2814,7 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 {
 	layer3_t	*nl3;
 	int		err;
+	u_long		flags;
 
 	if (!st || !pid)
 		return(-EINVAL);
@@ -2871,7 +2875,9 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 	L3InitTimer(nl3->dummy, &nl3->dummy->aux_timer);
 	sprintf(nl3->inst.name, "DSS1 %x", st->id >> 8);
 	nl3->p_mgr = dss1man;
+	spin_lock_irqsave(&u_dss1.lock, flags);
 	list_add_tail(&nl3->list, &u_dss1.ilist);
+	spin_unlock_irqrestore(&u_dss1.lock, flags);
 	err = u_dss1.ctrl(&nl3->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
 		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
@@ -2908,18 +2914,21 @@ MODULE_PARM(debug, "1i");
 static int
 udss1_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t *inst = data;
-	layer3_t *l3l;
+	layer3_t	*l3l;
+	u_long		flags;
 
 	if (debug & MISDN_DEBUG_MANAGER)
 		printk(KERN_DEBUG "udss1_manager data:%p prim:%x arg:%p\n", data, prim, arg);
 	if (!data)
 		return(-EINVAL);
+	spin_lock_irqsave(&u_dss1.lock, flags);
 	list_for_each_entry(l3l, &u_dss1.ilist, list) {
 		if (&l3l->inst == inst)
 			break;
 	}
 	if (&l3l->list == &u_dss1.ilist)
 		l3l = NULL;
+	spin_unlock_irqrestore(&u_dss1.lock, flags);
 	if (prim == (MGR_NEWLAYER | REQUEST))
 		return(new_udss1(data, arg));
 	if (!l3l) {
@@ -2970,6 +2979,7 @@ int UDSS1Init(void)
 #ifdef MODULE
 	u_dss1.owner = THIS_MODULE;
 #endif
+	spin_lock_init(&u_dss1.lock);
 	INIT_LIST_HEAD(&u_dss1.ilist);
 	u_dss1.name = MName;
 	u_dss1.DPROTO.protocol[3] = ISDN_PID_L3_DSS1USER |

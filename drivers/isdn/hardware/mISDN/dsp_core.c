@@ -179,11 +179,11 @@ const char *dsp_revision = "$Revision$";
 #include "helper.h"
 #include "debug.h"
 #include "dsp.h"
-#include "hw_lock.h"
 
 static char DSPName[] = "DSP";
 mISDNobject_t dsp_obj;
-mISDN_HWlock_t dsp_lock;
+
+static spinlock_t	dsp_lock = SPIN_LOCK_UNLOCKED;
 
 static int debug = 0;
 int dsp_debug;
@@ -419,6 +419,7 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 	dsp_t			*dsp;
 	mISDN_head_t		*hh;
 	int			ret = 0;
+	u_long			flags;
 
 	if (!skb)
 		return(-EINVAL);
@@ -438,40 +439,40 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 		case PH_DATA | REQUEST:
 			if (skb->len < 1)
 				return(-EINVAL);
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			/* send data to tx-buffer (if no tone is played) */
 			if (!dsp->tone.tone)
 				dsp_cmx_transmit(dsp, skb);
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			dev_kfree_skb(skb);
 			break;
 		case PH_CONTROL | REQUEST:
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			ret = dsp_control_req(dsp, hh, skb);
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			break;
 		case DL_ESTABLISH | REQUEST:
 		case PH_ACTIVATE | REQUEST:
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: activating b_channel %s\n", __FUNCTION__, dsp->inst.name);
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			if (dsp->dtmf.hardware || dsp->dtmf.software)
 				dsp_dtmf_goertzel_init(dsp);
 			hh->prim = PH_ACTIVATE | REQUEST;
 			ret = mISDN_queue_down(&dsp->inst, 0, skb);
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			break;
 		case DL_RELEASE | REQUEST:
 		case PH_DEACTIVATE | REQUEST:
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: releasing b_channel %s\n", __FUNCTION__, dsp->inst.name);
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			dsp->tone.tone = dsp->tone.hardware = dsp->tone.software = 0;
 			if (timer_pending(&dsp->tone.tl))
 				del_timer(&dsp->tone.tl);
 			hh->prim = PH_DEACTIVATE | REQUEST;
 			ret = mISDN_queue_down(&dsp->inst, 0, skb);
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			break;
 		default:
 			if (dsp_debug & DEBUG_DSP_CORE)
@@ -495,6 +496,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 	u8		*digits;
 	int 		cont;
 	struct		sk_buff *nskb;
+	u_long		flags;
 
 	if (!skb)
 		return(-EINVAL);
@@ -514,7 +516,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 		case DL_DATA | INDICATION:
 			if (skb->len < 1)
 				return(-EINVAL);
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			/* decrypt if enabled */
 			if (dsp->bf_enable)
 				dsp_bf_decrypt(dsp, skb->data, skb->len);
@@ -574,15 +576,15 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			if (dsp->rx_disabled) {
 				/* if receive is not allowed */
 				dev_kfree_skb(skb);
-				unlock_HW(&dsp_lock);
+				spin_unlock_irqrestore(&dsp_lock, flags);
 				break;
 			}
 			hh->prim = DL_DATA | INDICATION;
 			ret = mISDN_queue_up(&dsp->inst, 0, skb);
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			break;
 		case PH_CONTROL | INDICATION:
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			if (dsp_debug & DEBUG_DSP_DTMFCOEFF)
 				printk(KERN_DEBUG "%s: PH_CONTROL received: %x (len %d) %s\n", __FUNCTION__, hh->dinfo, skb->len, dsp->inst.name);
 			switch (hh->dinfo) {
@@ -613,10 +615,10 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 					printk(KERN_DEBUG "%s: ctrl ind %x unhandled %s\n", __FUNCTION__, hh->dinfo, dsp->inst.name);
 				ret = -EINVAL;
 			}
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			break;
 		case PH_ACTIVATE | CONFIRM:
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: b_channel is now active %s\n", __FUNCTION__, dsp->inst.name);
 			/* bchannel now active */
@@ -632,10 +634,10 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			/* send activation to upper layer */
 			hh->prim = DL_ESTABLISH | CONFIRM;
 			ret = mISDN_queue_up(&dsp->inst, 0, skb);
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			break;
 		case PH_DEACTIVATE | CONFIRM:
-			lock_HW(&dsp_lock, 0);
+			spin_lock_irqsave(&dsp_lock, flags);
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: b_channel is now inactive %s\n", __FUNCTION__, dsp->inst.name);
 			/* bchannel now inactive */
@@ -643,7 +645,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			dsp_cmx_hardware(dsp->conf, dsp);
 			hh->prim = DL_RELEASE | CONFIRM;
 			ret = mISDN_queue_up(&dsp->inst, 0, skb);
-			unlock_HW(&dsp_lock);
+			spin_unlock_irqrestore(&dsp_lock, flags);
 			break;
 		default:
 			if (dsp_debug & DEBUG_DSP_CORE)
@@ -684,9 +686,10 @@ static void
 release_dsp(dsp_t *dsp)
 {
 	mISDNinstance_t	*inst = &dsp->inst;
-	conference_t *conf;
+	conference_t	*conf;
+	u_long		flags;
 
-	lock_HW(&dsp_lock, 0);
+	spin_lock_irqsave(&dsp_lock, flags);
 	if (timer_pending(&dsp->feature_tl))
 		del_timer(&dsp->feature_tl);
 	if (timer_pending(&dsp->tone.tl))
@@ -703,9 +706,11 @@ release_dsp(dsp_t *dsp)
 
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: remove & destroy object %s\n", __FUNCTION__, dsp->inst.name);
+	spin_lock(&dsp_obj.lock);
 	list_del(&dsp->list);
+	spin_unlock(&dsp_obj.lock);
 	dsp_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
-	unlock_HW(&dsp_lock);
+	spin_unlock_irqrestore(&dsp_lock, flags);
 	vfree(dsp);
 
 	if (dsp_debug & DEBUG_DSP_MGR)
@@ -761,8 +766,9 @@ dsp_feat(void *arg)
 static int
 new_dsp(mISDNstack_t *st, mISDN_pid_t *pid) 
 {
-	int err = 0;
-	dsp_t *ndsp;
+	int	err = 0;
+	dsp_t	*ndsp;
+	u_long	flags;
 
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: creating new dsp instance\n", __FUNCTION__);
@@ -808,19 +814,21 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 		ndsp->feature_tl.expires = jiffies + (HZ / 100);
 		add_timer(&ndsp->feature_tl);
 	}
-	lock_HW(&dsp_lock, 0);
+	spin_lock_irqsave(&dsp_lock, flags);
 	/* append and register */
+	spin_lock(&dsp_obj.lock);
 	list_add_tail(&ndsp->list, &dsp_obj.ilist);
+	spin_unlock(&dsp_obj.lock);
 	err = dsp_obj.ctrl(st, MGR_REGLAYER | INDICATION, &ndsp->inst);
 	if (err) {
 		printk(KERN_ERR "%s: failed to register layer %s\n", __FUNCTION__, ndsp->inst.name);
 		list_del(&ndsp->list);
-		unlock_HW(&dsp_lock);
+		spin_unlock_irqrestore(&dsp_lock, flags);
 		goto free_mem;
 	}
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: dsp instance created %s\n", __FUNCTION__, ndsp->inst.name);
-	unlock_HW(&dsp_lock);
+	spin_unlock_irqrestore(&dsp_lock, flags);
 	return(err);
 }
 
@@ -830,20 +838,23 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
  */
 static int
 dsp_manager(void *data, u_int prim, void *arg) {
-	mISDNinstance_t *inst = data;
-	dsp_t *dspl;
-	int ret = -EINVAL;
+	mISDNinstance_t	*inst = data;
+	dsp_t		*dspl;
+	int		ret = -EINVAL;
+	u_long		flags;
 
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: data:%p prim:%x arg:%p\n", __FUNCTION__, data, prim, arg);
 	if (!data)
 		return(ret);
+	spin_lock_irqsave(&dsp_obj.lock, flags);
 	list_for_each_entry(dspl, &dsp_obj.ilist, list) {
 		if (&dspl->inst == inst) {
 			ret = 0;
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&dsp_obj.lock, flags);
 	if (ret && (prim != (MGR_NEWLAYER | REQUEST))) {
 		printk(KERN_WARNING "%s: given instance(%p) not in ilist.\n", __FUNCTION__, data);
 		return(ret);
@@ -927,6 +938,7 @@ static int dsp_init(void)
 #ifdef MODULE
 	SET_MODULE_OWNER(&dsp_obj);
 #endif
+	spin_lock_init(&dsp_obj.lock);
 	dsp_obj.name = DSPName;
 	dsp_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_DSP;
 	dsp_obj.own_ctrl = dsp_manager;
@@ -941,9 +953,6 @@ static int dsp_init(void)
 	if (dsp_options & DSP_OPT_ULAW)
 		dsp_audio_generate_ulaw_samples();
 	dsp_audio_generate_volume_changes();
-
-	/* init global lock */
-	lock_HW_init(&dsp_lock);
 
 	/* register object */
 	if ((err = mISDN_register(&dsp_obj))) {

@@ -22,7 +22,7 @@
 static char		*mISDN_core_revision = "$Revision$";
 
 LIST_HEAD(mISDN_objectlist);
-rwlock_t		mISDN_objects_lock = RW_LOCK_UNLOCKED;
+static rwlock_t		mISDN_objects_lock = RW_LOCK_UNLOCKED;
 
 int core_debug;
 
@@ -220,23 +220,6 @@ find_object_module(int protocol) {
 		printk(KERN_DEBUG "%s: no module for protocol %x found\n",
 			__FUNCTION__, protocol);
 	return(NULL);
-}
-
-static void
-remove_object(mISDNobject_t *obj) {
-	mISDNstack_t	*st, *nst;
-//	mISDNlayer_t	*layer, *nl;
-	mISDNinstance_t	*inst;
-	int		i;
-
-	list_for_each_entry_safe(st, nst, &mISDN_stacklist, list) {
-		for (i = 0; i < MAX_LAYER_NR; i++) {
-//		list_for_each_entry_safe(layer, nl, &st->layerlist, list) {
-			inst = st->i_array[i];
-			if (inst && inst->obj == obj)
-				inst->obj->own_ctrl(st, MGR_RELEASE | INDICATION, inst);
-		}
-	}
 }
 
 #ifdef FIXME
@@ -654,7 +637,7 @@ int mISDN_unregister(mISDNobject_t *obj) {
 	if (obj->DPROTO.protocol[0])
 		release_stacks(obj);
 	else
-		remove_object(obj);
+		cleanup_object(obj);
 	write_lock_irqsave(&mISDN_objects_lock, flags);
 	list_del(&obj->list);
 	write_unlock_irqrestore(&mISDN_objects_lock, flags);
@@ -707,23 +690,12 @@ sysfs_fail:
 
 void mISDN_cleanup(void) {
 	DECLARE_MUTEX_LOCKED(sem);
-	mISDNstack_t *st, *nst;
 
 	free_mISDNdev();
 	if (!list_empty(&mISDN_objectlist)) {
 		printk(KERN_WARNING "mISDNcore mISDN_objects not empty\n");
 	}
-	if (!list_empty(&mISDN_stacklist)) {
-		printk(KERN_WARNING "mISDNcore mISDN_stacklist not empty\n");
-		list_for_each_entry_safe(st, nst, &mISDN_stacklist, list) {
-			printk(KERN_WARNING "mISDNcore st %x still in list\n",
-				st->id);
-			if (list_empty(&st->list)) {
-				printk(KERN_WARNING "mISDNcore st == next\n");
-				break;
-			}
-		}
-	}
+	check_stacklist();
 	if (mISDN_thread.thread) {
 		/* abort mISDNd kernel thread */
 		mISDN_thread.notify = &sem;

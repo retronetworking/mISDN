@@ -137,10 +137,7 @@ void *davor, *danach;
 	u_int		ledcount; /* used to animate leds */
 	u_int		activity[8]; /* if there is any action on this port (will be cleared after showing led-states) */
 
-	mISDN_HWlock_t  lock;	/* the lock */
-#ifdef SPIN_DEBUG
-	void		*lock_adr;
-#endif
+	spinlock_t	lock;	/* the lock */
 
 	/* the channel index is counted from 0, regardless where the channel
 	 * is located on the hfc-channel.

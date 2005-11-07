@@ -607,6 +607,7 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 	int			retval;
 	mISDNstack_t		*cst;
 	PLInst_t		*plink;
+	u_long			flags;
 
 	if (!st)
 		return(-EINVAL);
@@ -687,7 +688,9 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 //		plink->inst.down.stat = IF_NOACTIV;
 		list_add_tail(&plink->list, &contr->linklist);
 	}
+	spin_lock_irqsave(&ocapi->lock, flags);
 	list_add_tail(&contr->list, &ocapi->ilist);
+	spin_unlock_irqrestore(&ocapi->lock, flags);
 	contr->entity = MISDN_ENTITY_NONE;
 	retval = ocapi->ctrl(&contr->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (retval) {

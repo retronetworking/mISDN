@@ -23,9 +23,6 @@
 #include "layer1.h"
 #include "debug.h"
 
-#define SPIN_DEBUG
-#define LOCK_STATISTIC
-#include "hw_lock.h"
 
 static const char *avm_fritz_rev = "$Revision$";
 
@@ -135,7 +132,7 @@ typedef struct _fritzpnppci {
 	u_int			irq;
 	u_int			irqcnt;
 	u_int			addr;
-	mISDN_HWlock_t		lock;
+	spinlock_t		lock;
 	isac_chip_t		isac;
 	hdlc_hw_t		hdlc[2];
 	dchannel_t		dch;
@@ -143,20 +140,6 @@ typedef struct _fritzpnppci {
 	u_char			ctrlreg;
 } fritzpnppci;
 
-
-static int lock_dev(void *data, int nowait)
-{
-	register mISDN_HWlock_t	*lock = &((fritzpnppci *)data)->lock;
-
-	return(lock_HW(lock, nowait));
-} 
-
-static void unlock_dev(void *data)
-{
-	register mISDN_HWlock_t *lock = &((fritzpnppci *)data)->lock;
-
-	unlock_HW(lock);
-}
 
 /* Interface functions */
 
@@ -662,50 +645,20 @@ static irqreturn_t
 avm_fritz_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	fritzpnppci	*fc = dev_id;
-	u_long		flags;
 	u_char val;
 	u_char sval;
 
-	spin_lock_irqsave(&fc->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	fc->lock.spin_adr = (void *)0x2001;
-#endif
+	spin_lock(&fc->lock);
 	sval = inb(fc->addr + 2);
 	if (fc->dch.debug & L1_DEB_INTSTAT)
 		mISDN_debugprint(&fc->dch.inst, "irq stat0 %x", sval);
 	if ((sval & AVM_STATUS0_IRQ_MASK) == AVM_STATUS0_IRQ_MASK) {
 		/* possible a shared  IRQ reqest */
-#ifdef SPIN_DEBUG
-		fc->lock.spin_adr = NULL;
-#endif
-		spin_unlock_irqrestore(&fc->lock.lock, flags);
+		spin_unlock(&fc->lock);
 		return IRQ_NONE;
 	}
 	fc->irqcnt++;
-	if (test_and_set_bit(STATE_FLAG_BUSY, &fc->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY allready activ, should never happen state:%lx\n",
-			__FUNCTION__, fc->lock.state);
-#ifdef SPIN_DEBUG
-		printk(KERN_ERR "%s: previous lock:%p\n",
-			__FUNCTION__, fc->lock.busy_adr);
-#endif
-#ifdef LOCK_STATISTIC
-		fc->lock.irq_fail++;
-#endif
-	} else {
-#ifdef LOCK_STATISTIC
-		fc->lock.irq_ok++;
-#endif
-#ifdef SPIN_DEBUG
-		fc->lock.busy_adr = avm_fritz_interrupt;
-#endif
-	}
 
-	test_and_set_bit(STATE_FLAG_INIRQ, &fc->lock.state);
-#ifdef SPIN_DEBUG
-	fc->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&fc->lock.lock, flags);
 	if (!(sval & AVM_STATUS0_IRQ_ISAC)) {
 		val = ReadISAC(fc, ISAC_ISTA);
 		mISDN_isac_interrupt(&fc->dch, val);
@@ -717,21 +670,7 @@ avm_fritz_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		WriteISAC(fc, ISAC_MASK, 0xFF);
 		WriteISAC(fc, ISAC_MASK, 0x0);
 	}
-	spin_lock_irqsave(&fc->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	fc->lock.spin_adr = (void *)0x2002;
-#endif
-	if (!test_and_clear_bit(STATE_FLAG_INIRQ, &fc->lock.state)) {
-	}
-	if (!test_and_clear_bit(STATE_FLAG_BUSY, &fc->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY not locked state(%lx)\n",
-			__FUNCTION__, fc->lock.state);
-	}
-#ifdef SPIN_DEBUG
-	fc->lock.busy_adr = NULL;
-	fc->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&fc->lock.lock, flags);
+	spin_unlock(&fc->lock);
 	return IRQ_HANDLED;
 }
 
@@ -739,50 +678,20 @@ static irqreturn_t
 avm_fritzv2_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	fritzpnppci	*fc = dev_id;
-	u_long		flags;
 	u_char val;
 	u_char sval;
 
-	spin_lock_irqsave(&fc->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	fc->lock.spin_adr = (void *)0x2001;
-#endif
+	spin_lock(&fc->lock);
 	sval = inb(fc->addr + 2);
 	if (fc->dch.debug & L1_DEB_INTSTAT)
 		mISDN_debugprint(&fc->dch.inst, "irq stat0 %x", sval);
 	if (!(sval & AVM_STATUS0_IRQ_MASK)) {
 		/* possible a shared  IRQ reqest */
-#ifdef SPIN_DEBUG
-		fc->lock.spin_adr = NULL;
-#endif
-		spin_unlock_irqrestore(&fc->lock.lock, flags);
+		spin_unlock(&fc->lock);
 		return IRQ_NONE;
 	}
 	fc->irqcnt++;
-	if (test_and_set_bit(STATE_FLAG_BUSY, &fc->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY allready activ, should never happen state:%lx\n",
-			__FUNCTION__, fc->lock.state);
-#ifdef SPIN_DEBUG
-		printk(KERN_ERR "%s: previous lock:%p\n",
-			__FUNCTION__, fc->lock.busy_adr);
-#endif
-#ifdef LOCK_STATISTIC
-		fc->lock.irq_fail++;
-#endif
-	} else {
-#ifdef LOCK_STATISTIC
-		fc->lock.irq_ok++;
-#endif
-#ifdef SPIN_DEBUG
-		fc->lock.busy_adr = avm_fritz_interrupt;
-#endif
-	}
 
-	test_and_set_bit(STATE_FLAG_INIRQ, &fc->lock.state);
-#ifdef SPIN_DEBUG
-	fc->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&fc->lock.lock, flags);
 	if (sval & AVM_STATUS0_IRQ_HDLC) {
 		HDLC_irq_main(fc);
 	}
@@ -797,21 +706,7 @@ avm_fritzv2_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		udelay(1);
 		outb(fc->ctrlreg, fc->addr + 2);
 	}
-	spin_lock_irqsave(&fc->lock.lock, flags);
-#ifdef SPIN_DEBUG
-	fc->lock.spin_adr = (void *)0x2002;
-#endif
-	if (!test_and_clear_bit(STATE_FLAG_INIRQ, &fc->lock.state)) {
-	}
-	if (!test_and_clear_bit(STATE_FLAG_BUSY, &fc->lock.state)) {
-		printk(KERN_ERR "%s: STATE_FLAG_BUSY not locked state(%lx)\n",
-			__FUNCTION__, fc->lock.state);
-	}
-#ifdef SPIN_DEBUG
-	fc->lock.busy_adr = NULL;
-	fc->lock.spin_adr = NULL;
-#endif
-	spin_unlock_irqrestore(&fc->lock.lock, flags);
+	spin_unlock(&fc->lock);
 	return IRQ_HANDLED;
 }
 
@@ -821,29 +716,37 @@ hdlc_down(mISDNinstance_t *inst, struct sk_buff *skb)
 	bchannel_t	*bch;
 	int		ret = 0;
 	mISDN_head_t	*hh;
+	u_long		flags;
 
 	hh = mISDN_HEAD_P(skb);
 	bch = container_of(inst, bchannel_t, inst);
 	if ((hh->prim == PH_DATA_REQ) ||
 		(hh->prim == (DL_DATA | REQUEST))) {
+		if (skb->len <= 0) {
+			printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		if (skb->len > MAX_DATA_MEM) {
+			printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
+			return(-EINVAL);
+		}
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (bch->next_skb) {
 			mISDN_debugprint(&bch->inst, " l2l1 next_skb exist this shouldn't happen");
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(-EBUSY);
 		}
-		if (skb->len <= 0)
-			return(-EINVAL);
-		bch->inst.lock(bch->inst.privat, 0);
 		if (test_and_set_bit(BC_FLG_TX_BUSY, &bch->Flag)) {
 			test_and_set_bit(BC_FLG_TX_NEXT, &bch->Flag);
 			bch->next_skb = skb;
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			return(0);
 		} else {
 			bch->tx_len = skb->len;
 			memcpy(bch->tx_buf, skb->data, bch->tx_len);
 			bch->tx_idx = 0;
 			hdlc_fill_fifo(bch);
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 			skb_trim(skb, 0);
 			return(mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM,
 				hh->dinfo, skb));
@@ -851,17 +754,17 @@ hdlc_down(mISDNinstance_t *inst, struct sk_buff *skb)
 	} else if ((hh->prim == (PH_ACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_ESTABLISH  | REQUEST))) {
 		if (!test_and_set_bit(BC_FLG_ACTIV, &bch->Flag)) {
-			bch->inst.lock(bch->inst.privat,0);
+			spin_lock_irqsave(inst->hwlock, flags);
 			ret = modehdlc(bch, bch->channel,
 				bch->inst.pid.protocol[1]);
-			bch->inst.unlock(bch->inst.privat);
+			spin_unlock_irqrestore(inst->hwlock, flags);
 		}
 		skb_trim(skb, 0);
 		return(mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, ret, skb));
 	} else if ((hh->prim == (PH_DEACTIVATE | REQUEST)) ||
 		(hh->prim == (DL_RELEASE | REQUEST)) ||
 		((hh->prim == (PH_CONTROL | REQUEST) && (hh->dinfo == HW_DEACTIVATE)))) {
-		bch->inst.lock(bch->inst.privat,0);
+		spin_lock_irqsave(inst->hwlock, flags);
 		if (test_and_clear_bit(BC_FLG_TX_NEXT, &bch->Flag)) {
 			dev_kfree_skb(bch->next_skb);
 			bch->next_skb = NULL;
@@ -869,7 +772,7 @@ hdlc_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 		modehdlc(bch, bch->channel, 0);
 		test_and_clear_bit(BC_FLG_ACTIV, &bch->Flag);
-		bch->inst.unlock(bch->inst.privat);
+		spin_unlock_irqrestore(inst->hwlock, flags);
 		skb_trim(skb, 0);
 		if (hh->prim != (PH_CONTROL | REQUEST))
 			ret = mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, 0, skb);
@@ -935,16 +838,17 @@ static int init_card(fritzpnppci *fc)
 {
 	int		cnt = 3;
 	u_int		shared = SA_SHIRQ;
+	u_long		flags;
 
 	if (fc->type == AVM_FRITZ_PNP)
 		shared = 0;
-	lock_dev(fc, 0);
+	spin_lock_irqsave(&fc->lock, flags);
 	if (fc->type == AVM_FRITZ_PCIV2) {
 		if (request_irq(fc->irq, avm_fritzv2_interrupt, SA_SHIRQ,
 			"AVM Fritz!PCI", fc)) {
 			printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n",
 				fc->irq);
-			unlock_dev(fc);
+			spin_unlock_irqrestore(&fc->lock, flags);
 			return(-EIO);
 		}
 	} else {
@@ -952,7 +856,7 @@ static int init_card(fritzpnppci *fc)
 			"AVM Fritz!PCI", fc)) {
 			printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n",
 				fc->irq);
-			unlock_dev(fc);
+			spin_unlock_irqrestore(&fc->lock, flags);
 			return(-EIO);
 		}
 	}
@@ -972,7 +876,7 @@ static int init_card(fritzpnppci *fc)
 		outb(fc->ctrlreg, fc->addr + 2);
 		/* RESET Receiver and Transmitter */
 		WriteISAC(fc, ISAC_CMDR, 0x41);
-		unlock_dev(fc);
+		spin_unlock_irqrestore(&fc->lock, flags);
 		/* Timeout 10ms */
 		current->state = TASK_UNINTERRUPTIBLE;
 		schedule_timeout((10*HZ)/1000);
@@ -991,9 +895,9 @@ static int init_card(fritzpnppci *fc)
 		} else {
 			return(0);
 		}
-		lock_dev(fc, 0);
+		spin_lock_irqsave(&fc->lock, flags);
 	}
-	unlock_dev(fc);
+	spin_unlock_irqrestore(&fc->lock, flags);
 	return(-EIO);
 }
 
@@ -1081,37 +985,31 @@ setup_fritz(fritzpnppci *fc)
 		fc->irq, fc->addr);
 
 	fc->dch.hw = &fc->isac;
-	lock_dev(fc, 0);
-#ifdef SPIN_DEBUG
-	printk(KERN_ERR "spin_lock_adr=%p now(%p)\n", &fc->lock.busy_adr, fc->lock.busy_adr);
-	printk(KERN_ERR "busy_lock_adr=%p now(%p)\n", &fc->lock.busy_adr, fc->lock.busy_adr);
-#endif
-	unlock_dev(fc);
 	return(0);
 }
 
 static void
 release_card(fritzpnppci *card)
 {
-#ifdef LOCK_STATISTIC
-	printk(KERN_INFO "try_ok(%d) try_wait(%d) try_mult(%d) try_inirq(%d)\n",
-		card->lock.try_ok, card->lock.try_wait, card->lock.try_mult, card->lock.try_inirq);
-	printk(KERN_INFO "irq_ok(%d) irq_fail(%d)\n",
-		card->lock.irq_ok, card->lock.irq_fail);
-#endif
-	lock_dev(card, 0);
+	u_long		flags;
+
+	spin_lock_irqsave(&card->lock, flags);
 	outb(0, card->addr + 2);
-	free_irq(card->irq, card);
 	modehdlc(&card->bch[0], 0, ISDN_PID_NONE);
 	modehdlc(&card->bch[1], 1, ISDN_PID_NONE);
 	mISDN_isac_free(&card->dch);
+	spin_unlock_irqrestore(&card->lock, flags);
+	free_irq(card->irq, card);
+	spin_lock_irqsave(&card->lock, flags);
 	release_region(card->addr, 32);
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);
 	mISDN_free_dch(&card->dch);
 	fritz.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
+	spin_unlock_irqrestore(&card->lock, flags);
+	spin_lock_irqsave(&fritz.lock, flags);
 	list_del(&card->list);
-	unlock_dev(card);
+	spin_unlock_irqrestore(&fritz.lock, flags);
 	if (card->type == AVM_FRITZ_PNP) {
 		pnp_disable_dev(card->pdev);
 		pnp_set_drvdata(card->pdev, NULL);
@@ -1127,6 +1025,7 @@ fritz_manager(void *data, u_int prim, void *arg) {
 	fritzpnppci	*card;
 	mISDNinstance_t	*inst = data;
 	struct sk_buff	*skb;
+	u_long		flags;
 	int		channel = -1;
 
 	if (debug & 0x10000)
@@ -1138,6 +1037,7 @@ fritz_manager(void *data, u_int prim, void *arg) {
 			__FUNCTION__, prim, arg);
 		return(-EINVAL);
 	}
+	spin_lock_irqsave(&fritz.lock, flags);
 	list_for_each_entry(card, &fritz.ilist, list) {
 		if (&card->dch.inst == inst) {
 			channel = 2;
@@ -1152,6 +1052,7 @@ fritz_manager(void *data, u_int prim, void *arg) {
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&fritz.lock, flags);
 	if (channel<0) {
 		printk(KERN_WARNING "%s: no channel data %p prim %x arg %p\n",
 			__FUNCTION__, data, prim, arg);
@@ -1223,12 +1124,14 @@ static int __devinit setup_instance(fritzpnppci *card)
 {
 	int		i, err;
 	mISDN_pid_t	pid;
+	u_long		flags;
 	
+	spin_lock_irqsave(&fritz.lock, flags);
 	list_add_tail(&card->list, &fritz.ilist);
+	spin_unlock_irqrestore(&fritz.lock, flags);
 	card->dch.debug = debug;
-	lock_HW_init(&card->lock);
-	card->dch.inst.lock = lock_dev;
-	card->dch.inst.unlock = unlock_dev;
+	spin_lock_init(&card->lock);
+	card->dch.inst.hwlock = &card->lock;
 	card->dch.inst.pid.layermask = ISDN_LAYER(0);
 	card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
 	mISDN_init_instance(&card->dch.inst, &fritz, card, mISDN_ISAC_l1hw);
@@ -1239,8 +1142,7 @@ static int __devinit setup_instance(fritzpnppci *card)
 		card->bch[i].channel = i;
 		mISDN_init_instance(&card->bch[i].inst, &fritz, card, hdlc_down);
 		card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
-		card->bch[i].inst.lock = lock_dev;
-		card->bch[i].inst.unlock = unlock_dev;
+		card->bch[i].inst.hwlock = &card->lock;
 		card->bch[i].debug = debug;
 		sprintf(card->bch[i].inst.name, "%s B%d", card->dch.inst.name, i+1);
 		mISDN_init_bch(&card->bch[i]);
@@ -1253,7 +1155,9 @@ static int __devinit setup_instance(fritzpnppci *card)
 		mISDN_free_dch(&card->dch);
 		mISDN_free_bch(&card->bch[1]);
 		mISDN_free_bch(&card->bch[0]);
+		spin_lock_irqsave(&fritz.lock, flags);
 		list_del(&card->list);
+		spin_unlock_irqrestore(&fritz.lock, flags);
 		kfree(card);
 		return(err);
 	}
@@ -1445,6 +1349,7 @@ static int __init Fritz_init(void)
 #ifdef MODULE
 	fritz.owner = THIS_MODULE;
 #endif
+	spin_lock_init(&fritz.lock);
 	INIT_LIST_HEAD(&fritz.ilist);
 	fritz.name = FritzName;
 	fritz.own_ctrl = fritz_manager;

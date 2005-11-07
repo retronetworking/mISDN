@@ -567,7 +567,10 @@ X25_release_l3(x25_l3_t *l3) {
 	}
 #endif
 	if (inst->obj) {
+		u_long	flags;
+		spin_lock_irqsave(&inst->obj->lock, flags);
 		list_del_init(&l3->list);
+		spin_unlock_irqrestore(&inst->obj->lock, flags);
 	}
 	discard_queue(&l3->downq);
 	list_for_each_entry_safe(ch, nch, &l3->channellist, list)
@@ -657,6 +660,7 @@ int
 new_x25_l3(x25_l3_t **l3_p, mISDNstack_t *st, mISDN_pid_t *pid, mISDNobject_t *obj, int debug, if_func_t *function) {
 	x25_l3_t	*n_l3;
 	int		err;
+	u_long		flags;
 
 	if (!st || !pid)
 		return(-EINVAL);
@@ -700,8 +704,9 @@ new_x25_l3(x25_l3_t **l3_p, mISDNstack_t *st, mISDN_pid_t *pid, mISDNobject_t *o
 	n_l3->x25r.printdebug = l3m_debug;
 	mISDN_FsmInitTimer(&n_l3->x25r, &n_l3->TR);
 	skb_queue_head_init(&n_l3->downq);
-
+	spin_lock_irqsave(&obj->lock, flags);
 	list_add_tail(&n_l3->list, &obj->ilist);
+	spin_unlock_irqrestore(&obj->lock, flags);
 	err = obj->ctrl(&n_l3->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
 		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",

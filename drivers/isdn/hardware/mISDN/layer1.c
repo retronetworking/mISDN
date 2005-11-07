@@ -611,6 +611,7 @@ l1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 static void
 release_l1(layer1_t *l1) {
 	mISDNinstance_t	*inst = &l1->inst;
+	u_long		flags;
 
 	mISDN_FsmDelTimer(&l1->timer, 0);
 #ifdef OBSOLETE
@@ -623,15 +624,18 @@ release_l1(layer1_t *l1) {
 			MGR_DISCONNECT | REQUEST, &inst->down);
 	}
 #endif
+	spin_lock_irqsave(&isdnl1.lock, flags);
 	list_del(&l1->list);
+	spin_unlock_irqrestore(&isdnl1.lock, flags);
 	isdnl1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(l1);
 }
 
 static int
 new_l1(mISDNstack_t *st, mISDN_pid_t *pid) {
-	layer1_t *nl1;
-	int err;
+	layer1_t	*nl1;
+	int		err;
+	u_long		flags;
 
 	if (!st || !pid)
 		return(-EINVAL);
@@ -665,7 +669,9 @@ new_l1(mISDNstack_t *st, mISDN_pid_t *pid) {
 	nl1->l1m.userint = 0;
 	nl1->l1m.printdebug = l1m_debug;
 	mISDN_FsmInitTimer(&nl1->l1m, &nl1->timer);
+	spin_lock_irqsave(&isdnl1.lock, flags);
 	list_add_tail(&nl1->list, &isdnl1.ilist);
+	spin_unlock_irqrestore(&isdnl1.lock, flags);
 	err = isdnl1.ctrl(st, MGR_REGLAYER | INDICATION, &nl1->inst);
 	if (err) {
 		mISDN_FsmDelTimer(&nl1->timer, 0);
@@ -711,18 +717,21 @@ l1_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	layer1_t	*l1l;
 	int		err = -EINVAL;
+	u_long		flags;
 
 	if (debug & 0x10000)
 		printk(KERN_DEBUG "%s: data(%p) prim(%x) arg(%p)\n",
 			__FUNCTION__, data, prim, arg);
 	if (!data)
 		return(err);
+	spin_lock_irqsave(&isdnl1.lock, flags);
 	list_for_each_entry(l1l, &isdnl1.ilist, list) {
 		if (&l1l->inst == inst) {
 			err = 0;
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&isdnl1.lock, flags);
 	if (err && (prim != (MGR_NEWLAYER | REQUEST))) {
 		printk(KERN_WARNING "l1_manager connect no instance\n");
 		return(err);
@@ -774,6 +783,7 @@ int Isdnl1Init(void)
 	isdnl1.name = MName;
 	isdnl1.DPROTO.protocol[1] = ISDN_PID_L1_TE_S0;
 	isdnl1.own_ctrl = l1_manager;
+	spin_lock_init(&isdnl1.lock);
 	INIT_LIST_HEAD(&isdnl1.ilist);
 #ifdef mISDN_UINTERFACE
 	isdnl1.DPROTO.protocol[1] |= ISDN_PID_L1_TE_U;

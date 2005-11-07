@@ -1266,17 +1266,20 @@ dte_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	x25_l3_t	*l3_l;
 	int		err = -EINVAL;
+	u_long		flags;
 
 	if (debug & DEBUG_L3X25_MGR)
 		printk(KERN_DEBUG "l3x25_manager data:%p prim:%x arg:%p\n", data, prim, arg);
 	if (!data)
 		return(err);
+	spin_lock_irqsave(&x25dte_obj.lock, flags);
 	list_for_each_entry(l3_l, &x25dte_obj.ilist, list) {
 		if (&l3_l->inst == inst) {
 			err = 0;
 			break;
 		}
 	}
+	spin_unlock_irqrestore(&x25dte_obj.lock, flags);
 	if (prim == (MGR_NEWLAYER | REQUEST))
 		return(new_l3(data, arg));
 	if (err) {
@@ -1340,6 +1343,7 @@ x25_dte_init(void)
 	x25dte_obj.name = MName;
 	x25dte_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_X25DTE;
 	x25dte_obj.own_ctrl = dte_manager;
+	spin_lock_init(&x25dte_obj.lock);
 	INIT_LIST_HEAD(&x25dte_obj.ilist);
 	if ((err = mISDN_register(&x25dte_obj))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
