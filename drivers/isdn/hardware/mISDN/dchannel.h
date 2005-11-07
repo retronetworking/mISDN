@@ -44,6 +44,7 @@ typedef struct _dchannel_t {
 	u_long			DFlags;
 	u_int			type;
 	u_int			ph_state;
+	u_char			l1_up;
 	u_char			(*read_reg) (void *, u_char);
 	void			(*write_reg) (void *, u_char, u_char);
 	void			(*read_fifo) (void *, u_char *, int);

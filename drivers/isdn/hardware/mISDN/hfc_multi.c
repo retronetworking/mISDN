@@ -2097,6 +2097,14 @@ static int hfcmulti_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 				printk(KERN_DEBUG "%s: PH_DEACTIVATE no NT-mode port %d (0..%d)\n", __FUNCTION__, hc->chan[dch->channel].port, hc->type-1);
 			ret = -EINVAL;
 		}
+	} else
+	if (hh->prim == MGR_SHORTSTATUS) {
+		if(hh->dinfo==SSTATUS_ALL || hh->dinfo==SSTATUS_L1) {
+			int new_addr;
+			if(hh->dinfo&SSTATUS_BROADCAST_BIT) new_addr= dch->inst.id | MSG_BROADCAST;
+			else new_addr=hh->addr | FLG_MSG_TARGET;
+			return(mISDN_queueup_newhead(inst, new_addr, MGR_SHORTSTATUS,(dch->l1_up) ? SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED, skb));
+		}
 	} else {
 		if (debug & DEBUG_HFCMULTI_MSG)
 			printk(KERN_DEBUG "%s: unknown prim %x\n", __FUNCTION__, hh->prim);
@@ -2375,6 +2383,7 @@ static void ph_state_change(dchannel_t *dch)
 			case (1):
 			prim = PH_ACTIVATE | INDICATION;
 			para = 0;
+			dch->l1_up=1;
 			break;
 
 			default:
@@ -2382,6 +2391,7 @@ static void ph_state_change(dchannel_t *dch)
 				return;
 			prim = PH_DEACTIVATE | INDICATION;
 			para = 0;
+			dch->l1_up=0;
 		}
 		hc->chan[ch].e1_state = dch->ph_state;
 	} else {
@@ -2397,6 +2407,7 @@ static void ph_state_change(dchannel_t *dch)
 				case (3):
 				prim = PH_CONTROL | INDICATION;
 				para = HW_DEACTIVATE;
+				dch->l1_up=0;
 				break;
 
 				case (5):
@@ -2410,6 +2421,7 @@ static void ph_state_change(dchannel_t *dch)
 
 				case (7):
 				para = INFO4_P8;
+				dch->l1_up=1;
 				break;
 
 				default:
@@ -2439,6 +2451,7 @@ static void ph_state_change(dchannel_t *dch)
 				prim = PH_DEACTIVATE | INDICATION;
 				para = 0;
 				hc->chan[ch].nt_timer = -1;
+				dch->l1_up=0;
 				break;
 
 				case (4):
@@ -2449,6 +2462,7 @@ static void ph_state_change(dchannel_t *dch)
 				prim = PH_ACTIVATE | INDICATION;
 				para = 0;
 				hc->chan[ch].nt_timer = -1;
+				dch->l1_up=1;
 				break;
 
 				default:
@@ -2458,6 +2472,8 @@ static void ph_state_change(dchannel_t *dch)
 	}
 
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
+	mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST, MGR_SHORTSTATUS,
+					  (dch->l1_up) ? SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED, 0, NULL, 0);
 }
 
 /*************************************/
@@ -2889,7 +2905,7 @@ setup_pci(hfc_multi_t *hc, struct pci_dev *pdev,int id_idx)
 #endif
 
 	pci_set_drvdata(hc->pci_dev, hc);
-	
+
 	/* At this point the needed PCI config is done */
 	/* fifos are still not enabled */
 	return (0);

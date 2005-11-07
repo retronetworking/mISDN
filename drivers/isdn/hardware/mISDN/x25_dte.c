@@ -1,7 +1,7 @@
 /* $Id$
  *
  * Linux modular ISDN subsystem, mISDN
- * X.25/X.31 Layer3 for DTE mode   
+ * X.25/X.31 Layer3 for DTE mode
  *
  * Author	Karsten Keil (kkeil@suse.de)
  *
@@ -370,7 +370,7 @@ static struct FsmNode PFnList[] =
 	{ST_P0,	EV_L3_OUTGOING_CALL,	p_p0_outgoing},
 	{ST_P0, EV_L3_CLEARING,		p_clearing_req},
 	{ST_P1,	EV_L3_READY,		p_ready},
-	{ST_P1,	EV_L3_OUTGOING_CALL,	p_outgoing},		
+	{ST_P1,	EV_L3_OUTGOING_CALL,	p_outgoing},
 	{ST_P1,	EV_L2_INCOMING_CALL,	p_incoming},
 	{ST_P1,	EV_L2_CLEAR,		p_clear_ind},
 	{ST_P1,	EV_L2_CALL_CNF,		p_invalid_pkt},
@@ -493,7 +493,7 @@ d_reset_timeout(struct FsmInst *fi, int event, void *arg)
 		l3c->cause[1] = 51;
 		mISDN_FsmChangeState(fi, ST_D0);
 		if (test_bit(X25_STATE_PERMANENT, &l3c->state))
-			X25_clear_connection(l3c, NULL, 0x3303); 
+			X25_clear_connection(l3c, NULL, 0x3303);
 		else
 			mISDN_FsmEvent(&l3c->x25p, EV_L3_CLEARING, NULL);
 	}
@@ -660,7 +660,7 @@ dte_data_ind_d(x25_channel_t *chan, struct sk_buff *skb, u_char gfi, u_char ptyp
 				mISDN_FsmEvent(&chan->x25d, EV_L3_RESETING, NULL);
 			} else {
 				int flag = (pr_m & 1) ? CAPI_FLAG_MOREDATA : 0;
-				
+
 				if (gfi & X25_GFI_QBIT)
 					flag |= CAPI_FLAG_QUALIFIER;
 				if (gfi & X25_GFI_DBIT)
@@ -755,7 +755,7 @@ dte_data_ind_r(x25_l3_t *l3, struct sk_buff *skb, u_char gfi, __u16 channel, u_c
 {
 	int	ret = X25_ERRCODE_DISCARD;
 
-	
+
 	if (ptype == X25_PTYPE_NOTYPE) {
 		if (channel) {
 			if (l3->x25r.state == ST_R1)
@@ -908,7 +908,7 @@ dte_create_channel(x25_l3_t *l3, int typ, u_char flag, __u16 ch, int len, u_char
 	x25_channel_t	*l3c;
 	__u16		nch = ch;
 	int		ret;
-	
+
 	if (typ == X25_CHANNEL_OUTGOING) {
 		if (ch == 0) {
 			/* first search for allready created channels in P1 state */
@@ -1069,7 +1069,7 @@ dte_from_up(x25_l3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 					ncpi = (x25_ncpi_t *)skb->data;
 					l3c = dte_create_channel(l3, X25_CHANNEL_OUTGOING, ncpi->Flags,
 						(ncpi->Group<<8) | ncpi->Channel,
-						ncpi->len - 3, &ncpi->Contens[0]);  
+						ncpi->len - 3, &ncpi->Contens[0]);
 				}
 				if (l3c)
 					l3c->ncci = addr | (l3c->lchan << 16);
@@ -1132,7 +1132,7 @@ dte_from_up(x25_l3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 					info = 0;
 			} else
 				info = 0x2002;
-			
+
 			skb_trim(skb, 0);
 			memcpy(skb_put(skb, 2), &info, 2);
 			err = X25sendL4skb(l3c, l3, addr, CAPI_DISCONNECT_B3_CONF, hh->dinfo, skb);
@@ -1217,19 +1217,20 @@ dte_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
 	if (!l3)
 		return(ret);
-	
+
 	switch(hh->addr & MSG_DIR_MASK) {
 		case FLG_MSG_DOWN:
 			ret = dte_from_up(l3, skb, hh);
 			break;
 		case FLG_MSG_UP:
+		case MSG_BROADCAST:  // we define broaadcast comes from down below
 			ret = dte_from_down(l3, skb, hh);
 			break;
 		case MSG_TO_OWNER:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;
-		default: /* broadcast */
+		default:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;

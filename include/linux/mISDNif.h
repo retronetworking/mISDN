@@ -38,7 +38,7 @@
  * <8 bit subcommand>
  *
  */
- 
+
 /* SUBCOMMANDS */
 #define REQUEST		0x80
 #define CONFIRM		0x81
@@ -95,6 +95,7 @@
 #define MGR_HASPROTOCOL 0x0fe300
 #define MGR_EVALSTACK	0x0fe400
 #define MGR_GLOBALOPT	0x0fe500
+#define MGR_SHORTSTATUS 0x0fe600
 #define MGR_LOADFIRM	0x0ff000
 #define MGR_LOGDATA	0x0ff100
 #define MGR_DEBUGDATA	0x0ff200
@@ -121,8 +122,8 @@
 #define ANYSIGNAL	0x1f01
 
 /* PH_CONTROL parameter */
-#define HW_RESET	0x0001 
-#define HW_POWERDOWN	0x0100 
+#define HW_RESET	0x0001
+#define HW_POWERDOWN	0x0100
 #define HW_POWERUP	0x0101
 #define HW_DEACTIVATE	0x0200
 #define HW_ACTIVATE	0x0201
@@ -158,8 +159,8 @@
 #define HW_FIRM_START	0xFF10
 #define HW_FIRM_DATA	0xFF11
 #define HW_FIRM_END	0xFF12
-#define HW_D_BLOCKED	0xFF20 
-#define HW_D_NOBLOCKED	0xFF21 
+#define HW_D_BLOCKED	0xFF20
+#define HW_D_NOBLOCKED	0xFF21
 #define HW_TESTRX_RAW	0xFF40
 #define HW_TESTRX_HDLC	0xFF41
 #define HW_TESTRX_OFF	0xFF4f
@@ -234,7 +235,7 @@
 #define MPH_DEACTIVATE	0x011000
 #define MPH_ACTIVATE	0x011100
 #define MPH_INFORMATION	0x012000
- 
+
 /* layer 2 */
 #define DL_ESTABLISH	0x020100
 #define DL_RELEASE	0x020000
@@ -396,6 +397,18 @@
 #define	ISDN_PID_L3_DF_PTP		0x00100000
 #define ISDN_PID_L3_DF_EXTCID		0x00200000
 #define ISDN_PID_L3_DF_CRLEN2		0x00400000
+
+
+// short message status
+#define SSTATUS_ALL             0x0fffffff
+#define SSTATUS_BROADCAST_BIT   0x10000000
+#define SSTATUS_L1              0x01ffffff
+#define SSTATUS_L2              0x02ffffff
+#define SSTATUS_L1_DEACTIVATED  0x01000000
+#define SSTATUS_L1_ACTIVATED    0x01000001
+#define SSTATUS_L2_RELEASED     0x02000000
+#define SSTATUS_L2_ESTABLISH    0x02000001
+
 
 #define mISDN_CORE_DEVICE	0
 #define mISDN_RAW_DEVICE	128
@@ -576,7 +589,7 @@ typedef struct _status_info {
 typedef struct _logdata {
 	char    *head;
 	char	*fmt;
-	va_list args;	
+	va_list args;
 } logdata_t;
 
 typedef struct _moditem {

@@ -211,7 +211,7 @@ compose_msg(struct sk_buff *skb, Q931_info_t *qi)
 	ie_info_t	*ie;
 
 	buf += L3_EXTRA_SIZE;
-	
+
 	if (qi->more_data.off) {
 		p = skb_put(skb, 1);
 		*p = buf[qi->more_data.off];
@@ -398,7 +398,7 @@ static int ie_ALERTING[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1,
 		IE_USER_USER, -1};
 static int ie_CALL_PROCEEDING[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1,
 		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_HLC, -1};
-static int ie_CONNECT[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1, 
+static int ie_CONNECT[] = {IE_BEARER, IE_CHANNEL_ID | IE_MANDATORY_1,
 		IE_FACILITY, IE_PROGRESS, IE_DISPLAY, IE_DATE, IE_SIGNAL,
 		IE_CONNECT_PN, IE_CONNECT_SUB, IE_LLC, IE_HLC, IE_USER_USER, -1};
 static int ie_CONNECT_ACKNOWLEDGE[] = {IE_CHANNEL_ID, IE_DISPLAY, IE_SIGNAL, -1};
@@ -411,7 +411,7 @@ static int ie_PROGRESS[] = {IE_BEARER, IE_CAUSE, IE_FACILITY, IE_PROGRESS |
 		IE_MANDATORY, IE_DISPLAY, IE_HLC, IE_USER_USER, -1};
 static int ie_RELEASE[] = {IE_CAUSE | IE_MANDATORY_1, IE_FACILITY, IE_DISPLAY,
 		IE_SIGNAL, IE_USER_USER, -1};
-/* a RELEASE_COMPLETE with errors don't require special actions 
+/* a RELEASE_COMPLETE with errors don't require special actions
 static int ie_RELEASE_COMPLETE[] = {IE_CAUSE | IE_MANDATORY_1, IE_FACILITY,
 		IE_DISPLAY, IE_SIGNAL, IE_USER_USER, -1};
 */
@@ -436,7 +436,7 @@ static int ie_HOLD_REJECT[] = {IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
 static int ie_RETRIEVE[] = {IE_CHANNEL_ID| IE_MANDATORY, IE_DISPLAY, -1};
 static int ie_RETRIEVE_ACKNOWLEDGE[] = {IE_CHANNEL_ID| IE_MANDATORY, IE_DISPLAY, -1};
 static int ie_RETRIEVE_REJECT[] = {IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
-/* not used 
+/* not used
  * static int ie_CONGESTION_CONTROL[] = {IE_CONGESTION | IE_MANDATORY,
  *		IE_CAUSE | IE_MANDATORY, IE_DISPLAY, -1};
  * static int ie_USER_INFORMATION[] = {IE_MORE_DATA, IE_USER_USER | IE_MANDATORY, -1};
@@ -526,7 +526,7 @@ check_infoelements(l3_process_t *pc, struct sk_buff *skb, int *checklist)
 	ie_info_t	*iep;
 	int		i, l, newpos, oldpos;
 	int		err_seq = 0, err_len = 0, err_compr = 0, err_ureg = 0;
-	
+
 	p = skb->data;
 	p += L3_EXTRA_SIZE;
 	iep = &qi->bearer_capability;
@@ -564,7 +564,7 @@ check_infoelements(l3_process_t *pc, struct sk_buff *skb, int *checklist)
 			return(ERR_IE_LENGTH);
 		if (err_seq)
 			return(ERR_IE_SEQUENCE);
-	} 
+	}
 	return(0);
 }
 
@@ -622,7 +622,7 @@ l3dss1_std_ie_err(l3_process_t *pc, int ret) {
 	if (pc->l3->debug & L3_DEB_CHECK)
 		l3_debug(pc->l3, "check_infoelements ret %d", ret);
 	switch(ret) {
-		case 0: 
+		case 0:
 			break;
 		case ERR_IE_COMPREHENSION:
 			l3dss1_status_send(pc, CAUSE_MANDATORY_IE_MISS);
@@ -1043,7 +1043,7 @@ l3dss1_disconnect(l3_process_t *pc, u_char pr, void *arg)
 			cause = CAUSE_MANDATORY_IE_MISS;
 		else
 			cause = CAUSE_INVALID_CONTENTS;
-	} 
+	}
 	ret = check_infoelements(pc, skb, ie_DISCONNECT);
 	if (ERR_IE_COMPREHENSION == ret)
 		cause = CAUSE_MANDATORY_IE_MISS;
@@ -1141,7 +1141,7 @@ l3dss1_setup(l3_process_t *pc, u_char pr, void *arg)
 				case 0x08: /* Unrestricted digital information */
 				case 0x09: /* Restricted digital information */
 				case 0x11:
-					/* Unrestr. digital information  with 
+					/* Unrestr. digital information  with
 					 * tones/announcements ( or 7 kHz audio
 					 */
 				case 0x18: /* Video */
@@ -1170,7 +1170,7 @@ l3dss1_setup(l3_process_t *pc, u_char pr, void *arg)
 			l3dss1_msg_without_setup(pc, CAUSE_INVALID_CONTENTS);
 			dev_kfree_skb(skb);
 			return;
-		} 
+		}
 	} else {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "setup without bearer capabilities");
@@ -1198,7 +1198,7 @@ l3dss1_setup(l3_process_t *pc, u_char pr, void *arg)
 			if (pc->l3->debug & L3_DEB_WARN)
 				l3_debug(pc->l3, "setup without bchannel, call waiting");
 			bcfound++;
-		} 
+		}
 	} else {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "setup with wrong chid ret %d", err);
@@ -1307,7 +1307,7 @@ l3dss1_progress(l3_process_t *pc, u_char pr, void *arg) {
 		cause = CAUSE_MANDATORY_IE_MISS;
 		err = 4;
 	}
-	if (err) {	
+	if (err) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "progress error %d", err);
 		l3dss1_status_send(pc, cause);
@@ -1331,7 +1331,7 @@ l3dss1_notify(l3_process_t *pc, u_char pr, void *arg) {
 	Q931_info_t	*qi = (Q931_info_t *)skb->data;
 	int		err = 0;
 	u_char		*p, cause = CAUSE_INVALID_CONTENTS;
-                        
+
 	if (qi->notify.off) {
 		p = skb->data;
 		p += L3_EXTRA_SIZE + qi->notify.off;
@@ -1355,7 +1355,7 @@ l3dss1_notify(l3_process_t *pc, u_char pr, void *arg) {
 		cause = CAUSE_MANDATORY_IE_MISS;
 		err = 3;
 	}
-	if (err) {	
+	if (err) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "notify error %d", err);
 		l3dss1_status_send(pc, cause);
@@ -1445,9 +1445,9 @@ static void
 l3dss1_status(l3_process_t *pc, u_char pr, void *arg) {
 	struct sk_buff	*skb = arg;
 	Q931_info_t	*qi = (Q931_info_t *)skb->data;
-	int		ret = 0; 
+	int		ret = 0;
 	u_char		*p, cause = 0, callState = 0xff;
-	
+
 	if ((ret = l3dss1_get_cause(pc, skb))) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "STATUS get_cause ret(%d)", ret);
@@ -1506,7 +1506,7 @@ l3dss1_facility(l3_process_t *pc, u_char pr, void *arg)
 	struct sk_buff	*skb = arg;
 	Q931_info_t	*qi = (Q931_info_t *)skb->data;
 	int		ret;
-	
+
 	ret = check_infoelements(pc, skb, ie_FACILITY);
 	l3dss1_std_ie_err(pc, ret);
 	if (!qi->facility.off) {
@@ -1514,7 +1514,7 @@ l3dss1_facility(l3_process_t *pc, u_char pr, void *arg)
 			l3_debug(pc->l3, "FACILITY without IE_FACILITY");
 		dev_kfree_skb(skb);
 		return;
-	}		
+	}
 	if (mISDN_l3up(pc, CC_FACILITY | INDICATION, skb))
 		dev_kfree_skb(skb);
 }
@@ -1545,7 +1545,7 @@ l3dss1_suspend_rej(l3_process_t *pc, u_char pr, void *arg)
 	if ((ret = l3dss1_get_cause(pc, skb))) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "SUSP_REJ get_cause err(%d)", ret);
-		if (ret == -1) 
+		if (ret == -1)
 			cause = CAUSE_MANDATORY_IE_MISS;
 		else
 			cause = CAUSE_INVALID_CONTENTS;
@@ -1614,7 +1614,7 @@ l3dss1_resume_rej(l3_process_t *pc, u_char pr, void *arg)
 	if ((ret = l3dss1_get_cause(pc, skb))) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "RES_REJ get_cause err(%d)", ret);
-		if (ret == -1) 
+		if (ret == -1)
 			cause = CAUSE_MANDATORY_IE_MISS;
 		else
 			cause = CAUSE_INVALID_CONTENTS;
@@ -1804,7 +1804,7 @@ l3dss1_hold_rej(l3_process_t *pc, u_char pr, void *arg)
 	if ((ret = l3dss1_get_cause(pc, skb))) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "HOLD_REJ get_cause err(%d)", ret);
-		if (ret == -1) 
+		if (ret == -1)
 			cause = CAUSE_MANDATORY_IE_MISS;
 		else
 			cause = CAUSE_INVALID_CONTENTS;
@@ -2029,7 +2029,7 @@ l3dss1_retrieve_rej(l3_process_t *pc, u_char pr, void *arg)
 	if ((ret = l3dss1_get_cause(pc, skb))) {
 		if (pc->l3->debug & L3_DEB_WARN)
 			l3_debug(pc->l3, "RETRIEVE_REJ get_cause err(%d)", ret);
-		if (ret == -1) 
+		if (ret == -1)
 			cause = CAUSE_MANDATORY_IE_MISS;
 		else
 			cause = CAUSE_INVALID_CONTENTS;
@@ -2245,7 +2245,7 @@ l3dss1_dl_reestablish(l3_process_t *pc, u_char pr, void *arg)
 	L3AddTimer(&pc->timer, T309, CC_T309);
 	l3_msg(pc->l3, DL_ESTABLISH | REQUEST, 0, 0, NULL);
 }
- 
+
 static void
 l3dss1_dl_reest_status(l3_process_t *pc, u_char pr, void *arg)
 {
@@ -2583,7 +2583,7 @@ dss1_fromdown(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 				if (ptr[qi->cause.off +1] >= 2)
 					cause = ptr[qi->cause.off + 3] & 0x7f;
 				else
-					cause = ptr[qi->cause.off + 2] & 0x7f;	
+					cause = ptr[qi->cause.off + 2] & 0x7f;
 			}
 			callState = 0;
 			if (qi->call_state.off) {
@@ -2680,7 +2680,7 @@ dss1_fromup(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 			}
 		}
 		return(ret);
-	} 
+	}
 	if ((l3->debug & L3_DEB_MSG) && skb->len)
 		mISDN_LogL3Msg(skb);
 	if (!proc && hh->dinfo == MISDN_ID_DUMMY) {
@@ -2724,7 +2724,7 @@ static int
 dss1man(l3_process_t *proc, u_int pr, void *arg)
 {
 	u_int	i;
- 
+
 	if (!proc) {
 		printk(KERN_ERR "mISDN dss1man without proc pr=%04x\n", pr);
 		return(-EINVAL);
@@ -2761,11 +2761,12 @@ dss1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
 	if (!l3)
 		return(ret);
-	
+
 	switch(hh->addr & MSG_DIR_MASK) {
 		case FLG_MSG_DOWN:
 			ret = dss1_fromup(l3, skb, hh);
 			break;
+		case MSG_BROADCAST:  // we define broadcast comes from down below
 		case FLG_MSG_UP:
 			ret = dss1_fromdown(l3, skb, hh);
 			break;
@@ -2773,7 +2774,7 @@ dss1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;
-		default: /* broadcast */
+		default:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;

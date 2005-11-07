@@ -197,7 +197,7 @@ l2_chain_down(mISDNinstance_t *inst, struct sk_buff *skb) {
 static int
 ph_data_confirm(mISDNinstance_t *inst, mISDN_head_t *hh, struct sk_buff *skb) {
 	layer2_t *l2 = inst->privat;
-	struct sk_buff *nskb = skb; 
+	struct sk_buff *nskb = skb;
 //	mISDNif_t *next = up->clone;
 	int ret = -EAGAIN;
 
@@ -408,7 +408,7 @@ inline int
 IsSFrame(u_char * data, layer2_t *l2)
 {
 	register u_char d = *data;
-	
+
 	if (!test_bit(FLG_MOD128, &l2->flag))
 		d &= 0xf;
 	return(((d & 0xf3) == 1) && ((d & 0x0c) != 0x0c));
@@ -660,7 +660,7 @@ l2_mdl_error_ua(struct FsmInst *fi, int event, void *arg)
 		l2mgr(l2, MDL_ERROR | INDICATION, (void *) 'C');
 	else
 		l2mgr(l2, MDL_ERROR | INDICATION, (void *) 'D');
-	
+
 }
 
 static void
@@ -697,7 +697,7 @@ static void
 l2_go_st3(struct FsmInst *fi, int event, void *arg)
 {
 	dev_kfree_skb((struct sk_buff *)arg);
-	mISDN_FsmChangeState(fi, ST_L2_3); 
+	mISDN_FsmChangeState(fi, ST_L2_3);
 }
 
 static void
@@ -803,7 +803,7 @@ l2_discard_i_setl3(struct FsmInst *fi, int event, void *arg)
 	test_and_set_bit(FLG_L3_INIT, &l2->flag);
 	test_and_clear_bit(FLG_PEND_REL, &l2->flag);
 	dev_kfree_skb(skb);
-} 
+}
 
 static void
 l2_l3_reestablish(struct FsmInst *fi, int event, void *arg)
@@ -981,6 +981,8 @@ l2_connected(struct FsmInst *fi, int event, void *arg)
 
 	if (skb_queue_len(&l2->i_queue) && cansend(l2))
 		mISDN_FsmEvent(fi, EV_L2_ACK_PULL, NULL);
+
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST, MGR_SHORTSTATUS, SSTATUS_L2_ESTABLISH, 0, NULL, 0);
 }
 
 static void
@@ -997,6 +999,8 @@ l2_released(struct FsmInst *fi, int event, void *arg)
 	stop_t200(l2, 6);
 	lapb_dl_release_l2l3(l2, CONFIRM);
 	mISDN_FsmChangeState(fi, ST_L2_4);
+
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST, MGR_SHORTSTATUS, SSTATUS_L2_RELEASED, 0, NULL, 0);
 }
 
 static void
@@ -1619,7 +1623,7 @@ l2_st14_persistant_da(struct FsmInst *fi, int event, void *arg)
 {
 	layer2_t *l2 = fi->userdata;
 	struct sk_buff *skb = arg;
-	
+
 	discard_queue(&l2->i_queue);
 	discard_queue(&l2->ui_queue);
 	if (test_and_clear_bit(FLG_ESTAB_PEND, &l2->flag))
@@ -1820,7 +1824,7 @@ ph_data_indication(layer2_t *l2, mISDN_head_t *hh, struct sk_buff *skb) {
 	u_int	l;
 	int	c = 0;
 
-	
+
 	l = l2addrsize(l2);
 	if (skb->len <= l) {
 		mISDN_FsmEvent(&l2->l2m, EV_L2_FRAME_ERROR, (void *) 'N');
@@ -1954,6 +1958,15 @@ l2from_down(layer2_t *l2, struct sk_buff *askb, mISDN_head_t *hh)
 				dev_kfree_skb(cskb);
 			ret = 0;
 			break;
+		case MGR_SHORTSTATUS:
+			if(hh->dinfo==SSTATUS_ALL || hh->dinfo==SSTATUS_L2) {
+				int new_addr;
+				if(hh->dinfo&SSTATUS_BROADCAST_BIT) new_addr= l2->inst.id | MSG_BROADCAST;
+				else new_addr=hh->addr | FLG_MSG_TARGET;
+				return(mISDN_queueup_newhead(&l2->inst, new_addr, MGR_SHORTSTATUS,
+				     (l2->l2m.state==ST_L2_7) ? SSTATUS_L2_ESTABLISH : SSTATUS_L2_RELEASED, cskb));
+			}
+			break;
 		default:
 			if (l2->debug)
 				l2m_debug(&l2->l2m, "l2 unknown pr %x", hh->prim);
@@ -2040,19 +2053,20 @@ l2_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
 	if (!l2)
 		return(ret);
-	
+
 	switch(hh->addr & MSG_DIR_MASK) {
 		case FLG_MSG_DOWN:
 			ret = l2from_up(l2, skb, hh);
 			break;
 		case FLG_MSG_UP:
+		case MSG_BROADCAST:  // we define broaadcast comes from down below
 			ret = l2from_down(l2, skb, hh);
 			break;
 		case MSG_TO_OWNER:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;
-		default: /* broadcast */
+		default:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;
@@ -2373,7 +2387,7 @@ l2_status(layer2_t *l2, status_info_l2_t *si)
 }
 
 static char MName[] = "ISDNL2";
- 
+
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE

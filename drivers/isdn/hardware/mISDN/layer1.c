@@ -124,7 +124,7 @@ enum {
 	EV_DEACT_CNF,
 	EV_DEACT_IND,
 	EV_POWER_UP,
-	EV_ANYSIG_IND, 
+	EV_ANYSIG_IND,
 	EV_INFO2_IND,
 	EV_INFO4_IND,
 	EV_TIMER_DEACT,
@@ -142,7 +142,7 @@ static char *strL1Event[] =
 	"EV_DEACT_CNF",
 	"EV_DEACT_IND",
 	"EV_POWER_UP",
-	"EV_ANYSIG_IND", 
+	"EV_ANYSIG_IND",
 	"EV_INFO2_IND",
 	"EV_INFO4_IND",
 	"EV_TIMER_DEACT",
@@ -267,7 +267,7 @@ l1_timer3(struct FsmInst *fi, int event, void *arg)
 	layer1_t *l1 = fi->userdata;
 	u_int db = HW_D_NOBLOCKED;
 
-	test_and_clear_bit(FLG_L1_T3RUN, &l1->Flags);	
+	test_and_clear_bit(FLG_L1_T3RUN, &l1->Flags);
 	if (test_and_clear_bit(FLG_L1_ACTIVATING, &l1->Flags)) {
 		if (test_and_clear_bit(FLG_L1_DBLOCKED, &l1->Flags))
 			l1up(l1, PH_CONTROL | INDICATION, 0, 4, &db);
@@ -545,7 +545,7 @@ l1from_down(layer1_t *l1, struct sk_buff *skb, mISDN_head_t *hh)
 			mISDN_debug(l1->inst.st->id, NULL,
 				"l1from_down ctrl ind %x unhandled", hh->dinfo);
 	} else if (hh->prim == (PH_CONTROL | CONFIRM)) {
-		if (hh->dinfo == HW_DEACTIVATE) 
+		if (hh->dinfo == HW_DEACTIVATE)
 			mISDN_FsmEvent(&l1->l1m, EV_DEACT_CNF, NULL);
 		else if (l1->debug)
 			mISDN_debug(l1->inst.st->id, NULL,
@@ -588,19 +588,20 @@ l1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
 	if (!l1)
 		return(ret);
-	
+
 	switch(hh->addr & MSG_DIR_MASK) {
 		case FLG_MSG_DOWN:
 			ret = l1from_up(l1, skb, hh);
 			break;
 		case FLG_MSG_UP:
+		case MSG_BROADCAST:  // we define broaadcast comes from down below
 			ret = l1from_down(l1, skb, hh);
 			break;
 		case MSG_TO_OWNER:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;
-		default: /* broadcast */
+		default:
 			/* FIXME: must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;
@@ -736,7 +737,7 @@ l1_manager(void *data, u_int prim, void *arg) {
 		printk(KERN_WARNING "l1_manager connect no instance\n");
 		return(err);
 	}
-	
+
 	switch(prim) {
 	    case MGR_NEWLAYER | REQUEST:
 		err = new_l1(data, arg);
