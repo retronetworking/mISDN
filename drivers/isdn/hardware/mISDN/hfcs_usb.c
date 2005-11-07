@@ -1936,6 +1936,7 @@ setup_instance(hfcsusb_t * card)
 /*************************************************/
 /* function called to probe a new plugged device */
 /*************************************************/
+
 static int
 hfcsusb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 {
@@ -1946,7 +1947,7 @@ hfcsusb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	struct usb_host_endpoint	*ep;
 	int 				ifnum = iface->desc.bInterfaceNumber;
 	int				i, idx, alt_idx, probe_alt_setting, vend_idx, cfg_used, *vcf,
-					attr, cfg_found, cidx, ep_addr;
+					attr, cfg_found, ep_addr;
 	int				cmptbl[16], small_match, iso_packet_size, packet_size, alt_used = 0;
 	hfcsusb_vdata			*driver_info;
 
@@ -1964,232 +1965,172 @@ hfcsusb_probe(struct usb_interface *intf, const struct usb_device_id *id)
 	       "HFC-S USB: probing interface(%d) actalt(%d) minor(%d)\n",
 	       ifnum, iface->desc.bAlternateSetting, intf->minor);
 
-	if (vend_idx != 0xffff) {
-		/* if vendor and product ID is OK, start probing alternate settings */
-		alt_idx = 0;
-		small_match = 0xffff;
+	if (vend_idx == 0xffff) {
+		printk(KERN_WARNING
+		       "HFC-S USB: no valid vendor found in USB descriptor\n");
+		return (-EIO);
+	}
+	/* if vendor and product ID is OK, start probing alternate settings */
+	alt_idx = 0;
+	small_match = 0xffff;
 
-		/* default settings */
-		iso_packet_size = 16;
-		packet_size = 64;
+	/* default settings */
+	iso_packet_size = 16;
+	packet_size = 64;
 
-		while (alt_idx < intf->num_altsetting) {
-			iface = intf->altsetting + alt_idx;
-			probe_alt_setting = iface->desc.bAlternateSetting;
-			cfg_used = 0;
+	while (alt_idx < intf->num_altsetting) {
+		iface = intf->altsetting + alt_idx;
+		probe_alt_setting = iface->desc.bAlternateSetting;
+		cfg_used = 0;
 
-			/* check for config EOL element */
-			while (validconf[cfg_used][0]) {
-				cfg_found = 1;
-				vcf = validconf[cfg_used];
-				/* first endpoint descriptor */
-				ep = iface->endpoint;
-				memcpy(cmptbl, vcf, 16 * sizeof(int));
-
-				/* check for all endpoints in this alternate setting */
-				for (i = 0; i < iface->desc.bNumEndpoints;
-				     i++) {
-					ep_addr =
-					    ep->desc.bEndpointAddress;
-					/* get endpoint base */
-					idx = ((ep_addr & 0x7f) - 1) * 2;
-					if (ep_addr & 0x80)
-						idx++;
-					attr = ep->desc.bmAttributes;
-					if (cmptbl[idx] == EP_NUL) {
-						cfg_found = 0;
-					}
-					if (attr == USB_ENDPOINT_XFER_INT
-					    && cmptbl[idx] == EP_INT)
-						cmptbl[idx] = EP_NUL;
-					if (attr == USB_ENDPOINT_XFER_BULK
-					    && cmptbl[idx] == EP_BLK)
-						cmptbl[idx] = EP_NUL;
-					if (attr == USB_ENDPOINT_XFER_ISOC
-					    && cmptbl[idx] == EP_ISO)
-						cmptbl[idx] = EP_NUL;
-
-					/* check if all INT endpoints match minimum interval */
-					if (attr == USB_ENDPOINT_XFER_INT
-					    && ep->desc.bInterval <
-					    vcf[17]) {
-						cfg_found = 0;
-					}
-					ep++;
-				}
-				for (i = 0; i < 16; i++) {
-					/* all entries must be EP_NOP or EP_NUL for a valid config */
-					if (cmptbl[i] != EP_NOP
-					    && cmptbl[i] != EP_NUL)
-						cfg_found = 0;
-				}
-				if (cfg_found) {
-					if (cfg_used < small_match) {
-						small_match = cfg_used;
-						alt_used =
-						    probe_alt_setting;
-						iface_used = iface;
-					}
-				}
-				cfg_used++;
-			}
-			alt_idx++;
-		}		/* (alt_idx < intf->num_altsetting) */
-
-		/* found a valid USB Ta Endpint config */
-		if (small_match != 0xffff) {
-			iface = iface_used;
-			card = kmalloc(sizeof(hfcsusb_t), GFP_KERNEL);
-			if (!card)
-				return (-ENOMEM);	/* got no mem */
-			memset(card, 0, sizeof(hfcsusb_t));
-
+		/* check for config EOL element */
+		while (validconf[cfg_used][0]) {
+			cfg_found = 1;
+			vcf = validconf[cfg_used];
+			/* first endpoint descriptor */
 			ep = iface->endpoint;
-			vcf = validconf[small_match];
+			memcpy(cmptbl, vcf, 16 * sizeof(int));
 
+			/* check for all endpoints in this alternate setting */
 			for (i = 0; i < iface->desc.bNumEndpoints; i++) {
 				ep_addr = ep->desc.bEndpointAddress;
 				/* get endpoint base */
 				idx = ((ep_addr & 0x7f) - 1) * 2;
 				if (ep_addr & 0x80)
 					idx++;
-				cidx = idx & 7;
 				attr = ep->desc.bmAttributes;
+				if (cmptbl[idx] == EP_NUL) {
+					cfg_found = 0;
+				}
+				if (attr == USB_ENDPOINT_XFER_INT
+					&& cmptbl[idx] == EP_INT)
+					cmptbl[idx] = EP_NUL;
+				if (attr == USB_ENDPOINT_XFER_BULK
+					&& cmptbl[idx] == EP_BLK)
+					cmptbl[idx] = EP_NUL;
+				if (attr == USB_ENDPOINT_XFER_ISOC
+					&& cmptbl[idx] == EP_ISO)
+					cmptbl[idx] = EP_NUL;
 
-				/* init Endpoints */
-				if (vcf[idx] != EP_NOP
-				    && vcf[idx] != EP_NUL) {
-					switch (attr) {
-						case USB_ENDPOINT_XFER_INT:
-							card->
-							    fifos[cidx].
-							    pipe =
-							    usb_rcvintpipe
-							    (dev,
-							     ep->desc.
-							     bEndpointAddress);
-							card->
-							    fifos[cidx].
-							    usb_transfer_mode
-							    = USB_INT;
-							packet_size =
-							    ep->desc.
-							    wMaxPacketSize;
-							break;
-						case USB_ENDPOINT_XFER_BULK:
-							if (ep_addr & 0x80)
-								card->
-								    fifos
-								    [cidx].
-								    pipe =
-								    usb_rcvbulkpipe
-								    (dev,
-								     ep->
-								     desc.
-								     bEndpointAddress);
-							else
-								card->
-								    fifos
-								    [cidx].
-								    pipe =
-								    usb_sndbulkpipe
-								    (dev,
-								     ep->
-								     desc.
-								     bEndpointAddress);
-							card->
-							    fifos[cidx].
-							    usb_transfer_mode
-							    = USB_BULK;
-							packet_size =
-							    ep->desc.
-							    wMaxPacketSize;
-							break;
-						case USB_ENDPOINT_XFER_ISOC:
-							if (ep_addr & 0x80)
-								card->
-								    fifos
-								    [cidx].
-								    pipe =
-								    usb_rcvisocpipe
-								    (dev,
-								     ep->
-								     desc.
-								     bEndpointAddress);
-							else
-								card->
-								    fifos
-								    [cidx].
-								    pipe =
-								    usb_sndisocpipe
-								    (dev,
-								     ep->
-								     desc.
-								     bEndpointAddress);
-							card->
-							    fifos[cidx].
-							    usb_transfer_mode
-							    = USB_ISOC;
-							iso_packet_size =
-							    ep->desc.
-							    wMaxPacketSize;
-							break;
-						default:
-							card->
-							    fifos[cidx].
-							    pipe = 0;
-					}	/* switch attribute */
-
-					if (card->fifos[cidx].pipe) {
-						card->fifos[cidx].
-						    fifonum = cidx;
-						card->fifos[cidx].card =
-						    card;
-						card->fifos[cidx].
-						    usb_packet_maxlen =
-						    ep->desc.
-						    wMaxPacketSize;
-						card->fifos[cidx].
-						    intervall =
-						    ep->desc.bInterval;
-						card->fifos[cidx].
-						    skbuff = NULL;
-					}
+				/* check if all INT endpoints match minimum interval */
+				if (attr == USB_ENDPOINT_XFER_INT &&
+					ep->desc.bInterval < vcf[17]) {
+					cfg_found = 0;
 				}
 				ep++;
 			}
-			card->dev = dev;	/* save device */
-			card->if_used = ifnum;	/* save used interface */
-			card->alt_used = alt_used;	/* and alternate config */
-			card->ctrl_paksize = dev->descriptor.bMaxPacketSize0;	/* control size */
-			card->cfg_used = vcf[16];	/* store used config */
-			card->vend_idx = vend_idx;	/* store found vendor */
-			card->packet_size = packet_size;
-			card->iso_packet_size = iso_packet_size;
-
-			/* create the control pipes needed for register access */
-			card->ctrl_in_pipe = usb_rcvctrlpipe(card->dev, 0);
-			card->ctrl_out_pipe =
-			    usb_sndctrlpipe(card->dev, 0);
-			card->ctrl_urb = usb_alloc_urb(0, GFP_KERNEL);
-
-			driver_info = (hfcsusb_vdata *) hfcsusb_idtab[vend_idx].driver_info;
-			printk(KERN_INFO "HFC-S USB: detected \"%s\"\n",
-			       driver_info->vend_name);
-			printk(KERN_INFO "HFC-S USB: Endpoint-Config: %s (if=%d alt=%d)\n",
-			    conf_str[small_match], ifnum, alt_used);			       
-
-			card->intf = intf;
-			if (setup_instance(card)) {
-				return (-EIO);
+			for (i = 0; i < 16; i++) {
+				/* all entries must be EP_NOP or EP_NUL for a valid config */
+				if (cmptbl[i] != EP_NOP && cmptbl[i] != EP_NUL)
+					cfg_found = 0;
 			}
-			return (0);
+			if (cfg_found) {
+				if (cfg_used < small_match) {
+					small_match = cfg_used;
+					alt_used = probe_alt_setting;
+					iface_used = iface;
+				}
+			}
+			cfg_used++;
 		}
-	} else {
-		printk(KERN_INFO
-		       "HFC-S USB: no valid vendor found in USB descriptor\n");
+		alt_idx++;
+	}	/* (alt_idx < intf->num_altsetting) */
+
+	/* not found a valid USB Ta Endpoint config */
+	if (small_match == 0xffff) {
+		printk(KERN_WARNING
+		       "HFC-S USB: no valid endpoint found in USB descriptor\n");
+		return (-EIO);
 	}
-	return (-EIO);
+	iface = iface_used;
+	card = kmalloc(sizeof(hfcsusb_t), GFP_KERNEL);
+	if (!card)
+		return (-ENOMEM);	/* got no mem */
+	memset(card, 0, sizeof(hfcsusb_t));
+
+	ep = iface->endpoint;
+	vcf = validconf[small_match];
+
+	for (i = 0; i < iface->desc.bNumEndpoints; i++) {
+		usb_fifo	*f;
+
+		ep_addr = ep->desc.bEndpointAddress;
+		/* get endpoint base */
+		idx = ((ep_addr & 0x7f) - 1) * 2;
+		if (ep_addr & 0x80)
+			idx++;
+		f = &card->fifos[idx & 7];
+
+		/* init Endpoints */
+		if (vcf[idx] == EP_NOP || vcf[idx] == EP_NUL) {
+			ep++;
+			continue;
+		}
+		switch (ep->desc.bmAttributes) {
+			case USB_ENDPOINT_XFER_INT:
+				f->pipe = usb_rcvintpipe(dev,
+					ep->desc.bEndpointAddress);
+				f->usb_transfer_mode = USB_INT;
+				packet_size = ep->desc.wMaxPacketSize;
+				break;
+			case USB_ENDPOINT_XFER_BULK:
+				if (ep_addr & 0x80)
+					f->pipe = usb_rcvbulkpipe(dev,
+						ep->desc.bEndpointAddress);
+				else
+					f->pipe = usb_sndbulkpipe(dev,
+						ep->desc.bEndpointAddress);
+				f->usb_transfer_mode = USB_BULK;
+				packet_size = ep->desc.wMaxPacketSize;
+				break;
+			case USB_ENDPOINT_XFER_ISOC:
+				if (ep_addr & 0x80)
+					f->pipe = usb_rcvisocpipe(dev,
+						ep->desc.bEndpointAddress);
+				else
+					f->pipe = usb_sndisocpipe(dev,
+						ep->desc.bEndpointAddress);
+				f->usb_transfer_mode = USB_ISOC;
+				iso_packet_size = ep->desc.wMaxPacketSize;
+				break;
+			default:
+				f->pipe = 0;
+		}	/* switch attribute */
+
+		if (f->pipe) {
+			f->fifonum = idx & 7;
+			f->card = card;
+			f->usb_packet_maxlen = ep->desc.wMaxPacketSize;
+			f->intervall = ep->desc.bInterval;
+			f->skbuff = NULL;
+		}
+		ep++;
+	}
+	card->dev = dev;	/* save device */
+	card->if_used = ifnum;	/* save used interface */
+	card->alt_used = alt_used;	/* and alternate config */
+	card->ctrl_paksize = dev->descriptor.bMaxPacketSize0;	/* control size */
+	card->cfg_used = vcf[16];	/* store used config */
+	card->vend_idx = vend_idx;	/* store found vendor */
+	card->packet_size = packet_size;
+	card->iso_packet_size = iso_packet_size;
+
+	/* create the control pipes needed for register access */
+	card->ctrl_in_pipe = usb_rcvctrlpipe(card->dev, 0);
+	card->ctrl_out_pipe = usb_sndctrlpipe(card->dev, 0);
+	card->ctrl_urb = usb_alloc_urb(0, GFP_KERNEL);
+
+	driver_info = (hfcsusb_vdata *) hfcsusb_idtab[vend_idx].driver_info;
+	printk(KERN_INFO "HFC-S USB: detected \"%s\"\n",
+		driver_info->vend_name);
+	printk(KERN_INFO "HFC-S USB: Endpoint-Config: %s (if=%d alt=%d)\n",
+		conf_str[small_match], ifnum, alt_used);			       
+
+	card->intf = intf;
+	if (setup_instance(card)) {
+		return (-EIO);
+	}
+	return (0);
 }
 
 /****************************************************/
