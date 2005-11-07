@@ -394,9 +394,14 @@ MODULE_LICENSE("GPL");
 #endif
 module_param (debug, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC (debug, "sedlfax debug mask");
+#ifdef OLD_MODULE_PARAM_ARRAY
+module_param_array(protocol, uint, protocol_num, S_IRUGO | S_IWUSR);
+module_param_array(layermask, uint, layermask_num, S_IRUGO | S_IWUSR);
+#else
 module_param_array(protocol, uint, &protocol_num, S_IRUGO | S_IWUSR);
-MODULE_PARM_DESC (protocol, "sedlfax protcol (DSS1 := 2)");
 module_param_array(layermask, uint, &layermask_num, S_IRUGO | S_IWUSR);
+#endif
+MODULE_PARM_DESC (protocol, "sedlfax protcol (DSS1 := 2)");
 MODULE_PARM_DESC(layermask, "sedlfax layer mask");
 #endif
 

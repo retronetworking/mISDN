@@ -54,7 +54,9 @@ static void release_mISDN_inst(struct class_device *dev)
 
 static struct class inst_dev_class = {
 	.name		= "mISDN-instances",
+#ifndef CLASS_WITHOUT_OWNER
 	.owner		= THIS_MODULE,
+#endif
 	.release	= &release_mISDN_inst,
 };
 

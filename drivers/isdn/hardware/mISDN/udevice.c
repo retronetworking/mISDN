@@ -1970,14 +1970,16 @@ int init_mISDNdev (int debug) {
 		return(-EIO);
 	}
 
+#ifdef CLASSDEV_HAS_DEVT
 	udev_obj.class_dev.devt = MKDEV(mISDN_MAJOR, 0);
+#endif
 
 	err = mISDN_register(&udev_obj);
 	if (err) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
 		unregister_chrdev(mISDN_MAJOR, "mISDN");
 	} else
-		devfs_mk_cdev(udev_obj.class_dev.devt, S_IFCHR | S_IRUSR | S_IWUSR, "mISDN");
+		devfs_mk_cdev(MKDEV(mISDN_MAJOR, 0), S_IFCHR | S_IRUSR | S_IWUSR, "mISDN");
 
 	return(err);
 }

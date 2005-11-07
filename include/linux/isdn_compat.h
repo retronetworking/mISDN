@@ -86,17 +86,22 @@ typedef struct wait_queue *wait_queue_head_t;
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,10)
 #define	OLD_PCI_REGISTER_DRIVER	1
+#define OLD_MODULE_PARAM_ARRAY
 #else
 #undef	OLD_PCI_REGISTER_DRIVER
 #endif
 
+#if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,11)
+#define MODULE_MKOBJ_POINTER
+#endif
+
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,11)
+#define CLASSDEV_HAS_DEVT
+#endif
+
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,13)
 /* udev sysfs stuff */
-#define class				class_simple
-#define class_create(m,n)		class_simple_create(m,n)
-#define class_device_create(c,d,p,n)	class_simple_device_add(c,d,p,n)
-#define class_device_destroy(c,d)	class_simple_device_remove(d)
-#define	class_destroy(c)		class_simple_destroy(c)
+#define CLASS_WITHOUT_OWNER
 #endif
 
 #endif /* __KERNEL__ */

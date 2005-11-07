@@ -195,7 +195,9 @@ static void release_mISDN_stack(struct class_device *dev)
 
 static struct class stack_dev_class = {
 	.name		= "mISDN-stacks",
+#ifndef CLASS_WITHOUT_OWNER
 	.owner		= THIS_MODULE,
+#endif
 	.release	= &release_mISDN_stack,
 };
 

@@ -76,6 +76,9 @@ static void release_mISDN_obj(struct class_device *dev)
 
 	printk(KERN_INFO "release object class dev %s\n", dev->class_id);
 	if (obj->owner)
+#ifdef MODULE_MKOBJ_POINTER
+	if (obj->owner->mkobj)
+#endif
 		sysfs_remove_link(&dev->kobj, "module");
 	sysfs_remove_group(&obj->class_dev.kobj, &BPROTO_group);
 	sysfs_remove_group(&obj->class_dev.kobj, &DPROTO_group);
@@ -83,7 +86,9 @@ static void release_mISDN_obj(struct class_device *dev)
 
 static struct class obj_dev_class = {
 	.name		= "mISDN-objects",
+#ifndef CLASS_WITHOUT_OWNER
 	.owner		= THIS_MODULE,
+#endif
 	.release	= &release_mISDN_obj,
 };
 
@@ -106,7 +111,12 @@ mISDN_register_sysfs_obj(mISDNobject_t *obj) {
 	if (err)
 		goto out_unreg;
 	if (obj->owner)
+#ifdef MODULE_MKOBJ_POINTER
+		if (obj->owner->mkobj)
+			sysfs_create_link(&obj->class_dev.kobj, &obj->owner->mkobj->kobj, "module");
+#else
 		sysfs_create_link(&obj->class_dev.kobj, &obj->owner->mkobj.kobj, "module");
+#endif
 	return(err);
 out_unreg:
 	class_device_unregister(&obj->class_dev);
