@@ -172,9 +172,6 @@ typedef struct _hfcmini_hw {
 } hfcsmini_hw;
 
 
-extern int card_cnt;
-
-
 /* function prototypes */
 int setup_channel(hfcsmini_hw * hw, __u8 channel, int protocol);
 void hfcsmini_write_fifo(hfcsmini_hw * hw, __u8 channel);

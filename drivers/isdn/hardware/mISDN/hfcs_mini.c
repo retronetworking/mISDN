@@ -80,6 +80,77 @@ MODULE_PARM(layermask, MODULE_PARM_T);
 static mISDNobject_t hw_mISDNObj;
 static int debug = 0;
 
+static inline void
+hfcsmini_sel_reg(hfcsmini_hw * hw, __u8 reg_addr)
+{
+	outb(6, hw->iobase + 3); /* A0 = 1, reset = 1 */
+	outb(reg_addr, hw->iobase + 1); /* write register number */
+	outb(4, hw->iobase + 3); /* A0 = 0, reset = 1 */
+}
+
+
+static inline __u8
+read_hfcsmini(hfcsmini_hw * hw, __u8 reg_addr)
+{
+	register u_char ret;
+	
+#ifdef SPIN_LOCK_hfcsmini_REGISTER
+	spin_lock_irq(&hw->rlock);
+#endif
+	hfcsmini_sel_reg(hw, reg_addr);
+	ret = inb(hw->iobase + 1);
+#ifdef SPIN_LOCK_hfcsmini_REGISTER	
+	spin_unlock_irq(&hw->rlock);
+#endif	
+	return(ret);
+}
+
+
+/* read register in already spin-locked irq context */
+static inline __u8
+read_hfcsmini_irq(hfcsmini_hw * hw, __u8 reg_addr)
+{
+	register u_char ret;
+	hfcsmini_sel_reg(hw, reg_addr);
+	ret = inb(hw->iobase + 1);
+	return(ret);
+}
+
+
+static inline __u8  
+read_hfcsmini_stable(hfcsmini_hw * hw, __u8 reg_addr)
+{
+	register u_char in1, in2; 
+
+#ifdef SPIN_LOCK_hfcsmini_REGISTER
+	spin_lock_irq(&hw->rlock);
+#endif
+	hfcsmini_sel_reg(hw, reg_addr);
+
+	in1 = inb(hw->iobase + 1);
+	// loop until 2 equal accesses
+	while((in2=inb(hw->iobase + 1))!=in1) in1=in2;
+	
+#ifdef SPIN_LOCK_hfcsmini_REGISTER	
+	spin_unlock_irq(&hw->rlock);
+#endif	
+	return(in1);
+}
+
+
+static inline void
+write_hfcsmini(hfcsmini_hw * hw, __u8 reg_addr, __u8 value)
+{
+#ifdef SPIN_LOCK_hfcsmini_REGISTER
+	spin_lock_irq(&hw->rlock);
+#endif
+	hfcsmini_sel_reg(hw, reg_addr);
+	outb(value, hw->iobase + 1);
+#ifdef SPIN_LOCK_hfcsmini_REGISTER	
+	spin_unlock_irq(&hw->rlock);
+#endif	
+}
+
 static void
 hfcsmini_ph_command(dchannel_t * dch, u_char command)
 {
@@ -1954,78 +2025,6 @@ init_pci_bridge(hfcsmini_hw * hw)
 	mdelay(300);
 
 	return (0);
-}
-
-
-static inline void
-hfcsmini_sel_reg(hfcsmini_hw * hw, __u8 reg_addr)
-{
-	outb(6, hw->iobase + 3); /* A0 = 1, reset = 1 */
-	outb(reg_addr, hw->iobase + 1); /* write register number */
-	outb(4, hw->iobase + 3); /* A0 = 0, reset = 1 */
-}
-
-
-static inline __u8
-read_hfcsmini(hfcsmini_hw * hw, __u8 reg_addr)
-{
-	register u_char ret;
-	
-#ifdef SPIN_LOCK_hfcsmini_REGISTER
-	spin_lock_irq(&hw->rlock);
-#endif
-	hfcsmini_sel_reg(hw, reg_addr);
-	ret = inb(hw->iobase + 1);
-#ifdef SPIN_LOCK_hfcsmini_REGISTER	
-	spin_unlock_irq(&hw->rlock);
-#endif	
-	return(ret);
-}
-
-
-/* read register in already spin-locked irq context */
-static inline __u8
-read_hfcsmini_irq(hfcsmini_hw * hw, __u8 reg_addr)
-{
-	register u_char ret;
-	hfcsmini_sel_reg(hw, reg_addr);
-	ret = inb(hw->iobase + 1);
-	return(ret);
-}
-
-
-static inline __u8  
-read_hfcsmini_stable(hfcsmini_hw * hw, __u8 reg_addr)
-{
-	register u_char in1, in2; 
-
-#ifdef SPIN_LOCK_hfcsmini_REGISTER
-	spin_lock_irq(&hw->rlock);
-#endif
-	hfcsmini_sel_reg(hw, reg_addr);
-
-	in1 = inb(hw->iobase + 1);
-	// loop until 2 equal accesses
-	while((in2=inb(hw->iobase + 1))!=in1) in1=in2;
-	
-#ifdef SPIN_LOCK_hfcsmini_REGISTER	
-	spin_unlock_irq(&hw->rlock);
-#endif	
-	return(in1);
-}
-
-
-static inline void
-write_hfcsmini(hfcsmini_hw * hw, __u8 reg_addr, __u8 value)
-{
-#ifdef SPIN_LOCK_hfcsmini_REGISTER
-	spin_lock_irq(&hw->rlock);
-#endif
-	hfcsmini_sel_reg(hw, reg_addr);
-	outb(value, hw->iobase + 1);
-#ifdef SPIN_LOCK_hfcsmini_REGISTER	
-	spin_unlock_irq(&hw->rlock);
-#endif	
 }
 
 /************************/
