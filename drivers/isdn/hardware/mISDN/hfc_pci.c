@@ -172,6 +172,19 @@ typedef struct _hfc_pci {
 } hfc_pci_t;
 
 /* Interface functions */
+static void
+enable_hwirq(hfc_pci_t *hc)
+{
+	hc->hw.int_m2 |= HFCPCI_IRQ_ENABLE;
+	Write_hfc(hc, HFCPCI_INT_M2, hc->hw.int_m2);
+}
+
+static void
+disable_hwirq(hfc_pci_t *hc)
+{
+	hc->hw.int_m2 &= ~((u_char)HFCPCI_IRQ_ENABLE);
+	Write_hfc(hc, HFCPCI_INT_M2, hc->hw.int_m2);
+}
 
 /******************************************/
 /* free hardware resources used by driver */
@@ -179,8 +192,8 @@ typedef struct _hfc_pci {
 void
 release_io_hfcpci(hfc_pci_t *hc)
 {
-	hc->hw.int_m2 = 0;	/* interrupt output off ! */
-	Write_hfc(hc, HFCPCI_INT_M2, hc->hw.int_m2);
+	hc->hw.int_m2 = 0; /* interrupt output off ! */
+	disable_hwirq(hc);
 	Write_hfc(hc, HFCPCI_CIRM, HFCPCI_RESET);		/* Reset On */
 	mdelay(10);						/* Timeout 10ms */
 	hc->hw.cirm = 0; /* Reset Off */
@@ -207,8 +220,7 @@ reset_hfcpci(hfc_pci_t *hc)
 	val = Read_hfc(hc, HFCPCI_CHIP_ID);
 	printk(KERN_INFO "HFC_PCI: resetting HFC ChipId(%x)\n", val);
 	pci_write_config_word(hc->hw.dev, PCI_COMMAND, PCI_ENA_MEMIO);	/* enable memory mapped ports, disable busmaster */
-	hc->hw.int_m2 = 0;		/* interrupt output off ! */
-	Write_hfc(hc, HFCPCI_INT_M2, hc->hw.int_m2);
+	disable_hwirq(hc);
 	pci_write_config_word(hc->hw.dev, PCI_COMMAND, PCI_ENA_MEMIO + PCI_ENA_MASTER);	/* enable memory ports + busmaster */
 	val = Read_hfc(hc, HFCPCI_STATUS);
 	printk(KERN_DEBUG "HFC-PCI status(%x) before reset\n", val);
@@ -1708,20 +1720,22 @@ static int init_card(hfc_pci_t *hc)
 
 	HFC_INFO("init_card: entered\n");
 
+
 	spin_lock_irqsave(&hc->lock, flags);
+	disable_hwirq(hc);
+	spin_unlock_irqrestore(&hc->lock, flags);
 	if (request_irq(hc->irq, hfcpci_interrupt, SA_SHIRQ, "HFC PCI", hc)) {
 		printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n", hc->irq);
-		spin_unlock_irqrestore(&hc->lock, flags);
 		return(-EIO);
 	}
+	spin_lock_irqsave(&hc->lock, flags);
 	while (cnt) {
 		inithfcpci(hc);
 		/* Finally enable IRQ output 
 		 * this is only allowed, if an IRQ routine is allready
 		 * established for this HFC, so don't do that earlier
 		 */
-		hc->hw.int_m2 = HFCPCI_IRQ_ENABLE;
-		Write_hfc(hc, HFCPCI_INT_M2, hc->hw.int_m2);
+		enable_hwirq(hc);
 		spin_unlock_irqrestore(&hc->lock, flags);
 		/* Timeout 80ms */
 		current->state = TASK_UNINTERRUPTIBLE;
@@ -1939,8 +1953,8 @@ setup_hfcpci(hfc_pci_t *hc)
 		(u_long) virt_to_bus(hc->hw.fifos),
 		hc->irq, HZ);
 	pci_write_config_word(hc->hw.dev, PCI_COMMAND, PCI_ENA_MEMIO);	/* enable memory mapped ports, disable busmaster */
-	hc->hw.int_m2 = 0;	/* disable alle interrupts */
-	Write_hfc(hc, HFCPCI_INT_M2, hc->hw.int_m2);
+	hc->hw.int_m2 = 0;
+	disable_hwirq(hc);
 	hc->hw.int_m1 = 0;
 	Write_hfc(hc, HFCPCI_INT_M1, hc->hw.int_m1);
 	/* At this point the needed PCI config is done */
@@ -2230,6 +2244,7 @@ static int __init HFC_init(void)
 					HFC_cnt);
 			return(err);
 		}
+		card->dch.inst.class_dev.dev = &card->hw.dev->dev;
 		HFC_cnt++;
 		if (prev) {
 			dst = prev->dch.inst.st;
@@ -2248,6 +2263,7 @@ static int __init HFC_init(void)
 		}
 		HFC_obj.ctrl(dst, MGR_STOPSTACK | REQUEST, NULL);
 		for (i = 0; i < 2; i++) {
+			card->bch[i].inst.class_dev.dev = &card->hw.dev->dev;
 			if ((err = HFC_obj.ctrl(dst,
 				MGR_NEWSTACK | REQUEST, &card->bch[i].inst))) {
 				printk(KERN_ERR "MGR_ADDSTACK bchan error %d\n", err);

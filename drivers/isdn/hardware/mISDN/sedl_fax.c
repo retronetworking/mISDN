@@ -283,6 +283,24 @@ speedfax_pci_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	return IRQ_HANDLED;
 }
 
+static void
+enable_hwirq(sedl_fax *sf)
+{
+	WriteISAC(sf, ISAC_MASK, 0);
+	WriteISAR(sf, 0, ISAR_IRQBIT, ISAR_IRQMSK);
+	if (sf->subtyp != SEDL_SPEEDFAX_ISA)
+		byteout(sf->cfg + TIGER_AUX_IRQMASK, SEDL_TIGER_IRQ_BIT);
+}
+
+static void
+disable_hwirq(sedl_fax *sf)
+{
+	WriteISAC(sf, ISAC_MASK, 0xFF);
+	WriteISAR(sf, 0, ISAR_IRQBIT, 0);
+	if (sf->subtyp != SEDL_SPEEDFAX_ISA)
+		byteout(sf->cfg + TIGER_AUX_IRQMASK, 0);
+}
+
 void
 release_sedlbauer(sedl_fax *sf)
 {
@@ -290,8 +308,6 @@ release_sedlbauer(sedl_fax *sf)
 
 	if (sf->subtyp == SEDL_SPEEDFAX_ISA)
 		bytecnt = 16;
-	else
-		byteout(sf->cfg + TIGER_AUX_IRQMASK, 0);
 	if (sf->cfg)
 		release_region(sf->cfg, bytecnt);
 }
@@ -328,13 +344,12 @@ static int init_card(sedl_fax *sf)
 		irq_func = speedfax_isa_interrupt;
 		shared = 0;
 	}
-	spin_lock_irqsave(&sf->lock, flags);
 	if (request_irq(sf->irq, irq_func, shared, "speedfax", sf)) {
 		printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n",
 			sf->irq);
-		spin_unlock_irqrestore(&sf->lock, flags);
 		return(-EIO);
 	}
+	spin_lock_irqsave(&sf->lock, flags);
 	while (cnt) {
 		int	ret;
 
@@ -345,10 +360,7 @@ static int init_card(sedl_fax *sf)
 		}
 		init_isar(&sf->bch[0]);
 		init_isar(&sf->bch[1]);
-		if (sf->subtyp != SEDL_SPEEDFAX_ISA)
-			byteout(sf->cfg + TIGER_AUX_IRQMASK, SEDL_TIGER_IRQ_BIT);
-		WriteISAC(sf, ISAC_MASK, 0);
-		WriteISAR(sf, 0, ISAR_IRQBIT, ISAR_IRQMSK);
+		enable_hwirq(sf);
 		/* RESET Receiver and Transmitter */
 		WriteISAC(sf, ISAC_CMDR, 0x41);
 		spin_unlock_irqrestore(&sf->lock, flags);
@@ -455,8 +467,7 @@ setup_speedfax(sedl_fax *sf)
 	sf->bch[1].Read_Reg = &ReadISAR;
 	sf->bch[1].Write_Reg = &WriteISAR;
 	spin_lock_irqsave(&sf->lock, flags);
-	writereg(sf->addr, sf->isar, ISAR_IRQBIT, 0);
-	writereg(sf->addr, sf->isac, ISAC_MASK, 0xFF);
+	disable_hwirq(sf);
 	ver = ISARVersion(&sf->bch[0], "Sedlbauer:");
 	spin_unlock_irqrestore(&sf->lock, flags);
 	if (ver < 0) {
@@ -472,16 +483,14 @@ static void
 release_card(sedl_fax *card) {
 	u_long	flags;
 
+	spin_lock_irqsave(&card->lock, flags);	
+	disable_hwirq(card);
+	spin_unlock_irqrestore(&card->lock, flags);
 	free_irq(card->irq, card);
 	spin_lock_irqsave(&card->lock, flags);
 	free_isar(&card->bch[1]);
 	free_isar(&card->bch[0]);
 	mISDN_isac_free(&card->dch);
-	WriteISAR(card, 0, ISAR_IRQBIT, 0);
-	WriteISAC(card, ISAC_MASK, 0xFF);
-	reset_speedfax(card);
-	WriteISAR(card, 0, ISAR_IRQBIT, 0);
-	WriteISAC(card, ISAC_MASK, 0xFF);
 	release_sedlbauer(card);
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);

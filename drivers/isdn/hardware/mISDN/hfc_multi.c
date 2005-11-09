@@ -231,6 +231,20 @@ MODULE_PARM(protocol, MODULE_PORTS_T);
 MODULE_PARM(layermask, MODULE_PORTS_T);
 #endif
 
+static void
+enable_hwirq(hfc_multi_t *hc)
+{
+	hc->hw.r_irq_ctrl |= V_GLOB_IRQ_EN;
+	HFC_outb(hc, R_IRQ_CTRL, hc->hw.r_irq_ctrl);
+}
+
+static void
+disable_hwirq(hfc_multi_t *hc)
+{
+	hc->hw.r_irq_ctrl &= ~((u_char)V_GLOB_IRQ_EN);
+	HFC_outb(hc, R_IRQ_CTRL, hc->hw.r_irq_ctrl);
+}
+
 /******************************************/
 /* free hardware resources used by driver */
 /******************************************/
@@ -241,9 +255,8 @@ release_io_hfcmulti(hfc_multi_t *hc)
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: entered\n", __FUNCTION__);
 
-	/* irq off */
-	HFC_outb(hc, R_IRQ_CTRL, 0);
 
+	disable_hwirq(hc);
 	/* soft reset */
 	hc->hw.r_cirm |= V_SRES;
 	HFC_outb(hc, R_CIRM, hc->hw.r_cirm);
@@ -419,17 +432,17 @@ init_chip(hfc_multi_t *hc)
 	val += HFC_inb(hc, R_F0_CNTH) << 8;
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "HFC_multi F0_CNT %ld after status ok\n", val);
-	spin_unlock_irqrestore(&hc->lock, flags);
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	while (cnt < 50) { /* max 50 ms */
+		spin_unlock_irqrestore(&hc->lock, flags);
 		schedule_timeout((HZ*10)/1000); /* Timeout 10ms */
+		spin_lock_irqsave(&hc->lock, flags);
 		cnt+=10;
 		val2 = HFC_inb(hc, R_F0_CNTL);
 		val2 += HFC_inb(hc, R_F0_CNTH) << 8;
 		if (val2 >= val+4) /* wait 4 pulses */
 			break;
 	}
-	spin_lock_irqsave(&hc->lock, flags);
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "HFC_multi F0_CNT %ld after %dms\n", val2, cnt);
 	if (val2 < val+4) {
@@ -2643,9 +2656,6 @@ hfcmulti_initmode(hfc_multi_t *hc)
 		HFC_outb(hc, R_E1_WR_STA, r_e1_wr_sta);
 
 	}
-
-	/* set interrupts & global interrupt */
-	hc->hw.r_irq_ctrl = V_FIFO_IRQ | V_GLOB_IRQ_EN;
 	spin_unlock_irqrestore(&hc->lock, flags);
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk("%s: done\n", __FUNCTION__);
@@ -2664,6 +2674,7 @@ init_card(hfc_multi_t *hc)
 {
 	int 	cnt = 1; /* as long as there is no trouble */
 	int 	err = -EIO;
+	u_long		flags;
 #ifdef CONFIG_PLX_PCI_BRIDGE
 	u_short	*plx_acc;
 #endif
@@ -2671,6 +2682,11 @@ init_card(hfc_multi_t *hc)
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: entered\n", __FUNCTION__);
 
+	spin_lock_irqsave(&hc->lock, flags);
+	/* set interrupts but let global interrupt disabled*/
+	hc->hw.r_irq_ctrl = V_FIFO_IRQ;
+	disable_hwirq(hc);
+	spin_unlock_irqrestore(&hc->lock, flags);
 	if (request_irq(hc->pci_dev->irq, hfcmulti_interrupt, SA_SHIRQ, "HFC-multi", hc)) {
 		printk(KERN_WARNING "mISDN: Could not get interrupt %d.\n", hc->pci_dev->irq);
 		return(-EIO);
@@ -2691,12 +2707,16 @@ init_card(hfc_multi_t *hc)
 		 * this is only allowed, if an IRQ routine is allready
 		 * established for this HFC, so don't do that earlier
 		 */
-		HFC_outb(hc, R_IRQ_CTRL, V_GLOB_IRQ_EN);
+		spin_lock_irqsave(&hc->lock, flags);
+		enable_hwirq(hc);
+		spin_unlock_irqrestore(&hc->lock, flags);
 		//printk(KERN_DEBUG "no master irq set!!!\n");
 		set_current_state(TASK_UNINTERRUPTIBLE);
 		schedule_timeout((100*HZ)/1000); /* Timeout 100ms */
 		/* turn IRQ off until chip is completely initialized */
-		HFC_outb(hc, R_IRQ_CTRL, 0);
+		spin_lock_irqsave(&hc->lock, flags);
+		disable_hwirq(hc);
+		spin_unlock_irqrestore(&hc->lock, flags);
 		if (debug & DEBUG_HFCMULTI_INIT)
 			printk(KERN_DEBUG "%s: IRQ %d count %d\n", __FUNCTION__, hc->irq, hc->irqcnt);
 		if (hc->irqcnt) {
@@ -2931,12 +2951,8 @@ release_port(hfc_multi_t *hc, int port)
 		return;
 	}
 
-//	if (debug & DEBUG_HFCMULTI_INIT)
-//		printk(KERN_DEBUG "%s: before lock_dev\n", __FUNCTION__);
 	spin_lock_irqsave(&hc->lock, flags);
-//	if (debug & DEBUG_HFCMULTI_INIT)
-//		printk(KERN_DEBUG "%s: after lock_dev\n", __FUNCTION__);
-
+	disable_hwirq(hc);
 	if (port > -1) {
 		i = 0;
 		while(i < hc->type) {
@@ -3078,8 +3094,10 @@ release_port(hfc_multi_t *hc, int port)
 		HFC_cnt--;
 		if (debug & DEBUG_HFCMULTI_INIT)
 			printk(KERN_WARNING "%s: card successfully removed\n", __FUNCTION__);
-	} else
+	} else {
+		enable_hwirq(hc);
 		spin_unlock_irqrestore(&hc->lock, flags);
+	}
 }
 
 static int
@@ -3668,12 +3686,12 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 	}
 
 	/* now turning on irq */
-#warning
-	HFC_outb(hc, R_IRQ_CTRL, hc->hw.r_irq_ctrl);
-
+	spin_lock_irqsave(&hc->lock, flags);
+	enable_hwirq(hc);
 	/* we are on air! */
 	allocated[HFC_idx] = 1;
 	HFC_cnt++;
+	spin_unlock_irqrestore(&hc->lock, flags);
 	return(0);
 
 	/* if an error ocurred */

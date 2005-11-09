@@ -48,7 +48,7 @@ typedef struct _w6692_bc {
 
 typedef struct _w6692pci {
 	struct list_head	list;
-	void			*pdev;
+	struct pci_dev		*pdev;
 	u_int			irq;
 	u_int			irqcnt;
 	u_int			addr;
@@ -89,6 +89,18 @@ static __inline__ void
 WriteW6692B(w6692pci *card, int bchan, u_char offset, u_char value)
 {
 	outb(value, card->addr + (bchan ? 0x40 : 0) + offset);
+}
+
+static void
+enable_hwirq(w6692pci *card)
+{
+	WriteW6692(card, W_IMASK, card->imask);
+}
+
+static void
+disable_hwirq(w6692pci *card)
+{
+	WriteW6692(card, W_IMASK, 0xff);
 }
 
 static char *W6692Ver[] __initdata =
@@ -860,16 +872,15 @@ void initW6692(w6692pci *card)
 	mode_w6692(&card->bch[0], 0, -1);
 	mode_w6692(&card->bch[1], 1, -1);
 	WriteW6692(card, W_D_CTL, 0x00);
-	WriteW6692(card, W_IMASK, 0xff);
+	disable_hwirq(card);
 	WriteW6692(card, W_D_SAM, 0xff);
 	WriteW6692(card, W_D_TAM, 0xff);
 	WriteW6692(card, W_D_MODE, W_D_MODE_RACT);
 	card->dch.ph_state = W_L1CMD_RST;
 	ph_command(card, W_L1CMD_RST);
 	ph_command(card, W_L1CMD_ECK);
-	/* Reenable all IRQ */
+	/* enable all IRQ but extern */
 	card->imask = 0x18;
-	WriteW6692(card, W_IMASK, card->imask);
 	WriteW6692(card, W_D_EXIM, 0x00);
 	WriteW6692B(card, 0, W_B_EXIM, 0);
 	WriteW6692B(card, 1, W_B_EXIM, 0);
@@ -909,14 +920,16 @@ static int init_card(w6692pci *card)
 	u_long	flags;
 
 	spin_lock_irqsave(&card->lock, flags);
+	disable_hwirq(card);
+	spin_unlock_irqrestore(&card->lock, flags);
 	if (request_irq(card->irq, w6692_interrupt, SA_SHIRQ, "w6692", card)) {
 		printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n", card->irq);
-		spin_unlock_irqrestore(&card->lock, flags);
 		return(-EIO);
 	}
+	spin_lock_irqsave(&card->lock, flags);
 	while (cnt) {
 		initW6692(card);
-		/* RESET Receiver and Transmitter */
+		enable_hwirq(card);
 		spin_unlock_irqrestore(&card->lock, flags);
 		/* Timeout 10ms */
 		current->state = TASK_UNINTERRUPTIBLE;
@@ -1209,8 +1222,7 @@ release_card(w6692pci *card)
 	u_long	flags;
 
 	spin_lock_irqsave(&card->lock, flags);
-	/* disable all IRQ */
-	WriteW6692(card, W_IMASK, 0xff);
+	disable_hwirq(card);
 	spin_unlock_irqrestore(&card->lock, flags);
 	free_irq(card->irq, card);
 	spin_lock_irqsave(&card->lock, flags);
@@ -1358,6 +1370,7 @@ static int __devinit setup_instance(w6692pci *card)
 	card->dch.debug = debug;
 	spin_lock_init(&card->lock);
 	card->dch.inst.hwlock = &card->lock;
+	card->dch.inst.class_dev.dev = &card->pdev->dev;
 	card->dch.inst.pid.layermask = ISDN_LAYER(0);
 	card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
 	mISDN_init_instance(&card->dch.inst, &w6692, card, w6692_l1hwD);
@@ -1370,6 +1383,7 @@ static int __devinit setup_instance(w6692pci *card)
 		mISDN_init_instance(&card->bch[i].inst, &w6692, card, w6692_l2l1B);
 		card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
 		card->bch[i].inst.hwlock = &card->lock;
+		card->bch[i].inst.class_dev.dev = &card->pdev->dev;
 		card->bch[i].debug = debug;
 		sprintf(card->bch[i].inst.name, "%s B%d", card->dch.inst.name, i+1);
 		mISDN_init_bch(&card->bch[i]);

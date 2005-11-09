@@ -127,7 +127,16 @@ typedef struct hdlc_hw {
 
 typedef struct _fritzpnppci {
 	struct list_head	list;
-	void			*pdev;
+	union {
+#if defined(CONFIG_PNP)
+#ifdef NEW_ISAPNP
+		struct pnp_dev	*pnp;
+#else
+		struct pci_dev	*pnp;
+#endif
+#endif
+		struct pci_dev	*pci;
+	}			dev;
 	u_int			type;
 	u_int			irq;
 	u_int			irqcnt;
@@ -323,6 +332,20 @@ read_status(fritzpnppci *fc, int channel)
 	}
 	/* dummy */
 	return(0);
+}
+
+static void
+enable_hwirq(fritzpnppci *fc)
+{
+	fc->ctrlreg |= AVM_STATUS0_ENA_IRQ;
+	outb(fc->ctrlreg, fc->addr + 2);
+}
+
+static void
+disable_hwirq(fritzpnppci *fc)
+{
+	fc->ctrlreg &= ~((u_char)AVM_STATUS0_ENA_IRQ);
+	outb(fc->ctrlreg, fc->addr + 2);
 }
 
 static int
@@ -816,18 +839,22 @@ reset_avmpcipnp(fritzpnppci *fc)
 			break;
 	}
 	printk(KERN_INFO "AVM PCI/PnP: reset\n");
-	outb(fc->ctrlreg, fc->addr + 2);
+	disable_hwirq(fc);
 	mdelay(5);
 	switch (fc->type) {
 		case AVM_FRITZ_PNP:
+			fc->ctrlreg = AVM_STATUS0_DIS_TIMER | AVM_STATUS0_RES_TIMER;
+			disable_hwirq(fc);
+			outb(AVM_STATUS1_ENA_IOM | fc->irq, fc->addr + 3);
+			break;
 		case AVM_FRITZ_PCI:
 			fc->ctrlreg = AVM_STATUS0_DIS_TIMER | AVM_STATUS0_RES_TIMER;
-			outb(fc->ctrlreg, fc->addr + 2);
-			outb(AVM_STATUS1_ENA_IOM | fc->irq, fc->addr + 3);
+			disable_hwirq(fc);
+			outb(AVM_STATUS1_ENA_IOM, fc->addr + 3);
 			break;
 		case AVM_FRITZ_PCIV2:
 			fc->ctrlreg = 0;
-			outb(fc->ctrlreg, fc->addr + 2);
+			disable_hwirq(fc);
 			break;
 	}
 	mdelay(1);
@@ -839,41 +866,40 @@ static int init_card(fritzpnppci *fc)
 	int		cnt = 3;
 	u_int		shared = SA_SHIRQ;
 	u_long		flags;
+	u_char		*id = "AVM Fritz!PCI";
 
-	if (fc->type == AVM_FRITZ_PNP)
+	if (fc->type == AVM_FRITZ_PNP) {
 		shared = 0;
-	spin_lock_irqsave(&fc->lock, flags);
+		id = "AVM Fritz!PnP";
+	}
+	reset_avmpcipnp(fc); /* disable IRQ */
 	if (fc->type == AVM_FRITZ_PCIV2) {
-		if (request_irq(fc->irq, avm_fritzv2_interrupt, SA_SHIRQ,
-			"AVM Fritz!PCI", fc)) {
+		if (request_irq(fc->irq, avm_fritzv2_interrupt, shared, id, fc)) {
 			printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n",
 				fc->irq);
-			spin_unlock_irqrestore(&fc->lock, flags);
 			return(-EIO);
 		}
 	} else {
-		if (request_irq(fc->irq, avm_fritz_interrupt, shared,
-			"AVM Fritz!PCI", fc)) {
+		if (request_irq(fc->irq, avm_fritz_interrupt, shared, id, fc)) {
 			printk(KERN_WARNING "mISDN: couldn't get interrupt %d\n",
 				fc->irq);
-			spin_unlock_irqrestore(&fc->lock, flags);
 			return(-EIO);
 		}
 	}
-	reset_avmpcipnp(fc);
 	while (cnt) {
 		int	ret;
+
+		spin_lock_irqsave(&fc->lock, flags);
 		mISDN_clear_isac(&fc->dch);
 		if ((ret=mISDN_isac_init(&fc->dch))) {
 			printk(KERN_WARNING "mISDN: mISDN_isac_init failed with %d\n", ret);
+			spin_unlock_irqrestore(&fc->lock, flags);
 			break;
 		}
 		clear_pending_hdlc_ints(fc);
 		inithdlc(fc);
-		outb(fc->ctrlreg, fc->addr + 2);
 		WriteISAC(fc, ISAC_MASK, 0);
-		fc->ctrlreg |= AVM_STATUS0_ENA_IRQ;
-		outb(fc->ctrlreg, fc->addr + 2);
+		enable_hwirq(fc);
 		/* RESET Receiver and Transmitter */
 		WriteISAC(fc, ISAC_CMDR, 0x41);
 		spin_unlock_irqrestore(&fc->lock, flags);
@@ -895,9 +921,7 @@ static int init_card(fritzpnppci *fc)
 		} else {
 			return(0);
 		}
-		spin_lock_irqsave(&fc->lock, flags);
 	}
-	spin_unlock_irqrestore(&fc->lock, flags);
 	return(-EIO);
 }
 
@@ -993,8 +1017,8 @@ release_card(fritzpnppci *card)
 {
 	u_long		flags;
 
+	disable_hwirq(card);
 	spin_lock_irqsave(&card->lock, flags);
-	outb(0, card->addr + 2);
 	modehdlc(&card->bch[0], 0, ISDN_PID_NONE);
 	modehdlc(&card->bch[1], 1, ISDN_PID_NONE);
 	mISDN_isac_free(&card->dch);
@@ -1005,17 +1029,19 @@ release_card(fritzpnppci *card)
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);
 	mISDN_free_dch(&card->dch);
-	fritz.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
 	spin_unlock_irqrestore(&card->lock, flags);
+	fritz.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
 	spin_lock_irqsave(&fritz.lock, flags);
 	list_del(&card->list);
 	spin_unlock_irqrestore(&fritz.lock, flags);
 	if (card->type == AVM_FRITZ_PNP) {
-		pnp_disable_dev(card->pdev);
-		pnp_set_drvdata(card->pdev, NULL);
+#if defined(CONFIG_PNP)
+		pnp_disable_dev(card->dev.pnp);
+		pnp_set_drvdata(card->dev.pnp, NULL);
+#endif
 	} else {
-		pci_disable_device(card->pdev);
-		pci_set_drvdata(card->pdev, NULL);
+		pci_disable_device(card->dev.pci);
+		pci_set_drvdata(card->dev.pci, NULL);
 	}
 	kfree(card);
 }
@@ -1125,13 +1151,24 @@ static int __devinit setup_instance(fritzpnppci *card)
 	int		i, err;
 	mISDN_pid_t	pid;
 	u_long		flags;
-	
+	struct device	*dev;
+
+	if (card->type == AVM_FRITZ_PNP) {
+#if defined(CONFIG_PNP)
+		dev = &card->dev.pnp->dev;
+#else
+		dev = NULL;
+#endif
+	} else {
+		dev = &card->dev.pci->dev;
+	}
 	spin_lock_irqsave(&fritz.lock, flags);
 	list_add_tail(&card->list, &fritz.ilist);
 	spin_unlock_irqrestore(&fritz.lock, flags);
 	card->dch.debug = debug;
 	spin_lock_init(&card->lock);
 	card->dch.inst.hwlock = &card->lock;
+	card->dch.inst.class_dev.dev = dev;
 	card->dch.inst.pid.layermask = ISDN_LAYER(0);
 	card->dch.inst.pid.protocol[0] = ISDN_PID_L0_TE_S0;
 	mISDN_init_instance(&card->dch.inst, &fritz, card, mISDN_ISAC_l1hw);
@@ -1143,6 +1180,7 @@ static int __devinit setup_instance(fritzpnppci *card)
 		mISDN_init_instance(&card->bch[i].inst, &fritz, card, hdlc_down);
 		card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
 		card->bch[i].inst.hwlock = &card->lock;
+		card->bch[i].inst.class_dev.dev = dev;
 		card->bch[i].debug = debug;
 		sprintf(card->bch[i].inst.name, "%s B%d", card->dch.inst.name, i+1);
 		mISDN_init_bch(&card->bch[i]);
@@ -1205,7 +1243,7 @@ static int __devinit fritzpci_probe(struct pci_dev *pdev, const struct pci_devic
 		card->type = AVM_FRITZ_PCIV2;
 	else
 		card->type = AVM_FRITZ_PCI;
-	card->pdev = pdev;
+	card->dev.pci = pdev;
 	err = pci_enable_device(pdev);
 	if (err) {
 		kfree(card);
@@ -1243,7 +1281,7 @@ static int __devinit fritzpnp_probe(struct pci_dev *pdev, const struct isapnp_de
 	}
 	memset(card, 0, sizeof(fritzpnppci));
 	card->type = AVM_FRITZ_PNP;
-	card->pdev = pdev;
+	card->dev.pnp = pdev;
 	pnp_disable_dev(pdev);
 	err = pnp_activate_dev(pdev);
 	if (err<0) {
