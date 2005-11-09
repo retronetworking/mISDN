@@ -44,6 +44,10 @@ ifdef CONFIG_MISDN_HFCMULTI
 obj-$(CONFIG_MISDN_DRV) += hfcmulti.o
 endif
 
+ifdef CONFIG_MISDN_XHFC
+obj-$(CONFIG_MISDN_DRV) += xhfc.o
+endif
+
 ifdef CONFIG_MISDN_DSP
 obj-$(CONFIG_MISDN_DRV) += mISDN_dsp.o
 endif
@@ -61,6 +65,7 @@ hfcsusb-objs := hfcs_usb.o
 hfcsmini-objs := hfcs_mini.o
 w6692pci-objs := w6692.o
 hfcmulti-objs := hfc_multi.o
+xhfc-objs := xhfc_su.o xhfc_pci2pi.o
 mISDN_isac-objs := isac.o arcofi.o
 mISDN_core-objs := core.o stack.o udevice.o helper.o debug.o fsm.o \
 			dchannel.o bchannel.o l3helper.o

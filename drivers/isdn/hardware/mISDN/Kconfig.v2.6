@@ -73,6 +73,12 @@ config MISDN_HFCMINI
 	help
 	  Enable support for Cologne Chip AG's 'HFC-S mini' Evaluation Card
 
+config MISDN_XHFC
+	bool "Support for XHFC based cards"
+	depends on PCI
+	help
+	  Enable support for Cologne Chips AG's XHFC Evaluation Card
+
 config MISDN_SPEEDFAX
 	bool "Support for Sedlbauer Speedfax+"
 	depends on PCI || ISA
