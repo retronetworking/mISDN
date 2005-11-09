@@ -1,4 +1,4 @@
-/* $Id$
+	/* $Id$
  *
  * mISDN driver for Colognechip HFC-S mini Evaluation Card
  *
@@ -1174,6 +1174,11 @@ hfcsmini_bh_handler(unsigned long ul_hw)
 					}
 			}
 		}
+		
+		/* handle NT Timer */
+		if ((hw->portmode & PORT_MODE_NT) && (hw->portmode & NT_TIMER))
+			if ((--hw->nt_timer) < 0)
+				s0_new_state(hw->chan[2].dch);
 	}
 	
 	/* Handle RX Fifos */

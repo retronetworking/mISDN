@@ -53,7 +53,7 @@
 
 
 /* NT / TE defines */
-#define NT_T1_COUNT	25	/* number of 4ms interrupts for G2 timeout */
+#define NT_T1_COUNT	12	/* number of 8ms interrupts for G2 timeout */
 #define CLK_DLY_TE	0x0e	/* CLKDEL in TE mode */
 #define CLK_DLY_NT	0x6c	/* CLKDEL in NT mode */
 #define STA_ACTIVATE	0x60	/* start activation   in A_SU_WR_STA */
