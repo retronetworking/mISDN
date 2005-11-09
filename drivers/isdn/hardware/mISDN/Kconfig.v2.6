@@ -67,6 +67,12 @@ config MISDN_HFCUSB
 	  Enable support for USB ISDN TAs with Cologne Chip AG's
 	  HFC-S USB ISDN Controller
 
+config MISDN_HFCMINI
+	bool "Support for 'HFC-S mini' based TAs"
+	depends on PCI
+	help
+	  Enable support for Cologne Chip AG's 'HFC-S mini' Evaluation Card
+
 config MISDN_SPEEDFAX
 	bool "Support for Sedlbauer Speedfax+"
 	depends on PCI || ISA
