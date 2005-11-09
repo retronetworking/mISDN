@@ -1689,7 +1689,7 @@ init_mISDN_channels(hfcsmini_hw * hw)
       free_stack:
 	hw_mISDNObj.ctrl(dch->inst.st, MGR_DELSTACK | REQUEST, NULL);
       free_channels:
-      	spin_lock_irqsave(&hw->mlock, flags);
+      	spin_lock_irqsave(&hw_mISDNObj.lock, flags);
 	release_channels(hw);
 	list_del(&hw->list);
 	spin_unlock_irqrestore(&hw_mISDNObj.lock, flags);
@@ -2042,7 +2042,7 @@ release_card(hfcsmini_hw * hw)
 	set_current_state(TASK_UNINTERRUPTIBLE);
 	schedule_timeout((100 * HZ) / 1000);	/* Timeout 100ms */
 	
-	spin_lock_irqsave(&hw->mlock, flags);
+	spin_lock_irqsave(&hw_mISDNObj.lock, flags);
 	release_channels(hw);
 	list_del(&hw->list);
 	spin_unlock_irqrestore(&hw_mISDNObj.lock, flags);
