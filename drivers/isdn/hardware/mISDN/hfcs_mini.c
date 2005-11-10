@@ -1,4 +1,4 @@
-	/* $Id$
+/* $Id$
  *
  * mISDN driver for Colognechip HFC-S mini Evaluation Card
  *
@@ -80,6 +80,9 @@ MODULE_PARM(layermask, MODULE_PARM_T);
 static mISDNobject_t hw_mISDNObj;
 static int debug = 0;
 
+
+#if HFCBRIDGE == BRIDGE_HFCPCI
+
 static inline void
 hfcsmini_sel_reg(hfcsmini_hw * hw, __u8 reg_addr)
 {
@@ -94,12 +97,12 @@ read_hfcsmini(hfcsmini_hw * hw, __u8 reg_addr)
 {
 	register u_char ret;
 	
-#ifdef SPIN_LOCK_hfcsmini_REGISTER
+#ifdef SPIN_LOCK_HFCSMINI_REGISTER
 	spin_lock_irq(&hw->rlock);
 #endif
 	hfcsmini_sel_reg(hw, reg_addr);
 	ret = inb(hw->iobase + 1);
-#ifdef SPIN_LOCK_hfcsmini_REGISTER	
+#ifdef SPIN_LOCK_HFCSMINI_REGISTER	
 	spin_unlock_irq(&hw->rlock);
 #endif	
 	return(ret);
@@ -122,7 +125,7 @@ read_hfcsmini_stable(hfcsmini_hw * hw, __u8 reg_addr)
 {
 	register u_char in1, in2; 
 
-#ifdef SPIN_LOCK_hfcsmini_REGISTER
+#ifdef SPIN_LOCK_HFCSMINI_REGISTER
 	spin_lock_irq(&hw->rlock);
 #endif
 	hfcsmini_sel_reg(hw, reg_addr);
@@ -131,7 +134,7 @@ read_hfcsmini_stable(hfcsmini_hw * hw, __u8 reg_addr)
 	// loop until 2 equal accesses
 	while((in2=inb(hw->iobase + 1))!=in1) in1=in2;
 	
-#ifdef SPIN_LOCK_hfcsmini_REGISTER	
+#ifdef SPIN_LOCK_HFCSMINI_REGISTER	
 	spin_unlock_irq(&hw->rlock);
 #endif	
 	return(in1);
@@ -141,15 +144,18 @@ read_hfcsmini_stable(hfcsmini_hw * hw, __u8 reg_addr)
 static inline void
 write_hfcsmini(hfcsmini_hw * hw, __u8 reg_addr, __u8 value)
 {
-#ifdef SPIN_LOCK_hfcsmini_REGISTER
+#ifdef SPIN_LOCK_HFCSMINI_REGISTER
 	spin_lock_irq(&hw->rlock);
 #endif
 	hfcsmini_sel_reg(hw, reg_addr);
 	outb(value, hw->iobase + 1);
-#ifdef SPIN_LOCK_hfcsmini_REGISTER	
+#ifdef SPIN_LOCK_HFCSMINI_REGISTER	
 	spin_unlock_irq(&hw->rlock);
 #endif	
 }
+
+#endif
+
 
 static void
 hfcsmini_ph_command(dchannel_t * dch, u_char command)
