@@ -2031,7 +2031,7 @@ l2from_up(layer2_t *l2, struct sk_buff *skb, mISDN_head_t *hh) {
 			ret = mISDN_FsmEvent(&l2->l2m, EV_L2_MDL_ERROR, skb);
 		case (MDL_STATUS | REQUEST):
 			l2up_create(l2, MDL_STATUS | CONFIRM, hh->dinfo, 1,
-				(void *)l2->tei);
+				(void *)((u_long)l2->tei));
 			break;
 		default:
 			if (l2->debug)
@@ -2160,7 +2160,7 @@ release_l2(layer2_t *l2)
 	spin_unlock_irqrestore(&isdnl2.lock, flags);
 	isdnl2.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l2->entity != MISDN_ENTITY_NONE)
-		isdnl2.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)l2->entity);
+		isdnl2.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)((u_long)l2->entity));
 	kfree(l2);
 }
 
@@ -2425,7 +2425,7 @@ l2_manager(void *data, u_int prim, void *arg) {
 	}
 	switch(prim) {
 	    case MGR_NEWENTITY | CONFIRM:
-		l2l->entity = (int)arg;
+		l2l->entity = (u_long)arg & 0xffffffff;
 		break;
 	    case MGR_ADDSTPARA | INDICATION:
 	    	if (((mISDN_stPara_t *)arg)->maxdatalen)

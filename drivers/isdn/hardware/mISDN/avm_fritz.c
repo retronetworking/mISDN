@@ -1428,7 +1428,9 @@ static int __init Fritz_init(void)
 #endif
 #endif
 #endif
+#if defined(CONFIG_PNP)
  out_unregister_pci:
+#endif
 	pci_unregister_driver(&fcpci_driver);
  out:
  	return err;

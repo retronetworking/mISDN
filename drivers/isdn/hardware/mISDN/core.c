@@ -506,7 +506,7 @@ new_entity(mISDNinstance_t *inst)
 		printk(KERN_WARNING "mISDN: no more entity available(max %d)\n", MISDN_MAX_ENTITY);
 		return(ret);
 	}
-	ret = inst->obj->own_ctrl(inst, MGR_NEWENTITY | CONFIRM, (void *)entity);
+	ret = inst->obj->own_ctrl(inst, MGR_NEWENTITY | CONFIRM, (void *)((u_long)entity));
 	if (ret)
 		mISDN_delete_entity(entity);
 	return(ret);
@@ -524,7 +524,7 @@ static int central_manager(void *data, u_int prim, void *arg) {
 		return(new_entity(data));
 	    case MGR_DELENTITY | REQUEST:
 	    case MGR_DELENTITY | INDICATION:
-	    	return(mISDN_delete_entity((int)arg));
+	    	return(mISDN_delete_entity((u_long)arg & 0xffffffff));
 	    case MGR_REGLAYER | INDICATION:
 		return(register_layer(st, arg));
 	    case MGR_REGLAYER | REQUEST:

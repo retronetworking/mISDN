@@ -1289,7 +1289,7 @@ dte_manager(void *data, u_int prim, void *arg) {
 	}
 	switch(prim) {
 	    case MGR_NEWENTITY | CONFIRM:
-		l3_l->entity = (int)arg;
+		l3_l->entity = (u_long)arg & 0xffffffff;
 		break;
 	    case MGR_ADDSTPARA | INDICATION:
 		{

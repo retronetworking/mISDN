@@ -938,7 +938,7 @@ ncciDataInd(Ncci_t *ncci, int pr, struct sk_buff *skb)
 	*((__u16*)(nskb->data+6)) = ncci->appl->MsgId++;
 	*((__u32*)(nskb->data+8)) = ncci->addr;
 	if (sizeof(nskb) == 4) {
-		*((__u32*)(nskb->data+12)) = (__u32)(nskb->data + CAPI_B3_DATA_IND_HEADER_SIZE);
+		*((__u32*)(nskb->data+12)) = (__u32)(((u_long)nskb->data + CAPI_B3_DATA_IND_HEADER_SIZE) & 0xffffffff);
 		*((__u64*)(nskb->data+22)) = 0;
 	} else {
 		*((__u32*)(nskb->data+12)) = 0;

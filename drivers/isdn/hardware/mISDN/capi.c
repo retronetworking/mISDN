@@ -349,7 +349,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	}
 	switch(prim) {
 	    case MGR_NEWENTITY | CONFIRM:
-		ctrl->entity = (int)arg;
+		ctrl->entity = (u_long)arg & 0xffffffff;
 		break;
 #ifdef FIXME
 	    case MGR_CONNECT | REQUEST:

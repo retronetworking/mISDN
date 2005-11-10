@@ -1702,11 +1702,12 @@ isar_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		} else if (hh->dinfo == HW_FIRM_END) {
 			if (!fw_p)
 				return(-EINVAL);
-			if ((fw_p - firmware) == firmwaresize)
+			len = (fw_p - firmware) & 0xffffffff;
+			if (len == firmwaresize)
 				ret = isar_load_firmware(bch, firmware, firmwaresize);
 			else {
 				printk(KERN_WARNING "wrong firmware size %d/%d\n",
-					fw_p - firmware, firmwaresize);
+					len, firmwaresize);
 				ret = -EINVAL;
 			}
 			vfree(firmware);

@@ -74,7 +74,7 @@ ControllerDestr(Controller_t *contr)
 		kfree(plink);
 	}
 	if (contr->entity != MISDN_ENTITY_NONE)
-		inst->obj->ctrl(inst, MGR_DELENTITY | REQUEST, (void *)contr->entity);
+		inst->obj->ctrl(inst, MGR_DELENTITY | REQUEST, (void *)((u_long)contr->entity));
 	inst->obj->ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	list_del(&contr->list);
 	spin_unlock_irqrestore(&contr->list_lock, flags);

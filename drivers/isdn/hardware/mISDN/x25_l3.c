@@ -578,7 +578,8 @@ X25_release_l3(x25_l3_t *l3) {
 	mISDN_FsmDelTimer(&l3->TR, 3);
 	if (inst->obj) {
 		if (l3->entity != MISDN_ENTITY_NONE)
-			inst->obj->ctrl(inst, MGR_DELENTITY | REQUEST, (void *)l3->entity);
+			inst->obj->ctrl(inst, MGR_DELENTITY | REQUEST,
+				(void *)((u_long)l3->entity));
 		inst->obj->ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	}
 	kfree(l3);

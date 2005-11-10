@@ -175,10 +175,14 @@ dsp_cmx_debug(dsp_t *dsp)
 	printk(KERN_DEBUG "-----Current Conf:\n");
 	list_for_each_entry(conf, &Conf_list, list)
 	{
-		printk(KERN_DEBUG "* Conf %d (0x%x)\n", conf->id, (u32)conf);
+		printk(KERN_DEBUG "* Conf %d (%p)\n", conf->id, conf);
 		list_for_each_entry(member, &conf->mlist, list)
 		{
-			printk(KERN_DEBUG "  - member = %s (slot_tx %d, bank_tx %d, slot_rx %d, bank_rx %d hfc_conf %d)%s\n", member->dsp->inst.name, member->dsp->pcm_slot_tx, member->dsp->pcm_bank_tx, member->dsp->pcm_slot_rx, member->dsp->pcm_bank_rx, member->dsp->hfc_conf, (member->dsp==dsp)?" *this*":"");
+			printk(KERN_DEBUG
+				"  - member = %s (slot_tx %d, bank_tx %d, slot_rx %d, bank_rx %d hfc_conf %d)%s\n",
+				member->dsp->inst.name, member->dsp->pcm_slot_tx, member->dsp->pcm_bank_tx,
+				member->dsp->pcm_slot_rx, member->dsp->pcm_bank_rx, member->dsp->hfc_conf,
+				(member->dsp==dsp)?" *this*":"");
 		}
 	}
 	printk(KERN_DEBUG "-----end\n");
@@ -1083,9 +1087,10 @@ dsp_cmx_receive(dsp_t *dsp, struct sk_buff *skb)
 		dsp->W_rx = (dsp->W_rx + len) & CMX_BUFF_MASK;
 	} else {
 		if (dsp_debug & DEBUG_DSP_CMX)
-			printk(KERN_DEBUG "CMX: receiving too fast (rx_buff) dsp=%x\n", (u32)dsp);
+			printk(KERN_DEBUG "CMX: receiving too fast (rx_buff) dsp=%p\n", dsp);
 #ifdef CMX_DEBUG
-		printk(KERN_DEBUG "W_max=%x-W_min=%x = %d, largest = %d\n", W_max, W_min, (W_max - W_min) & CMX_BUFF_MASK, dsp->largest);
+		printk(KERN_DEBUG "W_max=%x-W_min=%x = %d, largest = %d\n",
+			W_max, W_min, (W_max - W_min) & CMX_BUFF_MASK, dsp->largest);
 #endif
 	}
 }
@@ -1161,14 +1166,16 @@ struct sk_buff
 		/* r is set "len" bytes before W_min */
 		r = (rr - len) & CMX_BUFF_MASK;
 		if (dsp_debug & DEBUG_DSP_CMX)
-			printk(KERN_DEBUG "CMX: sending too fast (tx_buff) dsp=%x\n", (u32)dsp);
+			printk(KERN_DEBUG "CMX: sending too fast (tx_buff) dsp=%p\n", dsp);
 	} else
 		/* rr is set "len" bytes after R_rx */
 		rr = (r + len) & CMX_BUFF_MASK;
 	dsp->R_rx = rr;
 	/* now: rr is exactly "len" bytes after r now */
 #ifdef CMX_DEBUG
-	printk(KERN_DEBUG "CMX_SEND(dsp=%lx) %d bytes from tx:0x%05x-0x%05x rx:0x%05x-0x%05x echo=%d %s\n", dsp, len, t, tt, r, rr, dsp->echo, dsp->inst.name);
+	printk(KERN_DEBUG
+		"CMX_SEND(dsp=%p) %d bytes from tx:0x%05x-0x%05x rx:0x%05x-0x%05x echo=%d %s\n",
+		dsp, len, t, tt, r, rr, dsp->echo, dsp->inst.name);
 #endif
 
 	/* STEP 2.0: PROCESS TONES/TX-DATA ONLY */

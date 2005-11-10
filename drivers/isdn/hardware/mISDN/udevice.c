@@ -1598,12 +1598,12 @@ do_mISDN_read(struct file *file, char *buf, size_t count, loff_t * off)
 	if (!access_ok(VERIFY_WRITE, buf, count))
 		return(-EFAULT);
 	if ((dev->minor == 0) && (count < mISDN_HEADER_LEN)) {
-		printk(KERN_WARNING "mISDN_read: count(%d) too small\n", count);
+		printk(KERN_WARNING "mISDN_read: count(%ld) too small\n", (long)count);
 		return(-ENOSPC);
 	}
 	if (device_debug & DEBUG_DEV_OP)
-		printk(KERN_DEBUG "mISDN_read: file(%d) %p max %d\n",
-			dev->minor, file, count);
+		printk(KERN_DEBUG "mISDN_read: file(%d) %p max %ld\n",
+			dev->minor, file, (long)count);
 	if (skb_queue_empty(&dev->rport.queue)) {
 		if (file->f_flags & O_NONBLOCK)
 			return(-EAGAIN);
@@ -1648,8 +1648,8 @@ do_mISDN_read(struct file *file, char *buf, size_t count, loff_t * off)
 	*off += len;
 //	spin_unlock_irqrestore(&dev->rport.lock, flags);
 	if (device_debug & DEBUG_DEV_OP)
-		printk(KERN_DEBUG "mISDN_read: file(%d) %d\n",
-			dev->minor, len);
+		printk(KERN_DEBUG "mISDN_read: file(%d) %ld\n",
+			dev->minor, (long)len);
 	return(len);
 }
 
@@ -1685,8 +1685,8 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 	if (*off != file->f_pos)
 		return(-ESPIPE);
 	if (device_debug & DEBUG_DEV_OP)
-		printk(KERN_DEBUG "mISDN_write: file(%d) %p count %d queue(%d)\n",
-			dev->minor, file, count, skb_queue_len(&dev->wport.queue));
+		printk(KERN_DEBUG "mISDN_write: file(%d) %p count %ld queue(%d)\n",
+			dev->minor, file, (long)count, skb_queue_len(&dev->wport.queue));
 	if (!access_ok(VERIFY_WRITE, buf, count))
 		return(-EFAULT);
 	if (dev->minor == 0) {
@@ -1740,7 +1740,7 @@ do_mISDN_write(struct file *file, const char *buf, size_t count, loff_t * off)
 			skb_queue_tail(&dev->wport.queue, skb);
 		}
 		if (len)
-			printk(KERN_WARNING "%s: incomplete frame data (%d/%d)\n", __FUNCTION__, len, count);
+			printk(KERN_WARNING "%s: incomplete frame data (%ld/%ld)\n", __FUNCTION__, (long)len, (long)count);
 		if (test_and_set_bit(FLG_mISDNPORT_BUSY, &dev->wport.Flag)) {
 //			spin_unlock_irqrestore(&dev->wport.lock, flags);
 			return(count-len);

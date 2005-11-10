@@ -2806,7 +2806,7 @@ release_udss1(layer3_t *l3)
 	spin_unlock_irqrestore(&u_dss1.lock, flags);
 	u_dss1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l3->entity != MISDN_ENTITY_NONE)
-		u_dss1.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)l3->entity);
+		u_dss1.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)((u_long)l3->entity));
 	kfree(l3);
 }
 
@@ -2939,7 +2939,7 @@ udss1_manager(void *data, u_int prim, void *arg) {
 	}
 	switch(prim) {
 	    case MGR_NEWENTITY | CONFIRM:
-		l3l->entity = (int)arg;
+		l3l->entity = (u_long)arg & 0xffffffff;
 		break;
 	    case MGR_ADDSTPARA | INDICATION:
 	    	l3l->down_headerlen = ((mISDN_stPara_t *)arg)->down_headerlen;
