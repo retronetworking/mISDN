@@ -1152,29 +1152,26 @@ hfcsmini_bh_handler(unsigned long ul_hw)
 	dchannel_t *dch;
 	
 	int i;
-	
-	if (hw->misc_irq.bit.v_ti_irq) {	/* Timer Int */
+
+	/* Timer Int */	
+	if (hw->misc_irq.bit.v_ti_irq) {
 		hw->misc_irq.bit.v_ti_irq = 0;
 		
-		for (i = 0; i < hw->max_fifo; i++) {
-			/* add Fifo-Fill info into int_s1 bitfield */
-			hw->fifo_irq.reg |= ((read_hfcsmini(hw, R_FILL) ^ FIFO_MASK_TX) & hw->fifomask);
+		/* add Fifo-Fill info into int_s1 bitfield */
+		hw->fifo_irq.reg |= ((read_hfcsmini(hw, R_FILL) ^ FIFO_MASK_TX) & hw->fifomask);
 		
-			/* Handle TX Fifos */	
+		/* Handle TX Fifos */
+		for (i = 0; i < hw->max_fifo; i++) {
 			if ((1 << (i * 2)) & (hw->fifo_irq.reg)) {
 				hw->fifo_irq.reg &= ~(1 << (i * 2));
 				
 				if (hw->chan[i].dch)
-					if (test_bit
-					    (FLG_TX_BUSY,
-					     &hw->chan[i].dch->DFlags)) {
+					if (test_bit(FLG_TX_BUSY, &hw->chan[i].dch->DFlags)) {
 						hfcsmini_write_fifo(hw, i);
 					}
 
 				if (hw->chan[i].bch)
-					if (test_bit
-					    (BC_FLG_TX_BUSY,
-					     &hw->chan[i].bch->Flag)
+					if (test_bit(BC_FLG_TX_BUSY,&hw->chan[i].bch->Flag)
 					    && (hw->chan[i].bch->protocol)) {
 						hfcsmini_write_fifo(hw, i);
 					}
