@@ -292,6 +292,8 @@ void bchdev_echocancel_chunk(dsp_t* dev, uint8_t *rxchunk, uint8_t *txchunk, uin
 	if (echo_can_disable_detector_update(dev->ecdis_rd, rxlin) || 
 	    echo_can_disable_detector_update(dev->ecdis_wr, txlin)) {
 	  bchdev_echocancel_deactivate(dev);
+	  printk("EC: Disable tone detected\n");
+	  return ;
 	} else	{
 	  rxlin = echo_can_update(dev->ec, txlin, rxlin);
 	  rxchunk[pos] = dsp_audio_s16_to_law[rxlin & 0xffff];
