@@ -64,7 +64,6 @@ struct _x25_l3 {
 	x25_B3_cfg_t		B3cfg;
 	u_long			state;
 	u_int			debug;
-	spinlock_t		lock;
 	u_char			cause[2];
 };
 
@@ -84,7 +83,6 @@ struct _x25_channel {
 	u_int			ncpi_len;
 	u_long			state;
 	u_int			debug;
-	spinlock_t		lock;
 	u_int			pr;
 	u_int			ps;
 	u_int			rps;

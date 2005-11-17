@@ -88,14 +88,11 @@ l3_debug(layer3_t *l3, char *fmt, ...)
 static int
 l3_newid(layer3_t *l3)
 {
-	u_long	flags;
 	int	id;
 
-	spin_lock_irqsave(&l3->lock, flags);
 	id = l3->next_id++;
 	if (id == 0x7fff)
 		l3->next_id = 1;
-	spin_unlock_irqrestore(&l3->lock, flags);
 	id |= (l3->entity << 16);
 	return(id);
 }
@@ -277,7 +274,6 @@ l3_process_t
 *new_l3_process(layer3_t *l3, int cr, int n303, u_int id)
 {
 	l3_process_t	*p = NULL;
-	u_long		flags;
 
 	if (id == MISDN_ID_ANY) {
 		if (l3->entity == MISDN_ENTITY_NONE) {
@@ -285,7 +281,6 @@ l3_process_t
 				__FUNCTION__, l3->id);
 			return (NULL);
 		}
-		spin_lock_irqsave(&l3->lock, flags);
 		if (l3->pid_cnt == 0x7FFF)
 			l3->pid_cnt = 0;
 		while(l3->pid_cnt <= 0x7FFF) {
@@ -295,7 +290,6 @@ l3_process_t
 			if (!p)
 				break;
 		}
-		spin_unlock_irqrestore(&l3->lock, flags);
 		if (p) {
 			printk(KERN_WARNING "%s: no free process_id for l3(%x) entity(%x)\n",
 				__FUNCTION__, l3->id, l3->entity);
@@ -555,7 +549,6 @@ init_l3(layer3_t *l3)
 	l3->dummy = NULL;
 	l3->entity = MISDN_ENTITY_NONE;
 	l3->next_id = 1;
-	spin_lock_init(&l3->lock);
 	skb_queue_head_init(&l3->squeue);
 	l3->l3m.fsm = &l3fsm;
 	l3->l3m.state = ST_L3_LC_REL;

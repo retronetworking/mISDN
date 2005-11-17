@@ -182,7 +182,6 @@ struct _Controller {
 	__u32			addr;
 	int			entity;
 	int			next_id;
-	spinlock_t		id_lock;
 	u_int			debug;
 	int			maxplci;
 	Plci_t			*plcis;
@@ -273,7 +272,6 @@ struct _Ncci {
 	int			savedstate;
 	int			window;
 	u_long			state;
-	spinlock_t		conf_lock;
 	ConfQueue_t		xmit_skb_handles[CAPI_MAXDATAWINDOW];
 	struct sk_buff		*recv_skb_handles[CAPI_MAXDATAWINDOW];
 	struct sk_buff_head	squeue;

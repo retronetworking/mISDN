@@ -67,7 +67,6 @@ typedef struct _layer3 {
 	u_long			Flag;
 	mISDNinstance_t		inst;
 	struct sk_buff_head	squeue;
-	spinlock_t              lock;
 	int			OrigCallRef;
 } layer3_t;
 

@@ -55,7 +55,6 @@ typedef struct _layer2 {
 	struct sk_buff_head	ui_queue;
 	struct sk_buff_head	down_queue;
 	struct sk_buff_head	tmp_queue;
-	spinlock_t		lock;
 } layer2_t;
 
 /* l2 status_info */

@@ -114,14 +114,11 @@ l2addrsize(layer2_t *l2)
 static int
 l2_newid(layer2_t *l2)
 {
-	u_long	flags;
 	int	id;
 
-	spin_lock_irqsave(&l2->lock, flags);
 	id = l2->next_id++;
 	if (id == 0x7fff)
 		l2->next_id = 1;
-	spin_unlock_irqrestore(&l2->lock, flags);
 	id |= (l2->entity << 16);
 	return(id);
 }
@@ -530,10 +527,8 @@ legalnr(layer2_t *l2, unsigned int nr)
 static void
 setva(layer2_t *l2, unsigned int nr)
 {
-	u_long		flags;
 	struct sk_buff	*skb;
 
-	spin_lock_irqsave(&l2->lock, flags);
 	while (l2->va != nr) {
 		l2->va++;
 		if(test_bit(FLG_MOD128, &l2->flag))
@@ -547,7 +542,6 @@ setva(layer2_t *l2, unsigned int nr)
 		}
 		l2->sow = (l2->sow + 1) % l2->window;
 	}
-	spin_unlock_irqrestore(&l2->lock, flags);
 	while((skb =skb_dequeue(&l2->tmp_queue))) {
 		if (l2up(l2, DL_DATA | CONFIRM, mISDN_HEAD_DINFO(skb), skb))
 			dev_kfree_skb(skb);
@@ -858,14 +852,11 @@ l2_start_multi(struct FsmInst *fi, int event, void *arg)
 {
 	layer2_t	*l2 = fi->userdata;
 	struct sk_buff	*skb = arg;
-	u_long		flags;
 
-	spin_lock_irqsave(&l2->lock, flags);
 	l2->vs = 0;
 	l2->va = 0;
 	l2->vr = 0;
 	l2->sow = 0;
-	spin_unlock_irqrestore(&l2->lock, flags);
 	clear_exception(l2);
 	send_uframe(l2, NULL, UA | get_PollFlag(l2, skb), RSP);
 	mISDN_FsmChangeState(fi, ST_L2_7);
@@ -903,7 +894,6 @@ l2_restart_multi(struct FsmInst *fi, int event, void *arg)
 	layer2_t	*l2 = fi->userdata;
 	struct sk_buff	*skb = arg;
 	int		est = 0;
-	u_long		flags;
 
 	send_uframe(l2, skb, UA | get_PollFlag(l2, skb), RSP);
 
@@ -915,12 +905,10 @@ l2_restart_multi(struct FsmInst *fi, int event, void *arg)
 	}
 
 	clear_exception(l2);
-	spin_lock_irqsave(&l2->lock, flags);
 	l2->vs = 0;
 	l2->va = 0;
 	l2->vr = 0;
 	l2->sow = 0;
-	spin_unlock_irqrestore(&l2->lock, flags);
 	mISDN_FsmChangeState(fi, ST_L2_7);
 	stop_t200(l2, 3);
 	mISDN_FsmRestartTimer(&l2->t203, l2->T203, EV_L2_T203, NULL, 3);
@@ -958,7 +946,6 @@ l2_connected(struct FsmInst *fi, int event, void *arg)
 	layer2_t	*l2 = fi->userdata;
 	struct sk_buff	*skb = arg;
 	int		pr=-1;
-	u_long		flags;
 
 	if (!get_PollFlag(l2, skb)) {
 		l2_mdl_error_ua(fi, event, arg);
@@ -974,12 +961,10 @@ l2_connected(struct FsmInst *fi, int event, void *arg)
 		pr = DL_ESTABLISH | INDICATION;
 	}
 	stop_t200(l2, 5);
-	spin_lock_irqsave(&l2->lock, flags);
 	l2->vr = 0;
 	l2->vs = 0;
 	l2->va = 0;
 	l2->sow = 0;
-	spin_unlock_irqrestore(&l2->lock, flags);
 	mISDN_FsmChangeState(fi, ST_L2_7);
 	mISDN_FsmAddTimer(&l2->t203, l2->T203, EV_L2_T203, NULL, 4);
 	if (pr != -1)
@@ -1115,9 +1100,7 @@ static void
 invoke_retransmission(layer2_t *l2, unsigned int nr)
 {
 	u_int	p1;
-	u_long	flags;
 
-	spin_lock_irqsave(&l2->lock, flags);
 	if (l2->vs != nr) {
 		while (l2->vs != nr) {
 			(l2->vs)--;
@@ -1135,10 +1118,8 @@ invoke_retransmission(layer2_t *l2, unsigned int nr)
 				printk(KERN_WARNING "%s: windowar[%d] is NULL\n", __FUNCTION__, p1);
 			l2->windowar[p1] = NULL;
 		}
-		spin_unlock_irqrestore(&l2->lock, flags);
 		mISDN_FsmEvent(&l2->l2m, EV_L2_ACK_PULL, NULL);
-	} else
-		spin_unlock_irqrestore(&l2->lock, flags);
+	}
 }
 
 static void
@@ -1240,7 +1221,6 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 	struct sk_buff	*skb = arg;
 	int		PollFlag, i;
 	u_int		ns, nr;
-	u_long		flags;
 
 	i = l2addrsize(l2);
 	if (test_bit(FLG_MOD128, &l2->flag)) {
@@ -1257,7 +1237,6 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 		if (PollFlag)
 			enquiry_response(l2);
 	} else {
-		spin_lock_irqsave(&l2->lock, flags);
 		if (l2->vr == ns) {
 			l2->vr++;
 			if(test_bit(FLG_MOD128, &l2->flag))
@@ -1265,7 +1244,6 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 			else
 				l2->vr %= 8;
 			test_and_clear_bit(FLG_REJEXC, &l2->flag);
-			spin_unlock_irqrestore(&l2->lock, flags);
 			if (PollFlag)
 				enquiry_response(l2);
 			else
@@ -1275,7 +1253,6 @@ l2_got_iframe(struct FsmInst *fi, int event, void *arg)
 				dev_kfree_skb(skb);
 		} else {
 			/* n(s)!=v(r) */
-			spin_unlock_irqrestore(&l2->lock, flags);
 			dev_kfree_skb(skb);
 			if (test_and_set_bit(FLG_REJEXC, &l2->flag)) {
 				if (PollFlag)
@@ -1429,7 +1406,6 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 	struct sk_buff	*skb, *nskb, *oskb;
 	u_char		header[MAX_HEADER_LEN];
 	u_int		i, p1;
-	u_long		flags;
 
 	if (!cansend(l2))
 		return;
@@ -1438,7 +1414,6 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 	if (!skb)
 		return;
 
-	spin_lock_irqsave(&l2->lock, flags);
 	if(test_bit(FLG_MOD128, &l2->flag))
 		p1 = (l2->vs - l2->va) % 128;
 	else
@@ -1459,7 +1434,6 @@ l2_pull_iqueue(struct FsmInst *fi, int event, void *arg)
 		header[i++] = (l2->vr << 5) | (l2->vs << 1);
 		l2->vs = (l2->vs + 1) % 8;
 	}
-	spin_unlock_irqrestore(&l2->lock, flags);
 
 	nskb = skb_clone(skb, GFP_ATOMIC);
 	p1 = skb_headroom(nskb);
@@ -2210,7 +2184,6 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
 		return(-ENOMEM);
 	}
 	memset(nl2, 0, sizeof(layer2_t));
-	spin_lock_init(&nl2->lock);
 	nl2->debug = debug;
 	nl2->next_id = 1;
 	nl2->down_id = MISDN_ID_NONE;

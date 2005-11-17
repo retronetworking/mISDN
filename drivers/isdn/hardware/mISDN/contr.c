@@ -632,7 +632,6 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 	INIT_LIST_HEAD(&contr->SSProcesse);
 	INIT_LIST_HEAD(&contr->linklist);
 	spin_lock_init(&contr->list_lock);
-	spin_lock_init(&contr->id_lock);
 	contr->next_id = 1;
 	memcpy(&contr->inst.pid, pid, sizeof(mISDN_pid_t));
 #ifndef OLDCAPI_DRIVER_INTERFACE
@@ -765,14 +764,11 @@ ControllerSelChannel(Controller_t *contr, u_int channel)
 int
 ControllerNextId(Controller_t *contr)
 {
-	u_long	flags;
 	int	id;
 
-	spin_lock_irqsave(&contr->id_lock, flags);
 	id = contr->next_id++;
 	if (id == 0x7fff)
 		contr->next_id = 1;
-	spin_unlock_irqrestore(&contr->id_lock, flags);
 	id |= (contr->entity << 16);
 	return(id);
 }

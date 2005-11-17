@@ -286,14 +286,11 @@ X25_restart(x25_l3_t *l3)
 int
 X25_next_id(x25_l3_t *l3)
 {
-	u_long	flags;
 	int	id;
 
-	spin_lock_irqsave(&l3->lock, flags);
 	id = l3->next_id++;
 	if (id == 0x0fff)
 		l3->next_id = 1;
-	spin_unlock_irqrestore(&l3->lock, flags);
 	id |= (l3->entity << 16);
 	return(id);
 }
@@ -673,7 +670,6 @@ new_x25_l3(x25_l3_t **l3_p, mISDNstack_t *st, mISDN_pid_t *pid, mISDNobject_t *o
 	INIT_LIST_HEAD(&n_l3->channellist);
 	n_l3->entity = MISDN_ENTITY_NONE;
 	n_l3->next_id = 1;
-	spin_lock_init(&n_l3->lock);
 	memcpy(&n_l3->inst.pid, pid, sizeof(mISDN_pid_t));
 	mISDN_init_instance(&n_l3->inst, obj, n_l3, function);
 	if (!mISDN_SetHandledPID(obj, &n_l3->inst.pid)) {
