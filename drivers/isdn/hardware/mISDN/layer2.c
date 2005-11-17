@@ -2,9 +2,7 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *		This file is (c) under GNU PUBLIC LICENSE
- *		For changes and modifications please read
- *		../../../Documentation/isdn/mISDN.cert
+ * This file is released under the GPLv2
  *
  */
 #include <linux/module.h>
@@ -875,6 +873,10 @@ l2_start_multi(struct FsmInst *fi, int event, void *arg)
 	skb_trim(skb, 0);
 	if (l2up(l2, DL_ESTABLISH | INDICATION, 0, skb))
 		dev_kfree_skb(skb);
+
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_ESTABLISHED,
+		0, NULL, 0);
 }
 
 static void
@@ -923,8 +925,12 @@ l2_restart_multi(struct FsmInst *fi, int event, void *arg)
 	stop_t200(l2, 3);
 	mISDN_FsmRestartTimer(&l2->t203, l2->T203, EV_L2_T203, NULL, 3);
 
-	if (est)
+	if (est) {
 		l2up_create(l2, DL_ESTABLISH | INDICATION, 0, 0, NULL);
+		mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+			MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_ESTABLISHED,
+			0, NULL, 0);
+	}
 
 	if (skb_queue_len(&l2->i_queue) && cansend(l2))
 		mISDN_FsmEvent(fi, EV_L2_ACK_PULL, NULL);
@@ -982,7 +988,9 @@ l2_connected(struct FsmInst *fi, int event, void *arg)
 	if (skb_queue_len(&l2->i_queue) && cansend(l2))
 		mISDN_FsmEvent(fi, EV_L2_ACK_PULL, NULL);
 
-	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST, MGR_SHORTSTATUS, SSTATUS_L2_ESTABLISH, 0, NULL, 0);
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_ESTABLISHED,
+		0, NULL, 0);
 }
 
 static void
@@ -1000,7 +1008,9 @@ l2_released(struct FsmInst *fi, int event, void *arg)
 	lapb_dl_release_l2l3(l2, CONFIRM);
 	mISDN_FsmChangeState(fi, ST_L2_4);
 
-	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST, MGR_SHORTSTATUS, SSTATUS_L2_RELEASED, 0, NULL, 0);
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_RELEASED,
+		0, NULL, 0);
 }
 
 static void
@@ -1042,6 +1052,9 @@ l2_st6_dm_release(struct FsmInst *fi, int event, void *arg)
 		stop_t200(l2, 8);
 		lapb_dl_release_l2l3(l2, CONFIRM);
 		mISDN_FsmChangeState(fi, ST_L2_4);
+		mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+			MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_RELEASED,
+			0, NULL, 0);
 	}
 }
 
@@ -1958,15 +1971,6 @@ l2from_down(layer2_t *l2, struct sk_buff *askb, mISDN_head_t *hh)
 				dev_kfree_skb(cskb);
 			ret = 0;
 			break;
-		case MGR_SHORTSTATUS:
-			if(hh->dinfo==SSTATUS_ALL || hh->dinfo==SSTATUS_L2) {
-				int new_addr;
-				if(hh->dinfo&SSTATUS_BROADCAST_BIT) new_addr= l2->inst.id | MSG_BROADCAST;
-				else new_addr=hh->addr | FLG_MSG_TARGET;
-				return(mISDN_queueup_newhead(&l2->inst, new_addr, MGR_SHORTSTATUS,
-				     (l2->l2m.state==ST_L2_7) ? SSTATUS_L2_ESTABLISH : SSTATUS_L2_RELEASED, cskb));
-			}
-			break;
 		default:
 			if (l2->debug)
 				l2m_debug(&l2->l2m, "l2 unknown pr %x", hh->prim);
@@ -2041,25 +2045,53 @@ l2from_up(layer2_t *l2, struct sk_buff *skb, mISDN_head_t *hh) {
 }
 
 static int
+l2_shortstatus(layer2_t *l2, struct sk_buff *skb, mISDN_head_t *hh)
+{
+	u_int	temp;
+
+	if (hh->prim == (MGR_SHORTSTATUS | REQUEST)) {
+		temp = hh->dinfo & SSTATUS_ALL;
+		if (temp == SSTATUS_ALL || temp == SSTATUS_L2) {
+			skb_trim(skb, 0);
+			if (hh->dinfo & SSTATUS_BROADCAST_BIT)
+				temp = l2->inst.id | MSG_BROADCAST;
+			else
+				temp = hh->addr | FLG_MSG_TARGET;
+			switch(l2->l2m.state) {
+				case ST_L2_7:
+				case ST_L2_8:
+					hh->dinfo = SSTATUS_L2_ESTABLISHED;
+					break;
+				default:
+					hh->dinfo = SSTATUS_L2_RELEASED;
+			}
+			hh->prim = MGR_SHORTSTATUS | CONFIRM;
+			return(mISDN_queue_message(&l2->inst, temp, skb));
+		}
+	}
+	return(-EOPNOTSUPP);
+}
+
+static int
 l2_function(mISDNinstance_t *inst, struct sk_buff *skb)
 {
-	layer2_t	*l2;
-	mISDN_head_t	*hh;
+	layer2_t	*l2 = inst->privat;
+	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
 	int		ret = -EINVAL;
 
-	l2 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
 	if (debug)
 		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
 	if (!l2)
 		return(ret);
+
+	if (unlikely((hh->prim & MISDN_CMD_MASK) == MGR_SHORTSTATUS))
+		return(l2_shortstatus(l2, skb, hh));
 
 	switch(hh->addr & MSG_DIR_MASK) {
 		case FLG_MSG_DOWN:
 			ret = l2from_up(l2, skb, hh);
 			break;
 		case FLG_MSG_UP:
-		case MSG_BROADCAST:  // we define broaadcast comes from down below
 			ret = l2from_down(l2, skb, hh);
 			break;
 		case MSG_TO_OWNER:
@@ -2067,7 +2099,7 @@ l2_function(mISDNinstance_t *inst, struct sk_buff *skb)
 			int_errtxt("not implemented yet");
 			break;
 		default:
-			/* FIXME: must be handled depending on type */
+			/* FIXME: broadcast must be handled depending on type */
 			int_errtxt("not implemented yet");
 			break;
 	}

@@ -2,7 +2,7 @@
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is released under the GPLv2
  *
  */
 
@@ -398,18 +398,20 @@ static void
 do_broadcast(mISDNstack_t *st, struct sk_buff *skb)
 {
 	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
-	mISDNinstance_t	*inst=NULL;
-	struct sk_buff *c_skb;
-	int i,err;
+	mISDNinstance_t	*inst = NULL;
+	struct sk_buff	*c_skb = NULL;
+	int i, err;
 
-	for(i=0;i<=MAX_LAYER_NR;i++) {
-
-		if(i==(hh->addr & LAYER_ID_MASK)) continue; // skip own layer
+	for(i=0; i<=MAX_LAYER_NR; i++) {
+		if (i == (hh->addr & LAYER_ID_MASK))
+			continue; // skip own layer
 		inst = st->i_array[i];
-		if(!inst) break;  // we reached the last layer
-
-		c_skb = skb_copy(skb, GFP_KERNEL);  // we need a private copy
-		if(!c_skb) break;  // stop here when copy not possible
+		if (!inst)
+			continue;  // maybe we have a gap
+		if (!c_skb)
+			c_skb = skb_copy(skb, GFP_KERNEL);  // we need a new private copy
+		if (!c_skb)
+			break;  // stop here when copy not possible
 
 		if (core_debug & DEBUG_MSG_THREAD_INFO)
 			printk(KERN_DEBUG "%s: inst(%08x) msg call addr(%08x) prim(%x)\n",
@@ -417,19 +419,19 @@ do_broadcast(mISDNstack_t *st, struct sk_buff *skb)
 
 		if (inst->function) {
 			err = inst->function(inst, c_skb);
-			if (err) {
-				if(core_debug & DEBUG_MSG_THREAD_ERR)
-					printk(KERN_DEBUG "%s: instance(%08x)->function return(%d)\n", __FUNCTION__, inst->id, err);
-				dev_kfree_skb(c_skb);   // free private copy
-			}
+			if (!err)
+				c_skb = NULL; /* function consumed the skb */
+			if (core_debug & DEBUG_MSG_THREAD_INFO)
+				printk(KERN_DEBUG "%s: inst(%08x) msg call return %d\n",
+					__FUNCTION__, inst->id, err);
+
 		} else {
 			if (core_debug & DEBUG_MSG_THREAD_ERR)
-			    printk(KERN_DEBUG "%s: instance(%08x) no function\n", __FUNCTION__, inst->id);
-			dev_kfree_skb(c_skb);   // free private copy
+				printk(KERN_DEBUG "%s: instance(%08x) no function\n",
+					__FUNCTION__, inst->id);
 		}
-
 	}
-
+	dev_kfree_skb(c_skb);
 	dev_kfree_skb(skb);
 }
 

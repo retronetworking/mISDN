@@ -2,7 +2,7 @@
  *
  *   Basic declarations, defines and prototypes
  *
- * This file is (c) under GNU PUBLIC LICENSE
+ * This file is released under the GPLv2
  *
  */
 #ifndef _mISDN_HELPER_H

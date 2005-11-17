@@ -39,6 +39,9 @@
  *
  */
 
+#define MISDN_CMD_MASK	0xffffff00
+#define MISDN_SUB_MASK	0x000000ff
+
 /* SUBCOMMANDS */
 #define REQUEST		0x80
 #define CONFIRM		0x81
@@ -92,10 +95,10 @@
 #define MGR_TIMER	0x0f8800
 #define MGR_CONTROL	0x0fe100
 #define MGR_STATUS	0x0fe200
-#define MGR_HASPROTOCOL 0x0fe300
+#define MGR_HASPROTOCOL	0x0fe300
 #define MGR_EVALSTACK	0x0fe400
 #define MGR_GLOBALOPT	0x0fe500
-#define MGR_SHORTSTATUS 0x0fe600
+#define MGR_SHORTSTATUS	0x0fe600
 #define MGR_LOADFIRM	0x0ff000
 #define MGR_LOGDATA	0x0ff100
 #define MGR_DEBUGDATA	0x0ff200
@@ -400,14 +403,14 @@
 
 
 // short message status
-#define SSTATUS_ALL             0x0fffffff
-#define SSTATUS_BROADCAST_BIT   0x10000000
-#define SSTATUS_L1              0x01ffffff
-#define SSTATUS_L2              0x02ffffff
-#define SSTATUS_L1_DEACTIVATED  0x01000000
-#define SSTATUS_L1_ACTIVATED    0x01000001
-#define SSTATUS_L2_RELEASED     0x02000000
-#define SSTATUS_L2_ESTABLISH    0x02000001
+#define SSTATUS_ALL		0x0fffffff
+#define SSTATUS_BROADCAST_BIT	0x10000000
+#define SSTATUS_L1		0x01ffffff
+#define SSTATUS_L2		0x02ffffff
+#define SSTATUS_L1_DEACTIVATED	0x01000000
+#define SSTATUS_L1_ACTIVATED	0x01000001
+#define SSTATUS_L2_RELEASED	0x02000000
+#define SSTATUS_L2_ESTABLISHED	0x02000001
 
 
 #define mISDN_CORE_DEVICE	0

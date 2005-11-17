@@ -938,6 +938,7 @@ ph_state_change(dchannel_t *dch)
 				hc->hw.nt_timer = 0;
 				hc->hw.int_m1 &= ~HFCPCI_INTS_TIMER;
 				Write_hfc(hc, HFCPCI_INT_M1, hc->hw.int_m1);
+				dch->l1_up = 0;
 				break;
 			case (4):
 				hc->hw.nt_timer = 0;
@@ -950,10 +951,15 @@ ph_state_change(dchannel_t *dch)
 				hc->hw.nt_timer = 0;
 				hc->hw.int_m1 &= ~HFCPCI_INTS_TIMER;
 				Write_hfc(hc, HFCPCI_INT_M1, hc->hw.int_m1);
+				dch->l1_up = 1;
 				break;
 			default:
-				break;
+				return;
 		}
+		mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST,
+			MGR_SHORTSTATUS | INDICATION, (dch->l1_up) ?
+			SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED,
+			0, NULL, 0);
 	}
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
 }
@@ -1305,6 +1311,21 @@ HFCD_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 					__FUNCTION__);
 			ret = -EINVAL;
 		}
+	} else if ((hh->prim & MISDN_CMD_MASK) == MGR_SHORTSTATUS) {
+		u_int	temp = hh->dinfo & SSTATUS_ALL;
+		if (hc->hw.nt_mode && /* if TE mode ignore */
+			(temp == SSTATUS_ALL || temp == SSTATUS_L1)) {
+			if (hh->dinfo & SSTATUS_BROADCAST_BIT)
+				temp = dch->inst.id | MSG_BROADCAST;
+			else
+				temp = hh->addr | FLG_MSG_TARGET;
+			skb_trim(skb, 0);
+			hh->dinfo = (dch->l1_up) ?
+				SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED;
+			hh->prim = MGR_SHORTSTATUS | CONFIRM;
+			return(mISDN_queue_message(inst, temp, skb));
+		}
+		ret = -EOPNOTSUPP;
 	} else {
 		if (dch->debug & L1_DEB_WARN)
 			mISDN_debugprint(&dch->inst, "%s: unknown prim %x",

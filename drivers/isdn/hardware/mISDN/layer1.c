@@ -1,12 +1,10 @@
 /* $Id$
  *
- * mISDN_l1.c     common low level stuff for I.430 layer1
+ * mISDN_l1.c     common low level stuff for I.430 layer1 TE mode
  *
  * Author       Karsten Keil (keil@isdn4linux.de)
  *
- *		This file is (c) under GNU PUBLIC LICENSE
- *		For changes and modifications please read
- *		../../../Documentation/isdn/mISDN.cert
+ * This file is released under the GPLv2
  *
  */
 
@@ -46,9 +44,11 @@ static mISDNobject_t isdnl1;
 
 #define TIMER3_VALUE 7000
 
+#ifdef OBSOLETE
 static
 struct Fsm l1fsm_b =
 {NULL, 0, 0, NULL, NULL};
+#endif
 
 static
 struct Fsm l1fsm_s =
@@ -100,6 +100,7 @@ static char *strL1UState[] =
 };
 #endif
 
+#ifdef OBSOLETE
 enum {
 	ST_L1_NULL,
 	ST_L1_WAIT_ACT,
@@ -116,7 +117,7 @@ static char *strL1BState[] =
 	"ST_L1_WAIT_DEACT",
 	"ST_L1_ACTIV",
 };
-
+#endif
 enum {
 	EV_PH_ACTIVATE,
 	EV_PH_DEACTIVATE,
@@ -272,6 +273,9 @@ l1_timer3(struct FsmInst *fi, int event, void *arg)
 		if (test_and_clear_bit(FLG_L1_DBLOCKED, &l1->Flags))
 			l1up(l1, PH_CONTROL | INDICATION, 0, 4, &db);
 		l1up(l1, PH_DEACTIVATE | INDICATION, 0, 0, NULL);
+		mISDN_queue_data(&l1->inst, l1->inst.id | MSG_BROADCAST,
+			MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_DEACTIVATED,
+			0, NULL, 0);
 	}
 #ifdef mISDN_UINTERFACE
 	if (!test_bit(FLG_L1_UINT, &l1->Flags))
@@ -293,6 +297,9 @@ l1_timer_act(struct FsmInst *fi, int event, void *arg)
 		l1up(l1, PH_ACTIVATE | CONFIRM, 0, 0, NULL);
 	else
 		l1up(l1, PH_ACTIVATE | INDICATION, 0, 0, NULL);
+	mISDN_queue_data(&l1->inst, l1->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_ACTIVATED,
+		0, NULL, 0);
 }
 
 static void
@@ -307,6 +314,9 @@ l1_timer_deact(struct FsmInst *fi, int event, void *arg)
 		l1up(l1, PH_CONTROL | INDICATION, 0, 4, &db);
 	l1up(l1, PH_DEACTIVATE | INDICATION, 0, 0, NULL);
 	l1down(l1, PH_CONTROL | REQUEST, HW_DEACTIVATE, 0, NULL);
+	mISDN_queue_data(&l1->inst, l1->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_DEACTIVATED,
+		0, NULL, 0);
 }
 
 static void
@@ -443,7 +453,7 @@ static struct FsmNode L1UFnList[] =
 #define L1U_FN_COUNT (sizeof(L1UFnList)/sizeof(struct FsmNode))
 
 #endif
-
+#ifdef OBSOLETE
 static void
 l1b_activate(struct FsmInst *fi, int event, void *arg)
 {
@@ -489,6 +499,7 @@ static struct FsmNode L1BFnList[] =
 };
 
 #define L1B_FN_COUNT (sizeof(L1BFnList)/sizeof(struct FsmNode))
+#endif
 
 static int
 l1from_up(layer1_t *l1, struct sk_buff *skb, mISDN_head_t *hh)
@@ -576,25 +587,45 @@ l1from_down(layer1_t *l1, struct sk_buff *skb, mISDN_head_t *hh)
 }
 
 static int
+l1_shortstatus(layer1_t *l1, struct sk_buff *skb, mISDN_head_t *hh)
+{
+	u_int	temp;
+
+	if (hh->prim == (MGR_SHORTSTATUS | REQUEST)) {
+		temp = hh->dinfo & SSTATUS_ALL;
+		if (temp == SSTATUS_ALL || temp == SSTATUS_L1) {
+			skb_trim(skb, 0);
+			if (hh->dinfo & SSTATUS_BROADCAST_BIT)
+				temp = l1->inst.id | MSG_BROADCAST;
+			else
+				temp = hh->addr | FLG_MSG_TARGET;
+			hh->dinfo = (l1->l1m.state == ST_L1_F7) ?
+				SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED;
+			hh->prim = MGR_SHORTSTATUS | CONFIRM;
+			return(mISDN_queue_message(&l1->inst, temp, skb));
+		}
+	}
+	return(-EOPNOTSUPP);
+}
+
+static int
 l1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 {
-	layer1_t	*l1;
-	mISDN_head_t	*hh;
+	layer1_t	*l1 = inst->privat;
+	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
 	int		ret = -EINVAL;
 
-	l1 = inst->privat;
-	hh = mISDN_HEAD_P(skb);
 	if (debug)
 		printk(KERN_DEBUG  "%s: addr(%08x) prim(%x)\n", __FUNCTION__,  hh->addr, hh->prim);
-	if (!l1)
-		return(ret);
+
+	if (unlikely((hh->prim & MISDN_CMD_MASK) == MGR_SHORTSTATUS))
+		return(l1_shortstatus(l1, skb, hh));
 
 	switch(hh->addr & MSG_DIR_MASK) {
 		case FLG_MSG_DOWN:
 			ret = l1from_up(l1, skb, hh);
 			break;
 		case FLG_MSG_UP:
-		case MSG_BROADCAST:  // we define broaadcast comes from down below
 			ret = l1from_down(l1, skb, hh);
 			break;
 		case MSG_TO_OWNER:
@@ -799,18 +830,22 @@ int Isdnl1Init(void)
 	l1fsm_s.strEvent = strL1Event;
 	l1fsm_s.strState = strL1SState;
 	mISDN_FsmNew(&l1fsm_s, L1SFnList, L1S_FN_COUNT);
+#ifdef OBSOLETE
 	l1fsm_b.state_count = L1B_STATE_COUNT;
 	l1fsm_b.event_count = L1_EVENT_COUNT;
 	l1fsm_b.strEvent = strL1Event;
 	l1fsm_b.strState = strL1BState;
 	mISDN_FsmNew(&l1fsm_b, L1BFnList, L1B_FN_COUNT);
+#endif
 	if ((err = mISDN_register(&isdnl1))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
 #ifdef mISDN_UINTERFACE
 		mISDN_FsmFree(&l1fsm_u);
 #endif
 		mISDN_FsmFree(&l1fsm_s);
+#ifdef OBSOLETE
 		mISDN_FsmFree(&l1fsm_b);
+#endif
 	}
 	return(err);
 }
@@ -833,6 +868,8 @@ void cleanup_module(void)
 	mISDN_FsmFree(&l1fsm_u);
 #endif
 	mISDN_FsmFree(&l1fsm_s);
+#ifdef OBSOLETE
 	mISDN_FsmFree(&l1fsm_b);
+#endif
 }
 #endif

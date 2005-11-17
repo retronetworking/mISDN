@@ -1,5 +1,4 @@
 /*
-
  * hfc_multi.c  low level driver for hfc-4s/hfc-8s/hfc-e1 based cards
  *
  * Author	Andreas Eversberg (jolly@jolly.de)
@@ -25,7 +24,7 @@
  * Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
  *
  *
- * Thanx to Cologne Chip AG for this great controller!
+ * Thanks to Cologne Chip AG for this great controller!
  */
 
 /* module parameters:
@@ -2011,7 +2010,6 @@ static int hfcmulti_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 			spin_unlock_irqrestore(inst->hwlock, flags);
 			skb_trim(skb, 0);
 			return(mISDN_queueup_newhead(inst, 0, PH_CONTROL | INDICATION,HW_POWERUP, skb));
-			break;
 
 			case HW_DEACTIVATE:
 			if (debug & DEBUG_HFCMULTI_MSG)
@@ -2110,24 +2108,29 @@ static int hfcmulti_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 				printk(KERN_DEBUG "%s: PH_DEACTIVATE no NT-mode port %d (0..%d)\n", __FUNCTION__, hc->chan[dch->channel].port, hc->type-1);
 			ret = -EINVAL;
 		}
-	} else
-	if (hh->prim == MGR_SHORTSTATUS) {
-		if(hh->dinfo==SSTATUS_ALL || hh->dinfo==SSTATUS_L1) {
-			int new_addr;
-			if(hh->dinfo&SSTATUS_BROADCAST_BIT) new_addr= dch->inst.id | MSG_BROADCAST;
-			else new_addr=hh->addr | FLG_MSG_TARGET;
-			return(mISDN_queueup_newhead(inst, new_addr, MGR_SHORTSTATUS,(dch->l1_up) ? SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED, skb));
+	} else if ((hh->prim & MISDN_CMD_MASK) == MGR_SHORTSTATUS) {
+		u_int	temp = hh->dinfo & SSTATUS_ALL; // remove SSTATUS_BROADCAST_BIT
+		if (((hc->type == 1) || test_bit(HFC_CFG_NTMODE,
+			&hc->chan[dch->channel].cfg)) &&
+			(temp == SSTATUS_ALL || temp == SSTATUS_L1)) {
+			if (hh->dinfo & SSTATUS_BROADCAST_BIT)
+				temp = dch->inst.id | MSG_BROADCAST;
+			else
+				temp = hh->addr | FLG_MSG_TARGET;
+			skb_trim(skb, 0);
+			hh->dinfo = (dch->l1_up) ?
+				SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED;
+			hh->prim = MGR_SHORTSTATUS | CONFIRM;
+			return(mISDN_queue_message(inst, temp, skb));
 		}
+		ret = -EOPNOTSUPP;
 	} else {
 		if (debug & DEBUG_HFCMULTI_MSG)
 			printk(KERN_DEBUG "%s: unknown prim %x\n", __FUNCTION__, hh->prim);
 		ret = -EINVAL;
 	}
-	if (!ret) {
-//		printk("1\n");
+	if (!ret)
 		dev_kfree_skb(skb);
-//		printk("2\n");
-	}
 	return(ret);
 }
 
@@ -2394,17 +2397,17 @@ static void ph_state_change(dchannel_t *dch)
 		}
 		switch (dch->ph_state) {
 			case (1):
-			prim = PH_ACTIVATE | INDICATION;
-			para = 0;
-			dch->l1_up=1;
-			break;
+				prim = PH_ACTIVATE | INDICATION;
+				para = 0;
+				dch->l1_up = 1;
+				break;
 
 			default:
-			if (hc->chan[ch].e1_state != 1)
-				return;
-			prim = PH_DEACTIVATE | INDICATION;
-			para = 0;
-			dch->l1_up=0;
+				if (hc->chan[ch].e1_state != 1)
+					return;
+				prim = PH_DEACTIVATE | INDICATION;
+				para = 0;
+				dch->l1_up = 0;
 		}
 		hc->chan[ch].e1_state = dch->ph_state;
 	} else {
@@ -2413,80 +2416,81 @@ static void ph_state_change(dchannel_t *dch)
 				printk(KERN_DEBUG "%s: S/T TE newstate %x\n", __FUNCTION__, dch->ph_state);
 			switch (dch->ph_state) {
 				case (0):
-				prim = PH_CONTROL | INDICATION;
-				para = HW_RESET;
-				break;
+					prim = PH_CONTROL | INDICATION;
+					para = HW_RESET;
+					break;
 
 				case (3):
-				prim = PH_CONTROL | INDICATION;
-				para = HW_DEACTIVATE;
-				dch->l1_up=0;
-				break;
+					prim = PH_CONTROL | INDICATION;
+					para = HW_DEACTIVATE;
+					break;
 
 				case (5):
 				case (8):
-				para = ANYSIGNAL;
-				break;
+					para = ANYSIGNAL;
+					break;
 
 				case (6):
-				para = INFO2;
-				break;
+					para = INFO2;
+					break;
 
 				case (7):
-				para = INFO4_P8;
-				dch->l1_up=1;
-				break;
+					para = INFO4_P8;
+					break;
 
 				default:
-				return;
+					return;
 			}
 		} else {
 			if (debug & DEBUG_HFCMULTI_STATE)
 				printk(KERN_DEBUG "%s: S/T NT newstate %x\n", __FUNCTION__, dch->ph_state);
 			switch (dch->ph_state) {
 				case (2):
-				if (hc->chan[ch].nt_timer == 0) {
-					hc->chan[ch].nt_timer = -1;
-					HFC_outb(hc, R_ST_SEL, hc->chan[ch].port);
-					HFC_outb(hc, A_ST_WR_STATE, 4 | V_ST_LD_STA); /* G4 */
-					udelay(6); /* wait at least 5,21us */
-					HFC_outb(hc, A_ST_WR_STATE, 4);
-					dch->ph_state = 4;
-				} else {
-					/* one extra count for the next event */
-					hc->chan[ch].nt_timer = nt_t1_count[poll_timer] + 1;
-					HFC_outb(hc, R_ST_SEL, hc->chan[ch].port);
-					HFC_outb(hc, A_ST_WR_STATE, 2 | V_SET_G2_G3); /* allow G2 -> G3 transition */
-				}
-				return;
+					if (hc->chan[ch].nt_timer == 0) {
+						hc->chan[ch].nt_timer = -1;
+						HFC_outb(hc, R_ST_SEL, hc->chan[ch].port);
+						HFC_outb(hc, A_ST_WR_STATE, 4 | V_ST_LD_STA); /* G4 */
+						udelay(6); /* wait at least 5,21us */
+						HFC_outb(hc, A_ST_WR_STATE, 4);
+						dch->ph_state = 4;
+					} else {
+						/* one extra count for the next event */
+						hc->chan[ch].nt_timer = nt_t1_count[poll_timer] + 1;
+						HFC_outb(hc, R_ST_SEL, hc->chan[ch].port);
+						HFC_outb(hc, A_ST_WR_STATE, 2 | V_SET_G2_G3); /* allow G2 -> G3 transition */
+					}
+					return;
 
 				case (1):
-				prim = PH_DEACTIVATE | INDICATION;
-				para = 0;
-				hc->chan[ch].nt_timer = -1;
-				dch->l1_up=0;
-				break;
+					prim = PH_DEACTIVATE | INDICATION;
+					para = 0;
+					hc->chan[ch].nt_timer = -1;
+					dch->l1_up = 0;
+					break;
 
 				case (4):
-				hc->chan[ch].nt_timer = -1;
-				return;
+					hc->chan[ch].nt_timer = -1;
+					return;
 
 				case (3):
-				prim = PH_ACTIVATE | INDICATION;
-				para = 0;
-				hc->chan[ch].nt_timer = -1;
-				dch->l1_up=1;
-				break;
+					prim = PH_ACTIVATE | INDICATION;
+					para = 0;
+					hc->chan[ch].nt_timer = -1;
+					dch->l1_up = 1;
+					break;
 
 				default:
-				break;
+					return;
 			}
 		}
 	}
 
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
-	mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST, MGR_SHORTSTATUS,
-					  (dch->l1_up) ? SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED, 0, NULL, 0);
+	if ((hc->type == 1) || test_bit(HFC_CFG_NTMODE, &hc->chan[ch].cfg))
+		mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST,
+			MGR_SHORTSTATUS | INDICATION, (dch->l1_up) ?
+			SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED,
+			0, NULL, 0);
 }
 
 /*************************************/
