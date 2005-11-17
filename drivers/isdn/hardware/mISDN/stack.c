@@ -431,7 +431,8 @@ do_broadcast(mISDNstack_t *st, struct sk_buff *skb)
 					__FUNCTION__, inst->id);
 		}
 	}
-	dev_kfree_skb(c_skb);
+	if (c_skb)
+		dev_kfree_skb(c_skb);
 	dev_kfree_skb(skb);
 }
 
