@@ -439,40 +439,40 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 		case PH_DATA | REQUEST:
 			if (skb->len < 1)
 				return(-EINVAL);
-			spin_lock_irqsave(&dsp_lock, flags);
+			
 			/* send data to tx-buffer (if no tone is played) */
 			if (!dsp->tone.tone)
 				dsp_cmx_transmit(dsp, skb);
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			dev_kfree_skb(skb);
 			break;
 		case PH_CONTROL | REQUEST:
-			spin_lock_irqsave(&dsp_lock, flags);
+			
 			ret = dsp_control_req(dsp, hh, skb);
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			break;
 		case DL_ESTABLISH | REQUEST:
 		case PH_ACTIVATE | REQUEST:
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: activating b_channel %s\n", __FUNCTION__, dsp->inst.name);
-			spin_lock_irqsave(&dsp_lock, flags);
+			
 			if (dsp->dtmf.hardware || dsp->dtmf.software)
 				dsp_dtmf_goertzel_init(dsp);
 			hh->prim = PH_ACTIVATE | REQUEST;
 			ret = mISDN_queue_down(&dsp->inst, 0, skb);
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			break;
 		case DL_RELEASE | REQUEST:
 		case PH_DEACTIVATE | REQUEST:
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: releasing b_channel %s\n", __FUNCTION__, dsp->inst.name);
-			spin_lock_irqsave(&dsp_lock, flags);
+			
 			dsp->tone.tone = dsp->tone.hardware = dsp->tone.software = 0;
 			if (timer_pending(&dsp->tone.tl))
 				del_timer(&dsp->tone.tl);
 			hh->prim = PH_DEACTIVATE | REQUEST;
 			ret = mISDN_queue_down(&dsp->inst, 0, skb);
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			break;
 		default:
 			if (dsp_debug & DEBUG_DSP_CORE)
@@ -516,7 +516,9 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 		case DL_DATA | INDICATION:
 			if (skb->len < 1)
 				return(-EINVAL);
-			spin_lock_irqsave(&dsp_lock, flags);
+
+			
+			
 			/* decrypt if enabled */
 			if (dsp->bf_enable)
 				dsp_bf_decrypt(dsp, skb->data, skb->len);
@@ -576,15 +578,15 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			if (dsp->rx_disabled) {
 				/* if receive is not allowed */
 				dev_kfree_skb(skb);
-				spin_unlock_irqrestore(&dsp_lock, flags);
+				
 				break;
 			}
 			hh->prim = DL_DATA | INDICATION;
 			ret = mISDN_queue_up(&dsp->inst, 0, skb);
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			break;
 		case PH_CONTROL | INDICATION:
-			spin_lock_irqsave(&dsp_lock, flags);
+			
 			if (dsp_debug & DEBUG_DSP_DTMFCOEFF)
 				printk(KERN_DEBUG "%s: PH_CONTROL received: %x (len %d) %s\n", __FUNCTION__, hh->dinfo, skb->len, dsp->inst.name);
 			switch (hh->dinfo) {
@@ -615,10 +617,10 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 					printk(KERN_DEBUG "%s: ctrl ind %x unhandled %s\n", __FUNCTION__, hh->dinfo, dsp->inst.name);
 				ret = -EINVAL;
 			}
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			break;
 		case PH_ACTIVATE | CONFIRM:
-			spin_lock_irqsave(&dsp_lock, flags);
+			
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: b_channel is now active %s\n", __FUNCTION__, dsp->inst.name);
 			/* bchannel now active */
@@ -634,10 +636,10 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			/* send activation to upper layer */
 			hh->prim = DL_ESTABLISH | CONFIRM;
 			ret = mISDN_queue_up(&dsp->inst, 0, skb);
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			break;
 		case PH_DEACTIVATE | CONFIRM:
-			spin_lock_irqsave(&dsp_lock, flags);
+			
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: b_channel is now inactive %s\n", __FUNCTION__, dsp->inst.name);
 			/* bchannel now inactive */
@@ -645,7 +647,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			dsp_cmx_hardware(dsp->conf, dsp);
 			hh->prim = DL_RELEASE | CONFIRM;
 			ret = mISDN_queue_up(&dsp->inst, 0, skb);
-			spin_unlock_irqrestore(&dsp_lock, flags);
+			
 			break;
 		default:
 			if (dsp_debug & DEBUG_DSP_CORE)
