@@ -97,7 +97,7 @@ typedef struct {
 
 #ifndef PCI_VENDOR_ID_SITECOM
 #define PCI_VENDOR_ID_SITECOM		0x182D
-#define PCI_DEVICE_ID_SITECOM_DC105	0x3069
+#define PCI_DEVICE_ID_SITECOM_DC105V2	0x3069
 #endif
 
 static const PCI_ENTRY id_list[] =
@@ -122,7 +122,7 @@ static const PCI_ENTRY id_list[] =
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_E,"Digi International", "Digi DataFire Micro V (Europe)"},
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_IOM2_A,"Digi International", "Digi DataFire Micro V IOM2 (North America)"},
 	{PCI_VENDOR_ID_DIGI, PCI_DEVICE_ID_DIGI_DF_M_A,"Digi International", "Digi DataFire Micro V (North America)"},
-	{PCI_VENDOR_ID_SITECOM, PCI_DEVICE_ID_SITECOM_DC105,"Sitecom Connectivity", "DC-105 ISDN TA"},
+	{PCI_VENDOR_ID_SITECOM, PCI_DEVICE_ID_SITECOM_DC105V2,"Sitecom Connectivity", "DC-105 ISDN TA"},
 	{0, 0, NULL, NULL},
 };
 
