@@ -183,8 +183,6 @@ const char *dsp_revision = "$Revision$";
 static char DSPName[] = "DSP";
 mISDNobject_t dsp_obj;
 
-static spinlock_t	dsp_lock = SPIN_LOCK_UNLOCKED;
-
 static int debug = 0;
 int dsp_debug;
 static int options = 0;
@@ -419,7 +417,7 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 	dsp_t			*dsp;
 	mISDN_head_t		*hh;
 	int			ret = 0;
-	u_long			flags;
+	u_long		flags;
 
 	if (!skb)
 		return(-EINVAL);
@@ -441,14 +439,18 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 				return(-EINVAL);
 			
 			/* send data to tx-buffer (if no tone is played) */
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			if (!dsp->tone.tone)
 				dsp_cmx_transmit(dsp, skb);
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			
 			dev_kfree_skb(skb);
 			break;
 		case PH_CONTROL | REQUEST:
 			
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			ret = dsp_control_req(dsp, hh, skb);
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			
 			break;
 		case DL_ESTABLISH | REQUEST:
@@ -542,6 +544,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			if (dsp->rx_volume)
 				dsp_change_volume(skb, dsp->rx_volume);
 			/* we need to process receive data if software */
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			if (dsp->pcm_slot_tx<0 && dsp->pcm_slot_rx<0) {
 				/* process data from card at cmx */
 				dsp_cmx_receive(dsp, skb);
@@ -549,14 +552,15 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			/* we send data only if software or if we have some
 			 * or if we cannot do tones with hardware
 			 */
-			if ((dsp->pcm_slot_tx<0 && !dsp->features.hfc_loops) /* software crossconnects OR software loops */
+			if (((dsp->pcm_slot_tx<0 && !dsp->features.hfc_loops) /* software crossconnects OR software loops */
 			 || dsp->R_tx != dsp->W_tx /* data in buffer */
 			 || (dsp->echo==1 && dsp->pcm_slot_tx<0) /* software echo */
 			 || (dsp->tone.tone && dsp->tone.software)) /* software loops */
-			if (dsp->b_active) {
+			&& (dsp->b_active)) {
 // NOTE: b_active will be importaint to trigger sending by a forthcoming dsp clock.
 				/* get data from cmx */
 				nskb = dsp_cmx_send(dsp, skb->len, 0);
+				spin_unlock_irqrestore(&dsp_obj.lock, flags);
 				if (nskb) {
 					/* change volume if requested */
 					if (dsp->tx_volume)
@@ -574,7 +578,8 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 					}
 				} else
 					printk(KERN_ERR "%s: failed to create tx packet\n", __FUNCTION__);
-			}
+			} else
+				spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			if (dsp->rx_disabled) {
 				/* if receive is not allowed */
 				dev_kfree_skb(skb);
@@ -624,6 +629,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: b_channel is now active %s\n", __FUNCTION__, dsp->inst.name);
 			/* bchannel now active */
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			dsp->b_active = 1;
 			dsp->W_tx = dsp->R_tx = 0; /* clear TX buffer */
 			dsp->W_rx = dsp->R_rx = 0; /* clear RX buffer */
@@ -631,6 +637,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 				dsp->W_rx = dsp->R_rx = dsp->conf->W_max;
 			memset(dsp->rx_buff, 0, sizeof(dsp->rx_buff));
 			dsp_cmx_hardware(dsp->conf, dsp);
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: done with activation, sending confirm to user space. %s\n", __FUNCTION__, dsp->inst.name);
 			/* send activation to upper layer */
@@ -643,8 +650,10 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: b_channel is now inactive %s\n", __FUNCTION__, dsp->inst.name);
 			/* bchannel now inactive */
+			spin_lock_irqsave(&dsp_obj.lock, flags);
 			dsp->b_active = 0;
 			dsp_cmx_hardware(dsp->conf, dsp);
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			hh->prim = DL_RELEASE | CONFIRM;
 			ret = mISDN_queue_up(&dsp->inst, 0, skb);
 			
@@ -691,7 +700,7 @@ release_dsp(dsp_t *dsp)
 	conference_t	*conf;
 	u_long		flags;
 
-	spin_lock_irqsave(&dsp_lock, flags);
+	spin_lock_irqsave(&dsp_obj.lock, flags);
 	if (timer_pending(&dsp->feature_tl))
 		del_timer(&dsp->feature_tl);
 	if (timer_pending(&dsp->tone.tl))
@@ -709,8 +718,8 @@ release_dsp(dsp_t *dsp)
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: remove & destroy object %s\n", __FUNCTION__, dsp->inst.name);
 	list_del(&dsp->list);
+	spin_unlock_irqrestore(&dsp_obj.lock, flags);
 	dsp_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
-	spin_unlock_irqrestore(&dsp_lock, flags);
 	vfree(dsp);
 
 	if (dsp_debug & DEBUG_DSP_MGR)
@@ -814,21 +823,20 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 		ndsp->feature_tl.expires = jiffies + (HZ / 100);
 		add_timer(&ndsp->feature_tl);
 	}
-	spin_lock_irqsave(&dsp_lock, flags);
+	spin_lock_irqsave(&dsp_obj.lock, flags);
 	/* append and register */
-	spin_lock(&dsp_obj.lock);
 	list_add_tail(&ndsp->list, &dsp_obj.ilist);
-	spin_unlock(&dsp_obj.lock);
+	spin_unlock_irqrestore(&dsp_obj.lock, flags);
 	err = dsp_obj.ctrl(st, MGR_REGLAYER | INDICATION, &ndsp->inst);
 	if (err) {
 		printk(KERN_ERR "%s: failed to register layer %s\n", __FUNCTION__, ndsp->inst.name);
+		spin_lock_irqsave(&dsp_obj.lock, flags);
 		list_del(&ndsp->list);
-		spin_unlock_irqrestore(&dsp_lock, flags);
+		spin_unlock_irqrestore(&dsp_obj.lock, flags);
 		goto free_mem;
 	}
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: dsp instance created %s\n", __FUNCTION__, ndsp->inst.name);
-	spin_unlock_irqrestore(&dsp_lock, flags);
 	return(err);
 }
 
