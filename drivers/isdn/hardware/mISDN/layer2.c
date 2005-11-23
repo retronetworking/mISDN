@@ -938,6 +938,10 @@ l2_stop_multi(struct FsmInst *fi, int event, void *arg)
 	discard_queue(&l2->i_queue);
 	freewin(l2);
 	lapb_dl_release_l2l3(l2, INDICATION);
+
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_RELEASED,
+		0, NULL, 0);
 }
 
 static void
@@ -1602,6 +1606,9 @@ l2_tei_remove(struct FsmInst *fi, int event, void *arg)
 	mISDN_FsmDelTimer(&l2->t203, 19);
 	if (l2up(l2, DL_RELEASE | INDICATION, 0, skb))
 		dev_kfree_skb(skb);
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_RELEASED,
+		0, NULL, 0);
 	mISDN_FsmChangeState(fi, ST_L2_1);
 }
 
@@ -1660,6 +1667,9 @@ l2_persistant_da(struct FsmInst *fi, int event, void *arg)
 	mISDN_FsmDelTimer(&l2->t203, 19);
 	if (l2up(l2, DL_RELEASE | INDICATION, 0, skb))
 		dev_kfree_skb(skb);
+	mISDN_queue_data(&l2->inst, l2->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L2_RELEASED,
+		0, NULL, 0);
 	mISDN_FsmChangeState(fi, ST_L2_4);
 }
 
