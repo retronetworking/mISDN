@@ -708,9 +708,7 @@ release_dsp(dsp_t *dsp)
 
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: remove & destroy object %s\n", __FUNCTION__, dsp->inst.name);
-	spin_lock(&dsp_obj.lock);
 	list_del(&dsp->list);
-	spin_unlock(&dsp_obj.lock);
 	dsp_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	spin_unlock_irqrestore(&dsp_lock, flags);
 	vfree(dsp);
