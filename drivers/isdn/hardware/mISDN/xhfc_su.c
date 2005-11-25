@@ -1860,7 +1860,6 @@ init_mISDN_channels(xhfc_hw * hw)
 				       hw->card_name, __FUNCTION__, err);
 				goto free_stack;
 			}
-			bch->st = bch->inst.st;
 		}
 
 		err =

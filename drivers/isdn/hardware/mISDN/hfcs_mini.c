@@ -1664,7 +1664,6 @@ init_mISDN_channels(hfcsmini_hw * hw)
 			       hw->card_name, __FUNCTION__, err);
 			goto free_stack;
 		}
-		bch->st = bch->inst.st;
 	}
 
 	err =

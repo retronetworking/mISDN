@@ -254,9 +254,7 @@ release_io_hfcmulti(hfc_multi_t *hc)
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk(KERN_DEBUG "%s: entered\n", __FUNCTION__);
 
-
-	disable_hwirq(hc);
-	/* soft reset */
+	/* soft reset also masks all interrupts */
 	hc->hw.r_cirm |= V_SRES;
 	HFC_outb(hc, R_CIRM, hc->hw.r_cirm);
 	udelay(1000);
@@ -3033,8 +3031,8 @@ release_port(hfc_multi_t *hc, int port)
 	/* free channels */
 	i = 0;
 	while(i < 32) {
-		if (hc->created[hc->chan[i].port])
-		if (hc->chan[i].port==port || all) {
+		if ((hc->created[hc->chan[i].port]) &&
+			(hc->chan[i].port == port || all)) {
 			if (hc->chan[i].dch) {
 				if (debug & DEBUG_HFCMULTI_INIT)
 					printk(KERN_DEBUG "%s: free port %d D-channel %d (1..32)\n", __FUNCTION__, hc->chan[i].port, i);
@@ -3043,10 +3041,8 @@ release_port(hfc_multi_t *hc, int port)
 				kfree(hc->chan[i].dch);
 				hc->chan[i].dch = NULL;
 			}
-			if (hc->chan[i].rx_buf) {
-				kfree(hc->chan[i].rx_buf);
-				hc->chan[i].rx_buf = NULL;
-			}
+			kfree(hc->chan[i].rx_buf);
+			hc->chan[i].rx_buf = NULL;
 			if (hc->chan[i].bch) {
 				if (debug & DEBUG_HFCMULTI_INIT)
 					printk(KERN_DEBUG "%s: free port %d B-channel %d (1..32)\n", __FUNCTION__, hc->chan[i].port, i);
@@ -3128,14 +3124,14 @@ HFC_manager(void *data, u_int prim, void *arg)
 		i = 0;
 		while(i < 32) {
 //printk(KERN_DEBUG "comparing (D-channel) card=%08x inst=%08x with inst=%08x\n", hc, &hc->dch[i].inst, inst);
-			if (hc->chan[i].dch)
-			if (&hc->chan[i].dch->inst == inst) {
+			if ((hc->chan[i].dch) &&
+				(&hc->chan[i].dch->inst == inst)) {
 				ch = i;
 				dch = hc->chan[i].dch;
 				break;
 			}
-			if (hc->chan[i].bch)
-			if (&hc->chan[i].bch->inst == inst) {
+			if ((hc->chan[i].bch) &&
+				(&hc->chan[i].bch->inst == inst)) {
 				ch = i;
 				bch = hc->chan[i].bch;
 				break;
@@ -3643,7 +3639,7 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 			dch = hc->chan[(pt<<2)+2].dch;
 		if ((ret_err = HFCM_obj.ctrl(NULL, MGR_NEWSTACK | REQUEST, &dch->inst))) {
 			printk(KERN_ERR  "MGR_ADDSTACK REQUEST dch err(%d)\n", ret_err);
-			free_release:
+free_release:
 			release_port(hc, -1); /* all ports, hc is free */
 			goto free_object;
 		}
@@ -3662,11 +3658,10 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 				bch = hc->chan[(pt<<2) + i].bch;
 			if ((ret_err = HFCM_obj.ctrl(dst, MGR_NEWSTACK | REQUEST, &bch->inst))) {
 				printk(KERN_ERR "MGR_ADDSTACK bchan error %d\n", ret_err);
-				free_delstack:
+free_delstack:
 				HFCM_obj.ctrl(dst, MGR_DELSTACK | REQUEST, NULL);
 				goto free_release;
 			}
-			bch->st = bch->inst.st;
 			i++;
 		}
 		if (debug & DEBUG_HFCMULTI_INIT)

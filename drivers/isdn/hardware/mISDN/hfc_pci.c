@@ -2296,7 +2296,6 @@ static int __init HFC_init(void)
 					err = 0;
 				return(err);
 			}
-			card->bch[i].st = card->bch[i].inst.st;
 		}
 		if (protocol[HFC_cnt] != 0x100) { /* next not second HFC */
 			if ((err = HFC_obj.ctrl(dst, MGR_SETSTACK | REQUEST,

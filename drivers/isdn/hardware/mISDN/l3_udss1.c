@@ -2501,8 +2501,8 @@ dss1_fromdown(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 			return(0);
 			break;
                 default:
-                        printk(KERN_WARNING "%s: unknown pr=%04x\n",
-                        	__FUNCTION__, hh->prim);
+                        printk(KERN_WARNING "%s: unknown pr=%04x dinfo=%x\n",
+                        	__FUNCTION__, hh->prim, hh->dinfo);
                         return(-EINVAL);
 	}
 	if (skb->len < 3) {
@@ -2766,7 +2766,6 @@ dss1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		case FLG_MSG_DOWN:
 			ret = dss1_fromup(l3, skb, hh);
 			break;
-		case MSG_BROADCAST:  // we define broadcast comes from down below
 		case FLG_MSG_UP:
 			ret = dss1_fromdown(l3, skb, hh);
 			break;
@@ -2775,7 +2774,11 @@ dss1_function(mISDNinstance_t *inst, struct sk_buff *skb)
 			int_errtxt("not implemented yet");
 			break;
 		default:
-			/* FIXME: must be handled depending on type */
+			/* FIXME: broadcast must be handled depending on type */
+			if ((hh->prim & MISDN_CMD_MASK) == MGR_SHORTSTATUS) {
+				ret = -EOPNOTSUPP;
+				break;
+			}
 			int_errtxt("not implemented yet");
 			break;
 	}

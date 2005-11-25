@@ -50,7 +50,6 @@ typedef struct _bchannel_t {
 	int			protocol;
 	u_long			Flag;
 	int			debug;
-	mISDNstack_t		*st;
 	mISDNinstance_t		inst;
 	mISDNdevice_t		*dev;
 	void			*hw;
@@ -97,12 +96,15 @@ bch_set_para(bchannel_t *bch, mISDN_stPara_t *stp)
 static inline void
 queue_bch_frame(bchannel_t *bch, u_int	pr, int dinfo, struct sk_buff *skb)
 {
+	int	err;
+
 	if (bch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
 		pr |= DL_DATA;
 	else
 		pr |= PH_DATA;
-	if (unlikely(mISDN_queueup_newhead(&bch->inst, 0, pr, dinfo, skb))) {
-		int_error();
+	err = mISDN_queueup_newhead(&bch->inst, 0, pr, dinfo, skb);
+	if (unlikely(err)) {
+		int_errtxt("err=%d", err);
 		dev_kfree_skb(skb);
 	}
 }
