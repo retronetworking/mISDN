@@ -1,6 +1,6 @@
 #!/bin/sh
 
-KERNELDIR=/usr/src/linux
+KERNELDIR=/lib/modules/$(uname -r)/build
 PREPARSER="./preparser"
 UNIQUE=false
 VERBOSE=false
@@ -8,6 +8,20 @@ NOTEST=true
 DODIFF=false
 DIFFREV=false
 ALLOW_ANY_DIR=true
+
+echo 
+echo "BE AWARE!!"
+echo 
+echo "You are just attempting to overwrite your Kernel mISDN Sources"
+echo "you probably prefer to use make install."
+echo 
+echo "If you still want to patch your Kernel just answer yes:"
+read i
+
+if [ ! $i == "yes" ] ; then
+	echo "OK exiting"
+	exit 1
+fi
 
 docp() {
 
