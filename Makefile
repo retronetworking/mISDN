@@ -33,6 +33,7 @@ all:
 
 install: all
 	cd $(LINUX) ; make SUBDIRS=$(MISDN_SRC) modules_install 
+	cp $(MISDNDIR)/include/linux/*.h /usr/include/linux/
 	depmod
 
 .PHONY: install all clean 
