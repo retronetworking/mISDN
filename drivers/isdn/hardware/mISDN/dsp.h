@@ -9,8 +9,6 @@
  *
  */
 
-//#define AUTOJITTER
-
 #define DEBUG_DSP_MGR		0x0001
 #define DEBUG_DSP_CORE		0x0002
 #define DEBUG_DSP_DTMF		0x0004
@@ -47,6 +45,8 @@
 
 extern int dsp_options;
 extern int dsp_debug;
+extern int dsp_poll;
+extern int dsp_tics;
 
 /***************
  * audio stuff *
@@ -72,9 +72,18 @@ extern u8 dsp_silence;
  * cmx stuff *
  *************/
 
-#define CMX_BUFF_SIZE	0x4000	/* must be 2**n */
-#define CMX_BUFF_HALF	0x2000	/* CMX_BUFF_SIZE / 2 */
-#define CMX_BUFF_MASK	0x3fff	/* CMX_BUFF_SIZE - 1 */
+#define MAX_POLL	256	/* maximum number of send-chunks */
+
+#define CMX_BUFF_SIZE	0x8000	/* must be 2**n (0x1000 about 1/2 second) */
+#define CMX_BUFF_HALF	0x4000	/* CMX_BUFF_SIZE / 2 */
+#define CMX_BUFF_MASK	0x7fff	/* CMX_BUFF_SIZE - 1 */
+
+/* how many seconds will we check the lowest delay until the jitter buffer
+   is reduced by that delay */
+#define MAX_SECONDS_JITTER_CHECK 5
+
+extern struct timer_list dsp_spl_tl;
+extern u64 dsp_spl_jiffies;
 
 /* the structure of conferences:
  *
@@ -98,11 +107,6 @@ typedef struct _conference {
 	struct list_head	mlist;
 	int			software; /* conf is processed by software */
 	int			hardware; /* conf is processed by hardware */
-//#ifndef AUTOJITTER
-	int			largest; /* largest frame received in conf's life. */
-//#endif
-	int			W_min, W_max; /* min/maximum rx-write pointer of members */
-	s32			conf_buff[CMX_BUFF_SIZE];
 } conference_t;
 
 extern mISDNobject_t dsp_obj;
@@ -160,6 +164,7 @@ struct dsp_features {
 	int		pcm_id; /* unique id to identify the pcm bus (or -1) */
 	int		pcm_slots; /* number of slots on the pcm bus */
 	int		pcm_banks; /* number of IO banks of pcm bus */
+	int		has_jitter; /* data is jittered and unsorted */
 };		
 
 typedef struct _dsp {
@@ -179,17 +184,13 @@ typedef struct _dsp {
 	conf_member_t	*member;
 
 	/* buffer stuff */
-	int		largest; /* largest frame received in dsp's life. */
-	int		R_tx, W_tx; /* pointers of transmit buffer */
-	int		R_rx, W_rx; /* pointers of receive buffer and conference buffer */
+	int		rx_W; /* current write pos for data without timestamp */
+	int		rx_R; /* current read pos for transmit clock */
+	int		tx_W; /* current write pos for transmit data */
+	int		tx_R; /* current read pos for transmit clock */
+	int		delay[MAX_SECONDS_JITTER_CHECK];
 	u8		tx_buff[CMX_BUFF_SIZE];
 	u8		rx_buff[CMX_BUFF_SIZE];
-#ifdef AUTOJITTER
-	int		tx_delay; /* used to find the delay of tx buffer */
-	int		tx_delay_count;
-	int		rx_delay; /* used to find the delay of rx buffer */
-	int		rx_delay_count;
-#endif
 
 	/* hardware stuff */
 	struct dsp_features features; /* features */
@@ -243,7 +244,11 @@ extern void dsp_cmx_debug(dsp_t *dsp);
 extern void dsp_cmx_hardware(conference_t *conf, dsp_t *dsp);
 extern int dsp_cmx_conf(dsp_t *dsp, u32 conf_id);
 extern void dsp_cmx_receive(dsp_t *dsp, struct sk_buff *skb);
+#ifdef OLDCMX
 extern struct sk_buff *dsp_cmx_send(dsp_t *dsp, int len, int dinfo);
+#else
+extern void dsp_cmx_send(void *data);
+#endif
 extern void dsp_cmx_transmit(dsp_t *dsp, struct sk_buff *skb);
 extern int dsp_cmx_del_conf_member(dsp_t *dsp);
 extern int dsp_cmx_del_conf(conference_t *conf);

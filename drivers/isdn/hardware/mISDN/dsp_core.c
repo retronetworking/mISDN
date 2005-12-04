@@ -187,17 +187,14 @@ static int debug = 0;
 int dsp_debug;
 static int options = 0;
 int dsp_options;
-#ifndef AUTOJITTER
-int poll = 0;
-#endif
+static int poll = 0;
+int dsp_poll, dsp_tics;
 
 #ifdef MODULE
 MODULE_AUTHOR("Andreas Eversberg");
 MODULE_PARM(debug, "1i");
 MODULE_PARM(options, "1i");
-#ifndef AUTOJITTER
 MODULE_PARM(poll, "1i");
-#endif
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
@@ -284,7 +281,7 @@ dsp_control_req(dsp_t *dsp, mISDN_head_t *hh, struct sk_buff *skb)
 			dsp_cmx_hardware(dsp->conf, dsp);
 			/* reset tx buffers (user space data) */
 			tone_off:
-			dsp->R_tx = dsp->W_tx = 0;
+			dsp->tx_R = dsp->tx_W = 0;
 			break;
 		case VOL_CHANGE_TX: /* change volume */
 			if (len != sizeof(int)) {
@@ -549,37 +546,7 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 				/* process data from card at cmx */
 				dsp_cmx_receive(dsp, skb);
 			}
-			/* we send data only if software or if we have some
-			 * or if we cannot do tones with hardware
-			 */
-			if (((dsp->pcm_slot_tx<0 && !dsp->features.hfc_loops) /* software crossconnects OR software loops */
-			 || dsp->R_tx != dsp->W_tx /* data in buffer */
-			 || (dsp->echo==1 && dsp->pcm_slot_tx<0) /* software echo */
-			 || (dsp->tone.tone && dsp->tone.software)) /* software loops */
-			&& (dsp->b_active)) {
-// NOTE: b_active will be importaint to trigger sending by a forthcoming dsp clock.
-				/* get data from cmx */
-				nskb = dsp_cmx_send(dsp, skb->len, 0);
-				spin_unlock_irqrestore(&dsp_obj.lock, flags);
-				if (nskb) {
-					/* change volume if requested */
-					if (dsp->tx_volume)
-						dsp_change_volume(nskb, dsp->tx_volume);
-					/* if echo cancellation is enabled */
-					if (dsp->cancel_enable)
-					dsp_cancel_tx(dsp, nskb->data, nskb->len);
-					/* crypt if enabled */
-					if (dsp->bf_enable)
-						dsp_bf_encrypt(dsp, nskb->data, nskb->len);
-					/* send subsequent requests to card */
-					if (mISDN_queue_down(&dsp->inst, 0, nskb)) {
-						dev_kfree_skb(nskb);
-						printk(KERN_ERR "%s: failed to send tx packet\n", __FUNCTION__);
-					}
-				} else
-					printk(KERN_ERR "%s: failed to create tx packet\n", __FUNCTION__);
-			} else
-				spin_unlock_irqrestore(&dsp_obj.lock, flags);
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 			if (dsp->rx_disabled) {
 				/* if receive is not allowed */
 				dev_kfree_skb(skb);
@@ -631,10 +598,8 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			/* bchannel now active */
 			spin_lock_irqsave(&dsp_obj.lock, flags);
 			dsp->b_active = 1;
-			dsp->W_tx = dsp->R_tx = 0; /* clear TX buffer */
-			dsp->W_rx = dsp->R_rx = 0; /* clear RX buffer */
-			if (dsp->conf)
-				dsp->W_rx = dsp->R_rx = dsp->conf->W_max;
+			dsp->tx_W = dsp->tx_R = 0; /* clear TX buffer */
+			dsp->rx_W = dsp->rx_R = -1; /* reset RX buffer */
 			memset(dsp->rx_buff, 0, sizeof(dsp->rx_buff));
 			dsp_cmx_hardware(dsp->conf, dsp);
 			spin_unlock_irqrestore(&dsp_obj.lock, flags);
@@ -799,11 +764,8 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 		return(err);
 	}
 	sprintf(ndsp->inst.name, "DSP_S%x/C%x",
-		(st->id&0xff), (st->id&0xff00)>>8);
-//#ifndef AUTOJITTER
+		(st->id&0xff00)>>8, (st->id&0xff0000)>>16);
 	/* set frame size to start */
-	ndsp->largest = 64 << 1;
-//#endif
 	ndsp->features.hfc_id = -1; /* current PCM id */
 	ndsp->features.pcm_id = -1; /* current PCM id */
 	ndsp->pcm_slot_rx = -1; /* current CPM slot */
@@ -811,10 +773,11 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	ndsp->pcm_bank_rx = -1;
 	ndsp->pcm_bank_tx = -1;
 	ndsp->hfc_conf = -1; /* current conference number */
-	/* set timer */
+	/* set tone timer */
 	ndsp->tone.tl.function = (void *)dsp_tone_timeout;
 	ndsp->tone.tl.data = (long) ndsp;
 	init_timer(&ndsp->tone.tl);
+	/* set dsp feture timer */
 	ndsp->feature_tl.function = (void *)dsp_feat;
 	ndsp->feature_tl.data = (long) ndsp;
 	ndsp->feature_state = FEAT_STATE_INIT;
@@ -917,29 +880,26 @@ static int dsp_init(void)
 	/* display revision */
 	printk(KERN_INFO "mISDN_dsp: Audio DSP  Rev. %s (debug=0x%x)\n", mISDN_getrev(dsp_revision), debug);
 
-#ifndef AUTOJITTER
 	/* set packet size */
-	switch(poll) {
-		case 8:
-		break;
-		case 16:
-		break;
-		case 32:
-		break;
-		case 64: case 0:
+	if (poll == 0)
 		poll = 64;
-		break;
-		case 128:
-		break;
-		case 256:
-		break;
-		default:
-		printk(KERN_ERR "%s: Wrong poll value (%d).\n", __FUNCTION__, poll);
+	if (poll > MAX_POLL) {
+		printk(KERN_ERR "%s: Wrong poll value (%d), using %d.\n", __FUNCTION__, poll, MAX_POLL);
+		poll = MAX_POLL;
+	}
+	if (poll < 8) {
+		printk(KERN_ERR "%s: Wrong poll value (%d), using 8.\n", __FUNCTION__, poll);
+		poll = 8;
+	}
+	dsp_poll = poll;
+	dsp_tics = poll * HZ / 8000;
+	if (dsp_tics * 8000 == poll * HZ) 
+		printk(KERN_INFO "mISDN_dsp: DSP clocks every %d samples. This equals %d jiffies.\n", poll, dsp_tics);
+	else {
+		printk(KERN_INFO "mISDN_dsp: Cannot clock ever %d samples. Use a multiple of %d (jiffies)\n", poll, 8000 / HZ);
 		err = -EINVAL;
 		return(err);
-		
 	}
-#endif
 
 	/* fill mISDN object (dsp_obj) */
 	memset(&dsp_obj, 0, sizeof(dsp_obj));
@@ -968,6 +928,14 @@ static int dsp_init(void)
 		return(err);
 	}
 
+	/* set sample timer */
+	dsp_spl_tl.function = (void *)dsp_cmx_send;
+	dsp_spl_tl.data = 0;
+	init_timer(&dsp_spl_tl);
+	dsp_spl_tl.expires = jiffies + dsp_tics + 1; /* safer */
+	dsp_spl_jiffies = dsp_spl_tl.expires;
+	add_timer(&dsp_spl_tl);
+	
 	return(0);
 }
 
@@ -979,6 +947,9 @@ static void dsp_cleanup(void)
 {
 	dsp_t	*dspl, *nd;	
 	int	err;
+
+	if (timer_pending(&dsp_spl_tl))
+		del_timer(&dsp_spl_tl);
 
 	if (dsp_debug & DEBUG_DSP_MGR)
 		printk(KERN_DEBUG "%s: removing module\n", __FUNCTION__);
