@@ -1,5 +1,9 @@
 BASEDIR=$(shell pwd)
 
+
+INSTALL_PREFIX := /
+export INSTALL_PREFIX
+
 #PATH to linux source/headers
 #LINUX=/usr/src/linux
 LINUX=/lib/modules/$(shell uname -r)/build
@@ -33,7 +37,7 @@ all:
 
 install: all
 	cd $(LINUX) ; make SUBDIRS=$(MISDN_SRC) modules_install 
-	cp $(MISDNDIR)/include/linux/*.h /usr/include/linux/
+	cp $(MISDNDIR)/include/linux/*.h $(INSTALL_PREFIX)/usr/include/linux/
 	depmod
 
 .PHONY: install all clean 
