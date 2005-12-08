@@ -9,20 +9,6 @@ DODIFF=false
 DIFFREV=false
 ALLOW_ANY_DIR=true
 
-echo 
-echo "BE AWARE!!"
-echo 
-echo "You are just attempting to overwrite your Kernel mISDN Sources"
-echo "you probably prefer to use make install."
-echo 
-echo "If you still want to patch your Kernel just answer yes:"
-read i
-
-if [ ! $i == "yes" ] ; then
-	echo "OK exiting"
-	exit 1
-fi
-
 docp() {
 
     SRCNAME=$1;
@@ -237,6 +223,23 @@ while getopts :dhk:uc:vtidr a ; do
 	esac
 done
 shift `expr $OPTIND - 1`
+
+echo 
+echo "BE AWARE!!"
+echo 
+echo "You are just attempting to overwrite your Kernel mISDN Sources"
+echo "you probably prefer to use make install."
+echo
+echo "KERNELDIR=$KERNELDIR"
+ls -ld $KERNELDIR
+echo 
+echo "If you still want to patch this Kernel just answer yes:"
+read i
+
+if [ ! $i == "yes" ] ; then
+	echo "OK exiting"
+	exit 1
+fi
 
 if [ -z "$VERSION" -o -z "$PATCHLEVEL" ] ; then
     if ! [ -f $KERNELDIR/Makefile ] ; then
