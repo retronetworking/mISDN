@@ -1173,12 +1173,12 @@ xhfc_read_fifo(xhfc_hw * hw, __u8 channel)
 	if (rcnt > 0) {
 		data = buf + *idx;
 		*idx += rcnt;
+
 		/* read data from fifo */
-		while (rcnt--) {
+		while (rcnt--)
 			*data++ = read_xhfc(hw, A_FIFO_DATA);
-		}
 	} else
-		goto read_exit;
+		return;
 
 
 	if (hdlc) {
@@ -1273,7 +1273,7 @@ xhfc_read_fifo(xhfc_hw * hw, __u8 channel)
 	} else {
 		if (bch) {
 			xhfc_selfifo(hw, (channel * 2) + 1);
-			if (*idx >= 128) {
+			if (*idx) {
 				/* deliver transparent data to layer2 */
 				if (!(skb = alloc_stack_skb(*idx,
 							    hw->
