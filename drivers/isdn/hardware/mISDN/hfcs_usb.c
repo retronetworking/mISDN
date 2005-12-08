@@ -524,6 +524,7 @@ S0_new_state(dchannel_t * dch)
 				
 		switch (dch->ph_state) {
 			case (1):
+				dch->l1_up = 0;
 				card->nt_timer = 0;
 				card->hw_mode &= ~NT_ACTIVATION_TIMER;
 				prim = PH_DEACTIVATE | INDICATION;
@@ -544,6 +545,7 @@ S0_new_state(dchannel_t * dch)
 				}
 				return;
 			case (3):
+				dch->l1_up = 1;
 				card->nt_timer = 0;
 				card->hw_mode &= ~NT_ACTIVATION_TIMER;
 				prim = PH_ACTIVATE | INDICATION;
@@ -557,6 +559,10 @@ S0_new_state(dchannel_t * dch)
 			default:
 				break;
 		}
+		mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST,
+			MGR_SHORTSTATUS | INDICATION, (dch->l1_up) ?
+			SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED,
+			0, NULL, 0);		
 	}		
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
 }
@@ -845,6 +851,21 @@ hfcsusb_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
 			ret = -EINVAL;			
 		}
 		spin_unlock_irqrestore(inst->hwlock, flags);
+	} else if ((hh->prim & MISDN_CMD_MASK) == MGR_SHORTSTATUS) {
+		u_int	temp = hh->dinfo & SSTATUS_ALL;
+		if ((card->hw_mode & HW_MODE_NT) && 
+			(temp == SSTATUS_ALL || temp == SSTATUS_L1)) {
+			if (hh->dinfo & SSTATUS_BROADCAST_BIT)
+				temp = dch->inst.id | MSG_BROADCAST;
+			else
+				temp = hh->addr | FLG_MSG_TARGET;
+			skb_trim(skb, 0);
+			hh->dinfo = (dch->l1_up) ?
+				SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED;
+			hh->prim = MGR_SHORTSTATUS | CONFIRM;
+			return(mISDN_queue_message(inst, temp, skb));
+		}
+		ret = -EOPNOTSUPP;
 	} else {
 		if (dch->debug & L1_DEB_WARN)
 			mISDN_debugprint(&dch->inst,
@@ -1008,7 +1029,8 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, int len, int finish)
 	/* Transparent mode data to upper layer */
 	if ((fifon == HFCUSB_B1_RX) || (fifon == HFCUSB_B2_RX)) {
 		if (card->bch[fifo->bch_idx].protocol == ISDN_PID_L1_B_64TRANS) {
-			if (fifo->skbuff->len >= 128) {
+			// if (fifo->skbuff->len >= 128) {
+			if (fifo->skbuff->len) {
 				if (!(skb = alloc_stack_skb(fifo->skbuff->len,
 					card->bch[fifo->bch_idx].up_headerlen)))
 					printk(KERN_WARNING "HFC-S USB: receive out of memory\n");
