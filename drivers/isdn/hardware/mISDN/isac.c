@@ -8,7 +8,7 @@
  */
 
 #include <linux/module.h>
-#include "dchannel.h"
+#include "channel.h"
 #include "isac.h"
 #include "arcofi.h"
 #include "layer1.h"
@@ -19,8 +19,8 @@
 #endif
 
 
-#define DBUSY_TIMER_VALUE 80
-#define ARCOFI_USE 1
+#define DBUSY_TIMER_VALUE	80
+#define ARCOFI_USE		1
 
 const char *isac_revision = "$Revision$";
 
@@ -37,7 +37,7 @@ EXPORT_SYMBOL(mISDN_ISAC_l1hw);
 #endif
 
 static inline void
-ph_command(dchannel_t *dch, unsigned int command)
+ph_command(channel_t *dch, unsigned int command)
 {
 	if (dch->debug & L1_DEB_ISAC)
 		mISDN_debugprint(&dch->inst, "ph_command %x", command);
@@ -48,12 +48,12 @@ ph_command(dchannel_t *dch, unsigned int command)
 }
 
 static void
-isac_ph_state_change(dchannel_t *dch)
+isac_ph_state_change(channel_t *dch)
 {
 	u_int		prim = PH_SIGNAL | INDICATION;
 	u_int		para = 0;
 
-	switch (dch->ph_state) {
+	switch (dch->state) {
 		case (ISAC_IND_RS):
 		case (ISAC_IND_EI):
 			ph_command(dch, ISAC_CMD_DUI);
@@ -92,7 +92,7 @@ isac_ph_state_change(dchannel_t *dch)
 
 #ifdef OBSOLETE
 static void
-isac_hwbh(dchannel_t *dch)
+isac_hwbh(channel_t *dch)
 {
 	if (dch->debug)
 		printk(KERN_DEBUG "%s: event %lx\n", __FUNCTION__, dch->event);
@@ -110,7 +110,7 @@ isac_hwbh(dchannel_t *dch)
 #endif
 
 void
-isac_empty_fifo(dchannel_t *dch, int count)
+isac_empty_fifo(channel_t *dch, int count)
 {
 	u_char *ptr;
 
@@ -135,24 +135,25 @@ isac_empty_fifo(dchannel_t *dch, int count)
 	dch->read_fifo(dch->inst.privat, ptr, count);
 	dch->write_reg(dch->inst.privat, ISAC_CMDR, 0x80);
 	if (dch->debug & L1_DEB_ISAC_FIFO) {
-		char *t = dch->dlog;
+		char *t = dch->log;
 
 		t += sprintf(t, "isac_empty_fifo cnt %d", count);
 		mISDN_QuickHex(t, ptr, count);
-		mISDN_debugprint(&dch->inst, dch->dlog);
+		mISDN_debugprint(&dch->inst, dch->log);
 	}
 }
 
 static void
-isac_fill_fifo(dchannel_t *dch)
+isac_fill_fifo(channel_t *dch)
 {
 	int count, more;
 	u_char *ptr;
 
 	if ((dch->debug & L1_DEB_ISAC) && !(dch->debug & L1_DEB_ISAC_FIFO))
 		mISDN_debugprint(&dch->inst, "isac_fill_fifo");
-
-	count = dch->tx_len - dch->tx_idx;
+	if (!dch->tx_skb)
+		return;
+	count = dch->tx_skb->len - dch->tx_idx;
 	if (count <= 0)
 		return;
 
@@ -161,28 +162,28 @@ isac_fill_fifo(dchannel_t *dch)
 		more = !0;
 		count = 32;
 	}
-	ptr = dch->tx_buf + dch->tx_idx;
+	ptr = dch->tx_skb->data + dch->tx_idx;
 	dch->tx_idx += count;
 	dch->write_fifo(dch->inst.privat, ptr, count);
 	dch->write_reg(dch->inst.privat, ISAC_CMDR, more ? 0x8 : 0xa);
-	if (test_and_set_bit(FLG_DBUSY_TIMER, &dch->DFlags)) {
+	if (test_and_set_bit(FLG_BUSY_TIMER, &dch->Flags)) {
 		mISDN_debugprint(&dch->inst, "isac_fill_fifo dbusytimer running");
-		del_timer(&dch->dbusytimer);
+		del_timer(&dch->timer);
 	}
-	init_timer(&dch->dbusytimer);
-	dch->dbusytimer.expires = jiffies + ((DBUSY_TIMER_VALUE * HZ)/1000);
-	add_timer(&dch->dbusytimer);
+	init_timer(&dch->timer);
+	dch->timer.expires = jiffies + ((DBUSY_TIMER_VALUE * HZ)/1000);
+	add_timer(&dch->timer);
 	if (dch->debug & L1_DEB_ISAC_FIFO) {
-		char *t = dch->dlog;
+		char *t = dch->log;
 
 		t += sprintf(t, "isac_fill_fifo cnt %d", count);
 		mISDN_QuickHex(t, ptr, count);
-		mISDN_debugprint(&dch->inst, dch->dlog);
+		mISDN_debugprint(&dch->inst, dch->log);
 	}
 }
 
 static void
-isac_rme_irq(dchannel_t *dch)
+isac_rme_irq(channel_t *dch)
 {
 	u_char	val;
 	u_int	count;
@@ -221,76 +222,74 @@ isac_rme_irq(dchannel_t *dch)
 }
 
 static void
-isac_xpr_irq(dchannel_t *dch)
+isac_xpr_irq(channel_t *dch)
 {
-	if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
-		del_timer(&dch->dbusytimer);
-	if (dch->tx_idx < dch->tx_len) {
+	if (test_and_clear_bit(FLG_BUSY_TIMER, &dch->Flags))
+		del_timer(&dch->timer);
+	if (dch->tx_skb && dch->tx_idx < dch->tx_skb->len) {
 		isac_fill_fifo(dch);
 	} else {
-		if (test_bit(FLG_TX_NEXT, &dch->DFlags)) {
-			struct sk_buff	*skb = dch->next_skb;
-			mISDN_head_t	*hh = mISDN_HEAD_P(skb);
-			if (skb) {
+		if (dch->tx_skb)
+			dev_kfree_skb(dch->tx_skb);
+		if (test_bit(FLG_TX_NEXT, &dch->Flags)) {
+			dch->tx_skb = dch->next_skb;
+			if (dch->tx_skb) {
+				mISDN_head_t	*hh = mISDN_HEAD_P(dch->tx_skb);
+
 				dch->next_skb = NULL;
-				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-				dch->tx_len = skb->len;
-				memcpy(dch->tx_buf, skb->data, dch->tx_len);
+				test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
 				dch->tx_idx = 0;
+				queue_ch_frame(dch, CONFIRM, hh->dinfo, NULL);
 				isac_fill_fifo(dch);
-				skb_trim(skb, 0);
-				if (unlikely(mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb))) {
-					int_error();
-					dev_kfree_skb(skb);
-				}
 			} else {
 				printk(KERN_WARNING "isac tx irq TX_NEXT without skb\n");
-				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-				test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
+				test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
+				test_and_clear_bit(FLG_TX_BUSY, &dch->Flags);
 			}
-		} else
-			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
+		} else {
+			dch->tx_skb = NULL;
+			test_and_clear_bit(FLG_TX_BUSY, &dch->Flags);
+		}
 	}
 }
 
 static void
-isac_retransmit(dchannel_t *dch)
+isac_retransmit(channel_t *dch)
 {
-	if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
-		del_timer(&dch->dbusytimer);
-	if (test_bit(FLG_TX_BUSY, &dch->DFlags)) {
+	if (test_and_clear_bit(FLG_BUSY_TIMER, &dch->Flags))
+		del_timer(&dch->timer);
+	if (test_bit(FLG_TX_BUSY, &dch->Flags)) {
 		/* Restart frame */
+		dch->tx_idx = 0;
+		isac_fill_fifo(dch);
+	} else if (dch->tx_skb) { /* should not happen */
+		int_error();
+		test_and_set_bit(FLG_TX_BUSY, &dch->Flags);
 		dch->tx_idx = 0;
 		isac_fill_fifo(dch);
 	} else {
 		printk(KERN_WARNING "mISDN: ISAC XDU no TX_BUSY\n");
 		mISDN_debugprint(&dch->inst, "ISAC XDU no TX_BUSY");
-		if (test_bit(FLG_TX_NEXT, &dch->DFlags)) {
-			struct sk_buff	*skb = dch->next_skb;
-			mISDN_head_t	*hh = mISDN_HEAD_P(skb);
-			if (skb) {
+		if (test_bit(FLG_TX_NEXT, &dch->Flags)) {
+			dch->tx_skb = dch->next_skb;
+			if (dch->tx_skb) {
+				mISDN_head_t	*hh = mISDN_HEAD_P(dch->next_skb);
+
 				dch->next_skb = NULL;
-				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-				dch->tx_len = skb->len;
-				memcpy(dch->tx_buf, skb->data, dch->tx_len);
+				test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
 				dch->tx_idx = 0;
+				queue_ch_frame(dch, CONFIRM, hh->dinfo, NULL);
 				isac_fill_fifo(dch);
-				hh = mISDN_HEAD_P(skb);
-				skb_trim(skb, 0);
-				if (unlikely(mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb))) {
-					int_error();
-					dev_kfree_skb(skb);
-				}
 			} else {
 				printk(KERN_WARNING "isac xdu irq TX_NEXT without skb\n");
-				test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
+				test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
 			}
 		}
 	}
 }
 
 static void
-isac_mos_irq(dchannel_t *dch)
+isac_mos_irq(channel_t *dch)
 {
 	u_char		val;
 	isac_chip_t	*isac = dch->hw;
@@ -424,7 +423,7 @@ AfterMOX1:
 }
 
 static void
-isac_cisq_irq(dchannel_t *dch) {
+isac_cisq_irq(channel_t *dch) {
 	unsigned char val;
 
 	val = dch->read_reg(dch->inst.privat, ISAC_CIR0);
@@ -433,8 +432,8 @@ isac_cisq_irq(dchannel_t *dch) {
 	if (val & 2) {
 		if (dch->debug & L1_DEB_ISAC)
 			mISDN_debugprint(&dch->inst, "ph_state change %x->%x",
-				dch->ph_state, (val >> 2) & 0xf);
-		dch->ph_state = (val >> 2) & 0xf;
+				dch->state, (val >> 2) & 0xf);
+		dch->state = (val >> 2) & 0xf;
 		isac_ph_state_change(dch);
 	}
 	if (val & 1) {
@@ -445,7 +444,7 @@ isac_cisq_irq(dchannel_t *dch) {
 }
 
 static void
-isacsx_cic_irq(dchannel_t *dch)
+isacsx_cic_irq(channel_t *dch)
 {
 	unsigned char val;
 
@@ -455,14 +454,14 @@ isacsx_cic_irq(dchannel_t *dch)
 	if (val & ISACSX_CIR0_CIC0) {
 		if (dch->debug & L1_DEB_ISAC)
 			mISDN_debugprint(&dch->inst, "ph_state change %x->%x",
-				dch->ph_state, val >> 4);
-		dch->ph_state = val >> 4;
+				dch->state, val >> 4);
+		dch->state = val >> 4;
 		isac_ph_state_change(dch);
 	}
 }
 
 static void
-isacsx_rme_irq(dchannel_t *dch)
+isacsx_rme_irq(channel_t *dch)
 {
 	int count;
 	unsigned char val;
@@ -501,7 +500,7 @@ isacsx_rme_irq(dchannel_t *dch)
 }
 
 void
-mISDN_isac_interrupt(dchannel_t *dch, u_char val)
+mISDN_isac_interrupt(channel_t *dch, u_char val)
 {
 	if (dch->debug & L1_DEB_ISAC)
 		mISDN_debugprint(&dch->inst, "ISAC interrupt %02x", val);
@@ -578,44 +577,22 @@ mISDN_isac_interrupt(dchannel_t *dch, u_char val)
 int
 mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 {
-	dchannel_t	*dch;
+	channel_t	*dch;
 	int		ret = 0;
 	mISDN_head_t	*hh;
 	u_long		flags;
 
 	hh = mISDN_HEAD_P(skb);
-	dch = container_of(inst, dchannel_t, inst);
+	dch = container_of(inst, channel_t, inst);
 	if (hh->prim == PH_DATA_REQ) {
-		/* check oversize */
-		if (skb->len <= 0) {
-			printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
-			return(-EINVAL);
-		}
-		if (skb->len > MAX_DFRAME_LEN_L1) {
-			printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
-			return(-EINVAL);
-		}
 		spin_lock_irqsave(inst->hwlock, flags);
-		if (dch->next_skb) {
-			mISDN_debugprint(&dch->inst, " l2l1 next_skb exist this shouldn't happen");
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			return(-EBUSY);
-		}
-		if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
-			test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
-			dch->next_skb = skb;
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			return(0);
-		} else {
-			dch->tx_len = skb->len;
-			memcpy(dch->tx_buf, skb->data, dch->tx_len);
-			dch->tx_idx = 0;
+		ret = channel_senddata(dch, hh->dinfo, skb);
+		if (ret > 0) { /* direct TX */
 			isac_fill_fifo(dch);
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			skb_trim(skb, 0);
-			return(mISDN_queueup_newhead(inst, 0, PH_DATA_CNF,
-				hh->dinfo, skb));
+			ret = 0;
 		}
+		spin_unlock_irqrestore(inst->hwlock, flags);
+		return(ret);
 	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
 		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == INFO3_P8)
@@ -628,9 +605,9 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
 		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == HW_RESET) {
-			if ((dch->ph_state == ISAC_IND_EI) ||
-				(dch->ph_state == ISAC_IND_DR) ||
-				(dch->ph_state == ISAC_IND_RS))
+			if ((dch->state == ISAC_IND_EI) ||
+				(dch->state == ISAC_IND_DR) ||
+				(dch->state == ISAC_IND_RS))
 			        ph_command(dch, ISAC_CMD_TIM);
 			else
 				ph_command(dch, ISAC_CMD_RS);
@@ -641,10 +618,10 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 				dev_kfree_skb(dch->next_skb);
 				dch->next_skb = NULL;
 			}
-			test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
-			if (test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags))
-				del_timer(&dch->dbusytimer);
+			test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
+			test_and_clear_bit(FLG_TX_BUSY, &dch->Flags);
+			if (test_and_clear_bit(FLG_BUSY_TIMER, &dch->Flags))
+				del_timer(&dch->timer);
 		} else if ((hh->dinfo & HW_TESTLOOP) == HW_TESTLOOP) {
 			u_char		tl;
 			if (dch->type & ISAC_TYPE_ISACSX) {
@@ -703,12 +680,12 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 }
 
 void 
-mISDN_isac_free(dchannel_t *dch) {
+mISDN_isac_free(channel_t *dch) {
 	isac_chip_t     *isac = dch->hw;
 
-	if (dch->dbusytimer.function != NULL) {
-		del_timer(&dch->dbusytimer);
-		dch->dbusytimer.function = NULL;
+	if (dch->timer.function != NULL) {
+		del_timer(&dch->timer);
+		dch->timer.function = NULL;
 	}
 	if (!isac)
 		return;
@@ -719,12 +696,12 @@ mISDN_isac_free(dchannel_t *dch) {
 }
 
 static void
-dbusy_timer_handler(dchannel_t *dch)
+dbusy_timer_handler(channel_t *dch)
 {
 	int	rbch, star;
 	u_long	flags;
 
-	if (test_bit(FLG_DBUSY_TIMER, &dch->DFlags)) {
+	if (test_bit(FLG_BUSY_TIMER, &dch->Flags)) {
 		spin_lock_irqsave(dch->inst.hwlock, flags);
 		rbch = dch->read_reg(dch->inst.privat, ISAC_RBCH);
 		star = dch->read_reg(dch->inst.privat, ISAC_STAR);
@@ -732,10 +709,10 @@ dbusy_timer_handler(dchannel_t *dch)
 			mISDN_debugprint(&dch->inst, "D-Channel Busy RBCH %02x STAR %02x",
 				rbch, star);
 		if (rbch & ISAC_RBCH_XAC) { /* D-Channel Busy */
-			test_and_set_bit(FLG_L1_DBUSY, &dch->DFlags);
+			test_and_set_bit(FLG_L1_BUSY, &dch->Flags);
 		} else {
 			/* discard frame; reset transceiver */
-			test_and_clear_bit(FLG_DBUSY_TIMER, &dch->DFlags);
+			test_and_clear_bit(FLG_BUSY_TIMER, &dch->Flags);
 			if (dch->tx_idx) {
 				dch->tx_idx = 0;
 			} else {
@@ -754,7 +731,7 @@ static char *ISACVer[] =
  "2085 V2.3"};
 
 int
-mISDN_isac_init(dchannel_t *dch)
+mISDN_isac_init(channel_t *dch)
 {
 	isac_chip_t	*isac = dch->hw;
 	u_char		val;
@@ -762,12 +739,11 @@ mISDN_isac_init(dchannel_t *dch)
 
   	if (!isac)
   		return(-EINVAL);
-	dch->hw_bh = NULL;
 	isac->mon_tx = NULL;
 	isac->mon_rx = NULL;
-	dch->dbusytimer.function = (void *) dbusy_timer_handler;
-	dch->dbusytimer.data = (long) dch;
-	init_timer(&dch->dbusytimer);
+	dch->timer.function = (void *) dbusy_timer_handler;
+	dch->timer.data = (long) dch;
+	init_timer(&dch->timer);
   	isac->mocr = 0xaa;
 	if (dch->type & ISAC_TYPE_ISACSX) {
 		// clear LDD
@@ -815,7 +791,7 @@ mISDN_isac_init(dchannel_t *dch)
 }
 
 void
-mISDN_clear_isac(dchannel_t *dch)
+mISDN_clear_isac(channel_t *dch)
 {
 	isac_chip_t	*isac = dch->hw;
 	u_int		val, eval;
@@ -838,7 +814,7 @@ mISDN_clear_isac(dchannel_t *dch)
 	}
 	val = dch->read_reg(dch->inst.privat, ISAC_CIR0);
 	mISDN_debugprint(&dch->inst, "ISAC CIR0 %x", val);
-	dch->ph_state = (val >> 2) & 0xf;
+	dch->state = (val >> 2) & 0xf;
 }
 
 #ifdef MODULE

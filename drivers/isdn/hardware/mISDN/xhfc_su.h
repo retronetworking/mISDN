@@ -25,7 +25,7 @@
 #define _XHFC_SU_H_
 
 #include <linux/timer.h>
-#include "dchannel.h"
+#include "channel.h"
 #include "bchannel.h"
 #include "xhfc24succ.h"
 
@@ -119,7 +119,7 @@ typedef struct {
 /* channel struct for each fifo */
 typedef struct {
 	bchannel_t *bch;
-	dchannel_t *dch;
+	channel_t *dch;
 	int rx_idx;		/* for D-channel */
 	__u8 *rx_buf;		/* for D-channel */
 	int port;		/* index pointer to port struct */

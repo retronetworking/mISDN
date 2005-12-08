@@ -27,6 +27,6 @@ struct arcofi_msg {
 	u_char			msg[10];
 };
 
-extern int arcofi_fsm(dchannel_t *, int, void *);
-extern void init_arcofi(dchannel_t *);
-extern void clear_arcofi(dchannel_t *);
+extern int arcofi_fsm(channel_t *, int, void *);
+extern void init_arcofi(channel_t *);
+extern void clear_arcofi(channel_t *);

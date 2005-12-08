@@ -35,27 +35,22 @@ typedef unsigned long DWORD;
          also registers are assigned differen for HFC-4s/8s and HFC-E1
 */
 
-#define MAX_FRAME_SIZE	2048
+// #define MAX_FRAME_SIZE	2048
 
 struct hfc_chan {
-	/* dch or bch is set, otherwhise this channel is not used */
-	dchannel_t	*dch; /* link if channel is a D-channel */
-	bchannel_t	*bch; /* link if channel is a B-channel */
-	int		rx_idx; /* for D-channel */
-	BYTE	*rx_buf; /* for D-channel */
-	int		port; /* the interface port this channel is associated with */
-	int		nt_mode;
+	channel_t	*ch;	/* link if channel is a D-channel */
+	int		port; 	/* the interface port this channel is associated with */
 	int		nt_timer; /* -1 if off, 0 if elapsed, >0 if running */
 	int		los, ais, slip_tx, slip_rx; /* current alarms */
 	int		jitter;
-	u_long		cfg; /* port configuration */
-	int		sync; /* sync state (used by E1) */
-	DWORD	protocol; /* current protocol */
+	u_long		cfg;	/* port configuration */
+	int		sync;	/* sync state (used by E1) */
+	DWORD		protocol;/* current protocol */
 	int		slot_tx; /* current pcm slot */
 	int		bank_tx; /* current pcm bank */
 	int		slot_rx;
 	int		bank_rx;
-	int		conf; /* conference setting of TX slot */
+	int		conf;	/* conference setting of TX slot */
 	int		txpending; /* if there is currently data in the FIFO 0=no, 1=yes, 2=splloop */
 	int		e1_state; /* keep track of last state */
 };

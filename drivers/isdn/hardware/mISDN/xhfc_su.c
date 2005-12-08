@@ -92,7 +92,7 @@ static void release_card(xhfc_hw * hw);
 /* Physical S/U commands to control Line Interface  */
 /****************************************************/
 static void
-xhfc_ph_command(dchannel_t * dch, u_char command)
+xhfc_ph_command(channel_t * dch, u_char command)
 {
 	xhfc_hw *hw = dch->hw;
 	__u8 pt = hw->chan[dch->channel].port;
@@ -288,7 +288,7 @@ l1_timer_expire_t4(dchannel_t * dch)
 /* Line Interface State handler  */
 /*********************************/
 static void
-su_new_state(dchannel_t * dch)
+su_new_state(channel_t * dch)
 {
 	u_int prim = 0;
 	
@@ -299,18 +299,16 @@ su_new_state(dchannel_t * dch)
 
 	if (hw->port[pt].mode & PORT_MODE_TE) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst,
-					 "%s: TE %d",
-					 __FUNCTION__, dch->ph_state);
+			mISDN_debugprint(&dch->inst, "%s: TE %d",
+				__FUNCTION__, dch->state);
 
-
-		if (dch->ph_state < 4 || dch->ph_state >= 7)
+		if (dch->state < 4 || dch->state >= 7)
 			l1_timer_stop_t3(dch);
 
-		if (dch->ph_state >= 7)
+		if (dch->state >= 7)
 			l1_timer_stop_t4(dch);
 
-		switch (dch->ph_state) {
+		switch (dch->state) {
 			case (0):
 			case (1):
 			case (2):
@@ -371,11 +369,10 @@ su_new_state(dchannel_t * dch)
 	} else if (hw->port[pt].mode & PORT_MODE_NT) {
 		
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst,
-					 "%s: NT %d",
-					 __FUNCTION__, dch->ph_state);
+			mISDN_debugprint(&dch->inst, "%s: NT %d",
+				__FUNCTION__, dch->state);
 
-		switch (dch->ph_state) {
+		switch (dch->state) {
 			
 			case (1):
 				dch->l1_up = 0;
@@ -435,7 +432,7 @@ su_new_state(dchannel_t * dch)
 static int
 xhfc_l1_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
-	dchannel_t	*dch = container_of(inst, dchannel_t, inst);
+	channel_t	*dch = container_of(inst, channel_t, inst);
 	int		ret = 0;
 	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
 	xhfc_hw		*hw = inst->privat;
@@ -497,7 +494,7 @@ xhfc_l1_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 			/* check for pending next_skb */
 			spin_lock_irqsave(inst->hwlock, flags);
 			if (dch->next_skb) {
-				test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
+				test_and_set_bit(FLG_TX_NEXT, &dch->Flags);
 				dch->next_skb = skb;
 				spin_unlock_irqrestore(inst->hwlock, flags);
 				mISDN_debugprint(&dch->inst, "pending dch->next_skb!\n");
@@ -505,13 +502,13 @@ xhfc_l1_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 				return (0);
 			}
 			
-			if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
+			if (test_and_set_bit(FLG_TX_BUSY, &dch->Flags)) {
 				if ((dch->debug) && (debug & DEBUG_HFC_DTRACE)) {
 					mISDN_debugprint(&dch->inst, "channel(%i) busy, attaching dch->next_skb!\n",
-							 dch->channel,
+						dch->channel,
 							 skb->len);
 				}
-				test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
+				test_and_set_bit(FLG_TX_NEXT, &dch->Flags);
 				dch->next_skb = skb;
 				spin_unlock_irqrestore(inst->hwlock, flags);
 				return (0);
@@ -684,7 +681,7 @@ xhfc_manager(void *data, u_int prim, void *arg)
 	struct sk_buff *skb;
 	int channel = -1;
 	int i;
-	dchannel_t *dch = NULL;
+	channel_t *dch = NULL;
 	bchannel_t *bch = NULL;
 	u_long flags;
 
@@ -730,7 +727,7 @@ xhfc_manager(void *data, u_int prim, void *arg)
 	switch (prim) {
 		case MGR_REGLAYER | CONFIRM:
 			if (dch)
-				dch_set_para(dch, &inst->st->para);
+				mISDN_setpara(dch, &inst->st->para);
 			if (bch)
 				bch_set_para(bch, &inst->st->para);
 			break;
@@ -752,7 +749,7 @@ xhfc_manager(void *data, u_int prim, void *arg)
 			arg = NULL;
 		case MGR_ADDSTPARA | INDICATION:
 			if (dch)
-				dch_set_para(dch, arg);
+				mISDN_setpara(dch, arg);
 			if (bch)
 				bch_set_para(bch, arg);
 			break;
@@ -808,32 +805,29 @@ xhfc_manager(void *data, u_int prim, void *arg)
 int
 next_d_tx_frame(xhfc_hw * hw, __u8 channel)
 {
-	dchannel_t *dch = hw->chan[channel].dch;
+	channel_t *dch = hw->chan[channel].dch;
 
-	if (test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags)) {
-		struct sk_buff	*skb = dch->next_skb;
-		
-		if (skb) {
-			mISDN_head_t *hh = mISDN_HEAD_P(skb);
+	if(dch->tx_skb)
+		dev_kfree_skb(dch->tx_skb);
+	if (test_and_clear_bit(FLG_TX_NEXT, &dch->Flags)) {
+		dch->tx_skb = dch->next_skb;
+		if (dch->tx_skb) {
+			mISDN_head_t *hh = mISDN_HEAD_P(dch->tx_skb);
 			dch->next_skb = NULL;
-			test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-			
-			dch->tx_len = skb->len;
-			memcpy(dch->tx_buf, skb->data, dch->tx_len);
+			test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
 			dch->tx_idx = 0;
-			skb_trim(skb, 0);
-			if (mISDN_queueup_newhead(&dch->inst, 0, PH_DATA_CNF, hh->dinfo, skb))
-				dev_kfree_skb(skb);
+			queue_ch_frame(dch, CONFIRM, hh->dinfo, NULL);
 			return (1);
 		} else {
 			printk(KERN_WARNING
 			       "%s channel(%i) TX_NEXT without skb\n",
 			       hw->card_name, channel);
-			test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
+			test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
+			test_and_clear_bit(FLG_TX_BUSY, &dch->Flags);
 		}
 	} else {
-		test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
+		dch->tx_skb = NULL;
+		test_and_clear_bit(FLG_TX_BUSY, &dch->Flags);
 	}
 	return (0);
 }
@@ -910,7 +904,7 @@ void
 xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 {
 	__u8 *buf = NULL;
-	int *len = NULL, *idx = NULL;
+	int len = 0, *idx = NULL;
 	mISDNinstance_t *inst = NULL;
 	__u8 hdlc = 0;
 	__u8 fcnt, tcnt, i;
@@ -919,21 +913,23 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 	__u8 fstat;
 	__u8 *data;
 
-	dchannel_t *dch = hw->chan[channel].dch;
+	channel_t *dch = hw->chan[channel].dch;
 	bchannel_t *bch = hw->chan[channel].bch;
 
 	/* get skb, fifo & mode */
 	if (dch) {
 		inst = &dch->inst;
-		buf = dch->tx_buf;
-		len = &dch->tx_len;
+		if (!dch->tx_skb)
+			return;
+		buf = dch->tx_skb->data;
+		len = dch->tx_skb->len;
 		idx = &dch->tx_idx;
 		hdlc = 1;
 	}
 	if (bch) {
 		inst = &bch->inst;
 		buf = bch->tx_buf;
-		len = &bch->tx_len;
+		len = bch->tx_len;
 		idx = &bch->tx_idx;
 		if (bch->protocol == ISDN_PID_L1_B_64HDLC)
 			hdlc = 1;
@@ -948,12 +944,12 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 
       send_buffer:
 
-	if (*len) {
+	if (len) {
 		xhfc_selfifo(hw, (channel * 2));
 
 		fstat = read_xhfc(hw, A_FIFO_STA);
 		free = (hw->max_z - (read_xhfc(hw, A_USAGE)));
-		tcnt = ((free >= (*len - *idx)) ? (*len - *idx) : free);
+		tcnt = ((free >= (len - *idx)) ? (len - *idx) : free);
 
 		f1 = read_xhfc(hw, A_F1);
 		f2 = read_xhfc(hw, A_F2);
@@ -963,7 +959,7 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 		if (debug & DEBUG_HFC_FIFO) {
 			mISDN_debugprint(inst,
 					 "%s channel(%i) len(%i) idx(%i) f1(%i) f2(%i) fcnt(%i) tcnt(%i) free(%i) fstat(%i)",
-					 __FUNCTION__, channel, *len, *idx,
+					 __FUNCTION__, channel, len, *idx,
 					 f1, f2, fcnt, tcnt, free, fstat);
 		}
 
@@ -1008,7 +1004,7 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 
 
 
-			if (*idx == *len) {
+			if (*idx == len) {
 				if (hdlc) {
 					/* terminate frame */
 					xhfc_inc_f(hw);
@@ -1037,49 +1033,45 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 					}
 				}
 
-				*len = 0;
-
+				len = 0;
 				if (dch) {
 					if (debug & DEBUG_HFC_DTRACE)
-						mISDN_debugprint(&dch->
-								 inst,
-								 "TX frame channel(%i) completed",
-								 channel);
+						mISDN_debugprint(&dch->inst,
+							"TX frame channel(%i) completed",
+							channel);
 
 					if (next_d_tx_frame(hw, channel)) {
 						if (debug & DEBUG_HFC_DTRACE)
-							mISDN_debugprint
-							    (&dch->inst,
-							     "channel(%i) has next_d_tx_frame",
-							     channel);
+							mISDN_debugprint(&dch->inst,
+							"channel(%i) has next_d_tx_frame",
+							channel);
+						buf = dch->tx_skb->data;
+						len = dch->tx_skb->len;
 					}
 				}
 
 				if (bch) {
 					if (debug & DEBUG_HFC_BTRACE)
 						mISDN_debugprint(&bch->inst,
-								 "TX frame channel(%i) completed",
-								 channel);
+							"TX frame channel(%i) completed",
+							channel);
 
 					if (next_b_tx_frame(hw, channel)) {
 						if (debug & DEBUG_HFC_BTRACE)
-							mISDN_debugprint
-							    (&bch->inst,
-							     "channel(%i) has next_b_tx_frame",
-							     channel);
-
+							mISDN_debugprint(&bch->inst,
+								"channel(%i) has next_b_tx_frame",
+								channel);
+						len = bch->tx_len;
 						if ((free - tcnt) > 8) {
 							if (debug & DEBUG_HFC_BTRACE)
-								mISDN_debugprint
-								    (&bch->inst,
-								     "continue immediatetly",
-								     channel);
+								mISDN_debugprint(&bch->inst,
+									"continue immediatetly",
+									channel);
 							goto send_buffer;
 						}
 					}
 					test_and_clear_bit(BC_FLG_TX_BUSY, &bch->Flag);
 				}
-
 			} else {
 				/* tx buffer not complete, but fifo filled to maximum */
 				xhfc_selfifo(hw, (channel * 2));
@@ -1107,7 +1099,7 @@ xhfc_read_fifo(xhfc_hw * hw, __u8 channel)
 	struct sk_buff *skb;	/* data buffer for upper layer */
 	__u16 i;
 
-	dchannel_t *dch = hw->chan[channel].dch;
+	channel_t *dch = hw->chan[channel].dch;
 	bchannel_t *bch = hw->chan[channel].bch;
 
 	if (dch) {
@@ -1303,7 +1295,7 @@ static void
 xhfc_bh_handler(unsigned long ul_hw)
 {
 	xhfc_hw 	*hw = (xhfc_hw *) ul_hw;
-	dchannel_t	*dch;
+	channel_t	*dch;
 	int		i;
 	reg_a_su_rd_sta	su_state;
 	
@@ -1321,7 +1313,7 @@ xhfc_bh_handler(unsigned long ul_hw)
 				if (hw->chan[i].dch)
 					if (test_bit
 					    (FLG_TX_BUSY,
-					     &hw->chan[i].dch->DFlags)) {
+					     &hw->chan[i].dch->Flags)) {
 						xhfc_write_fifo(hw, i);
 					}
 
@@ -1371,8 +1363,8 @@ xhfc_bh_handler(unsigned long ul_hw)
 			
 			dch = hw->chan[(i << 2) + 2].dch;
 			if (dch) {
-				if (su_state.bit.v_su_sta != dch->ph_state) {
-					dch->ph_state = su_state.bit.v_su_sta;
+				if (su_state.bit.v_su_sta != dch->state) {
+					dch->state = su_state.bit.v_su_sta;
 					su_new_state(dch);
 				}
 			}
@@ -1598,7 +1590,7 @@ release_channels(xhfc_hw * hw)
 				printk(KERN_DEBUG
 				       "%s %s: free D-channel %d\n",
 				       hw->card_name, __FUNCTION__, i);
-			mISDN_free_dch(hw->chan[i].dch);
+			mISDN_freechannel(hw->chan[i].dch);
 			hw_mISDNObj.ctrl(&hw->chan[i].dch->inst, MGR_UNREGLAYER | REQUEST, NULL);
 			kfree(hw->chan[i].dch);
 			hw->chan[i].dch = NULL;
@@ -1866,7 +1858,7 @@ init_mISDN_channels(xhfc_hw * hw)
 	int pt;
 	int ch;
 	int b;
-	dchannel_t *dch;
+	channel_t *dch;
 	bchannel_t *bch;
 	mISDN_pid_t pid;
 	u_long flags;
@@ -1886,12 +1878,12 @@ init_mISDN_channels(xhfc_hw * hw)
 
 		hw->chan[ch].port = pt;
 
-		dch = kmalloc(sizeof(dchannel_t), GFP_ATOMIC);
+		dch = kmalloc(sizeof(channel_t), GFP_ATOMIC);
 		if (!dch) {
 			err = -ENOMEM;
 			goto free_channels;
 		}
-		memset(dch, 0, sizeof(dchannel_t));
+		memset(dch, 0, sizeof(channel_t));
 		dch->channel = ch;
 		dch->debug = debug;
 		dch->inst.obj = &hw_mISDNObj;
@@ -1907,11 +1899,9 @@ init_mISDN_channels(xhfc_hw * hw)
 			err = -ENOMEM;
 			goto free_channels;
 		}
-
-		if (mISDN_init_dch(dch)) {
-			err = -ENOMEM;
+		err = mISDN_initchannel(dch, MSK_DCHANNEL, MAX_DFRAME_LEN_L1);
+		if (err)
 			goto free_channels;
-		}
 		dch->hw = hw;
 		hw->chan[ch].dch = dch;
 
@@ -2005,8 +1995,7 @@ init_mISDN_channels(xhfc_hw * hw)
 			goto free_channels;
 		}
 
-		dch->hw_bh = su_new_state;
-		dch->ph_state = 0;
+		dch->state = 0;
 
 		for (b = 0; b < 2; b++) {
 			bch = hw->chan[(pt << 2) + b].bch;

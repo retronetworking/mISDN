@@ -24,8 +24,7 @@
 #ifndef __HFCMINI_H__
 #define __HFCMINI_H__
 
-#include "dchannel.h"
-#include "bchannel.h"
+#include "channel.h"
 #include "hfcsmcc.h"
 
 
@@ -105,17 +104,6 @@ typedef struct {
 	char *device_name;
 } hfcsmini_param;
 
-
-/* channel struct for each fifo */
-typedef struct {
-	bchannel_t *bch;
-	dchannel_t *dch;
-	int rx_idx;		/* for D-channel */
-	__u8 *rx_buf;		/* for D-channel */
-} hfcmini_chan_t;
-
-
-
 struct _hfcmini_hw;
 
 /**********************/
@@ -143,7 +131,7 @@ typedef struct _hfcmini_hw {
 	int max_fifo;		/* always 4 fifos per port */
 	__u8 max_z;		/* fifo depth -1 */
 	
-	hfcmini_chan_t chan[MAX_CHAN];	/* line interfaces */
+	channel_t chan[MAX_CHAN];	/* line interfaces */
 	
 	__u8 fifomask;
 	

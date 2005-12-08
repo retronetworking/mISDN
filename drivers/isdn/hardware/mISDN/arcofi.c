@@ -8,7 +8,7 @@
  *
  */
  
-#include "dchannel.h"
+#include "channel.h"
 #include "layer1.h"
 #include "isac.h"
 #include "arcofi.h"
@@ -18,10 +18,10 @@
 #define ARCOFI_TIMER_VALUE	20
 
 static void
-add_arcofi_timer(dchannel_t *dch) {
+add_arcofi_timer(channel_t *dch) {
 	isac_chip_t	*isac = dch->hw;
 
-	if (test_and_set_bit(FLG_ARCOFI_TIMER, &dch->DFlags)) {
+	if (test_and_set_bit(FLG_ARCOFI_TIMER, &dch->Flags)) {
 		del_timer(&isac->arcofitimer);
 	}	
 	init_timer(&isac->arcofitimer);
@@ -30,7 +30,7 @@ add_arcofi_timer(dchannel_t *dch) {
 }
 
 static void
-send_arcofi(dchannel_t *dch) {
+send_arcofi(channel_t *dch) {
 	u_char		val;
 	isac_chip_t	*isac = dch->hw;
 	
@@ -54,7 +54,7 @@ send_arcofi(dchannel_t *dch) {
 }
 
 int
-arcofi_fsm(dchannel_t *dch, int event, void *data) {
+arcofi_fsm(channel_t *dch, int event, void *data) {
 	isac_chip_t	*isac = dch->hw;
 
 	if (dch->debug & L1_DEB_MONITOR) {
@@ -62,7 +62,7 @@ arcofi_fsm(dchannel_t *dch, int event, void *data) {
 	}
 	if (event == ARCOFI_TIMEOUT) {
 		isac->arcofi_state = ARCOFI_NOP;
-		test_and_set_bit(FLG_ARCOFI_ERROR, &dch->DFlags);
+		test_and_set_bit(FLG_ARCOFI_ERROR, &dch->Flags);
 		wake_up(&isac->arcofi_wait);
  		return(1);
 	}
@@ -85,7 +85,7 @@ arcofi_fsm(dchannel_t *dch, int event, void *data) {
 							isac->arcofi_list->next;
 						send_arcofi(dch);
 					} else {
-						if (test_and_clear_bit(FLG_ARCOFI_TIMER, &dch->DFlags)) {
+						if (test_and_clear_bit(FLG_ARCOFI_TIMER, &dch->Flags)) {
 							del_timer(&isac->arcofitimer);
 						}
 						isac->arcofi_state = ARCOFI_NOP;
@@ -109,7 +109,7 @@ arcofi_fsm(dchannel_t *dch, int event, void *data) {
 					isac->arcofi_state = ARCOFI_TRANSMIT;
 					send_arcofi(dch);
 				} else {
-					if (test_and_clear_bit(FLG_ARCOFI_TIMER, &dch->DFlags)) {
+					if (test_and_clear_bit(FLG_ARCOFI_TIMER, &dch->Flags)) {
 						del_timer(&isac->arcofitimer);
 					}
 					isac->arcofi_state = ARCOFI_NOP;
@@ -125,21 +125,21 @@ arcofi_fsm(dchannel_t *dch, int event, void *data) {
 }
 
 static void
-arcofi_timer(dchannel_t *dch) {
+arcofi_timer(channel_t *dch) {
 	arcofi_fsm(dch, ARCOFI_TIMEOUT, NULL);
 }
 
 void
-clear_arcofi(dchannel_t *dch) {
+clear_arcofi(channel_t *dch) {
 	isac_chip_t	*isac = dch->hw;
 
-	if (test_and_clear_bit(FLG_ARCOFI_TIMER, &dch->DFlags)) {
+	if (test_and_clear_bit(FLG_ARCOFI_TIMER, &dch->Flags)) {
 		del_timer(&isac->arcofitimer);
 	}
 }
 
 void
-init_arcofi(dchannel_t *dch) {
+init_arcofi(channel_t *dch) {
 	isac_chip_t	*isac = dch->hw;
 
 	isac->arcofitimer.function = (void *) arcofi_timer;

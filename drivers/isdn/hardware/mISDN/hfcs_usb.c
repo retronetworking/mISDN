@@ -32,7 +32,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/usb.h>
-#include "dchannel.h"
+#include "channel.h"
 #include "bchannel.h"
 #include "layer1.h"
 #include "debug.h"
@@ -105,7 +105,7 @@ typedef struct usb_fifo {
 typedef struct _hfcsusb_t {
 	struct list_head	list;
 	spinlock_t		lock;
-	dchannel_t		dch;
+	channel_t		dch;
 	bchannel_t		bch[2];
 
 	struct usb_device	*dev;		/* our device */
@@ -404,7 +404,7 @@ hfcsusb_manager(void *data, u_int prim, void *arg)
 	switch (prim) {
 		case MGR_REGLAYER | CONFIRM:
 			if (channel == 2)
-				dch_set_para(&card->dch, &inst->st->para);
+				mISDN_setpara(&card->dch, &inst->st->para);
 			else
 				bch_set_para(&card->bch[channel],
 					     &inst->st->para);
@@ -427,7 +427,7 @@ hfcsusb_manager(void *data, u_int prim, void *arg)
 			arg = NULL;
 		case MGR_ADDSTPARA | INDICATION:
 			if (channel == 2)
-				dch_set_para(&card->dch, arg);
+				mISDN_setpara(&card->dch, arg);
 			else
 				bch_set_para(&card->bch[channel], arg);
 			break;
@@ -480,7 +480,7 @@ hfcsusb_manager(void *data, u_int prim, void *arg)
 /* S0 state change event handler */
 /*********************************/
 static void
-S0_new_state(dchannel_t * dch)
+S0_new_state(channel_t * dch)
 {
 	u_int		prim = PH_SIGNAL | INDICATION;
 	u_int		para = 0;
@@ -490,9 +490,9 @@ S0_new_state(dchannel_t * dch)
 		if (dch->debug)
 			mISDN_debugprint(&card->dch.inst,
 				 "%s: TE %d",
-				 __FUNCTION__, dch->ph_state);
+				 __FUNCTION__, dch->state);
 		
-		switch (dch->ph_state) {
+		switch (dch->state) {
 			case (0):
 				prim = PH_CONTROL | INDICATION;
 				para = HW_RESET;
@@ -520,9 +520,9 @@ S0_new_state(dchannel_t * dch)
 		if (dch->debug)
 			mISDN_debugprint(&card->dch.inst,
 				 "%s: NT %d",
-				 __FUNCTION__, dch->ph_state);
+				 __FUNCTION__, dch->state);
 				
-		switch (dch->ph_state) {
+		switch (dch->state) {
 			case (1):
 				dch->l1_up = 0;
 				card->nt_timer = 0;
@@ -573,11 +573,11 @@ S0_new_state(dchannel_t * dch)
 static void
 state_handler(hfcsusb_t * card, __u8 new_l1_state)
 {
-	if (new_l1_state == card->dch.ph_state
+	if (new_l1_state == card->dch.state
 	    || new_l1_state < 1 || new_l1_state > 8)
 		return;
 
-	card->dch.ph_state = new_l1_state;
+	card->dch.state = new_l1_state;
 	S0_new_state(&card->dch);
 }
 
@@ -720,19 +720,19 @@ hfcsusb_ph_command(hfcsusb_t * card, u_char command)
 		case S0_L1CMD_AR8:
 			mISDN_debugprint(&card->dch.inst,
 					 "S0_L1CMD_AR8 at ph_sate = %i",
-					 &card->dch.ph_state);
+					 &card->dch.state);
 			break;
 
 		case S0_L1CMD_AR10:
 			mISDN_debugprint(&card->dch.inst,
 					 "S0_L1CMD_AR10 at ph_sate = %i",
-					 &card->dch.ph_state);
+					 &card->dch.state);
 			break;
 
 		case S0_L1CMD_ECK:
 			mISDN_debugprint(&card->dch.inst,
 					 "S0_L1CMD_ECK at ph_sate = %i",
-					 &card->dch.ph_state);
+					 &card->dch.state);
 			break;
 	}
 }
@@ -743,7 +743,7 @@ hfcsusb_ph_command(hfcsusb_t * card, u_char command)
 static int
 hfcsusb_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
 {
-	dchannel_t	*dch = container_of(inst, dchannel_t, inst);
+	channel_t	*dch = container_of(inst, channel_t, inst);
 	int		ret = 0;
 	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
 	hfcsusb_t	*card = inst->privat;
@@ -767,22 +767,18 @@ hfcsusb_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
 			spin_unlock_irqrestore(inst->hwlock, flags);
 			return (-EBUSY);
 		}
-		if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
-			test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
+		if (test_and_set_bit(FLG_TX_BUSY, &dch->Flags)) {
+			test_and_set_bit(FLG_TX_NEXT, &dch->Flags);
 			dch->next_skb = skb;
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			return (0);
 		} else {
 			/* prepare buffer, which is transmitted by
 			   tx_iso completions later */
-			dch->tx_len = skb->len;
-			memcpy(dch->tx_buf, skb->data, dch->tx_len);
+			dch->tx_skb = skb;
 			dch->tx_idx = 0;
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			skb_trim(skb, 0);
-			return(mISDN_queueup_newhead(inst, 0, PH_DATA_CNF,
-				hh->dinfo, skb));
+			queue_ch_frame(dch, CONFIRM, hh->dinfo, NULL);
 		}
+		spin_unlock_irqrestore(inst->hwlock, flags);
+		return (0);
 	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
 		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == INFO3_P8)
@@ -796,7 +792,7 @@ hfcsusb_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
 		spin_lock_irqsave(inst->hwlock, flags);
 		if (hh->dinfo == HW_RESET) {
-			if (dch->ph_state != 0)
+			if (dch->state != 0)
 				hfcsusb_ph_command(dch->hw,
 						   HFC_L1_ACTIVATE_TE);
 			hfcsusb_ph_command(dch->hw, S0_L1CMD_ECK);
@@ -807,10 +803,10 @@ hfcsusb_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
 				dev_kfree_skb(dch->next_skb);
 				dch->next_skb = NULL;
 			}
-			test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
+			test_and_clear_bit(FLG_TX_NEXT, &dch->Flags);
+			test_and_clear_bit(FLG_TX_BUSY, &dch->Flags);
 #ifdef FIXME
-			if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
+			if (test_and_clear_bit(FLG_L1_DBUSY, &dch->Flags))
 				dchannel_sched_event(dch, D_CLEARBUSY);
 #endif
 		} else if ((hh->dinfo & HW_TESTLOOP) == HW_TESTLOOP) {
@@ -1285,27 +1281,28 @@ rx_int_complete(struct urb *urb, struct pt_regs *regs)
 void
 next_d_tx_frame(hfcsusb_t * card)
 {
-	if (test_bit(FLG_TX_NEXT, &card->dch.DFlags)) {
-		struct sk_buff	*skb = card->dch.next_skb;
-		if (skb) {
-			mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+
+	if(card->dch.tx_skb)
+		dev_kfree_skb(card->dch.tx_skb);
+	if (test_bit(FLG_TX_NEXT, &card->dch.Flags)) {
+		card->dch.tx_skb = card->dch.next_skb;
+		if (card->dch.tx_skb) {
+			mISDN_head_t	*hh = mISDN_HEAD_P(card->dch.tx_skb);
 
 			card->dch.next_skb = NULL;
-			test_and_clear_bit(FLG_TX_NEXT, &card->dch.DFlags);
-			card->dch.tx_len = skb->len;
-			memcpy(card->dch.tx_buf, skb->data, card->dch.tx_len);
+			test_and_clear_bit(FLG_TX_NEXT, &card->dch.Flags);
 			card->dch.tx_idx = 0;
-			skb_trim(skb, 0);
-			if (mISDN_queueup_newhead(&card->dch.inst, 0, PH_DATA_CNF, hh->dinfo, skb))
-				dev_kfree_skb(skb);
+			queue_ch_frame(&card->dch, CONFIRM, hh->dinfo, NULL);
 		} else {
 			printk(KERN_WARNING
 				"hfcd tx irq TX_NEXT without skb\n");
-			test_and_clear_bit(FLG_TX_NEXT, &card->dch.DFlags);
-			test_and_clear_bit(FLG_TX_BUSY, &card->dch.DFlags);
+			test_and_clear_bit(FLG_TX_NEXT, &card->dch.Flags);
+			test_and_clear_bit(FLG_TX_BUSY, &card->dch.Flags);
 		}
-	} else
-		test_and_clear_bit(FLG_TX_BUSY, &card->dch.DFlags);
+	} else {
+		card->dch.tx_skb = NULL;
+		test_and_clear_bit(FLG_TX_BUSY, &card->dch.Flags);
+	}
 }
 
 void
@@ -1342,7 +1339,7 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 	hfcsusb_t *card = fifo->card;
 	int k, tx_offset, num_isoc_packets, sink, len, current_len,
 	    errcode;
-	int *tx_len, *tx_idx;
+	int tx_len, *tx_idx;
 	u_char *tx_buf;
 	int frame_complete, transp_mode=0, fifon, status;
 	__u8 threshbit;
@@ -1374,14 +1371,19 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 
 		switch (fifon) {
 			case HFCUSB_D_TX:
-				tx_buf = card->dch.tx_buf;
-				tx_len = &card->dch.tx_len;
+				if (!card->dch.tx_skb) {
+					tx_buf = NULL;
+					tx_len = 0;
+				} else {
+					tx_buf = card->dch.tx_skb->data;
+					tx_len = card->dch.tx_skb->len;
+				}
 				tx_idx = &card->dch.tx_idx;
 				break;
 			case HFCUSB_B1_TX:
 			case HFCUSB_B2_TX:
 				tx_buf = card->bch[fifo->bch_idx].tx_buf;
-				tx_len = &card->bch[fifo->bch_idx].tx_len;
+				tx_len = card->bch[fifo->bch_idx].tx_len;
 				tx_idx = &card->bch[fifo->bch_idx].tx_idx;
 				transp_mode = card->bch[fifo->bch_idx].protocol == ISDN_PID_L1_B_64TRANS;
 				break;
@@ -1394,17 +1396,15 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 
 		/* Generate next Iso Packets */
 		for (k = 0; k < num_isoc_packets; ++k) {
-			len = (*tx_len - *tx_idx);
-			if (len) {
+			len = (tx_len - *tx_idx);
+			if (len>0) {
 				/* we lower data margin every msec */
 				fifo->bit_line -= sink;
 				current_len = (0 - fifo->bit_line) / 8;
 				/* maximum 15 byte for every ISO packet makes our life easier */
 				if (current_len > 14)
 					current_len = 14;
-				current_len =
-				    (len <=
-				     current_len) ? len : current_len;
+				current_len = (len <= current_len) ? len : current_len;
 
 				/* how much bit do we put on the line? */
 				fifo->bit_line += current_len * 8;
@@ -1413,8 +1413,7 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 				if (current_len == len) {
 					if (!transp_mode) {
 						/* here frame completion */
-						context_iso_urb->
-						    buffer[tx_offset] = 1;
+						context_iso_urb->buffer[tx_offset] = 1;
 						/* add 2 byte flags and 16bit CRC at end of ISDN frame */
 						fifo->bit_line += 32;
 					}
@@ -1422,20 +1421,18 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 				}
 
 				/* copy tx data to iso-urb buffer */
-				memcpy(context_iso_urb->buffer +
-				       tx_offset + 1,
+				memcpy(context_iso_urb->buffer + tx_offset + 1,
 				       (tx_buf + *tx_idx), current_len);
 				*tx_idx += current_len;
 
 				/* define packet delimeters within the URB buffer */
 				urb->iso_frame_desc[k].offset = tx_offset;
 				urb->iso_frame_desc[k].length =
-				    current_len + 1;
+					current_len + 1;
 
 				tx_offset += (current_len + 1);
 			} else {
-				urb->iso_frame_desc[k].offset =
-				    tx_offset++;
+				urb->iso_frame_desc[k].offset = tx_offset++;
 
 				urb->iso_frame_desc[k].length = 1;
 				fifo->bit_line -= sink;	/* we lower data margin every msec */
@@ -1452,14 +1449,17 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 				switch (fifon) {
 					case HFCUSB_D_TX:
 						next_d_tx_frame(card);
-						if (fifo->skbuff
-						    && fifo->delete_flg) {
-							dev_kfree_skb_any
-							    (fifo->skbuff);
-							fifo->skbuff =
-							    NULL;
-							fifo->delete_flg =
-							    0;
+						if (card->dch.tx_skb) {
+							tx_len = card->dch.tx_skb->len;
+							tx_buf = card->dch.tx_skb->data;
+						} else {
+							tx_len = 0;
+							tx_buf = NULL;
+						}
+						if (fifo->skbuff && fifo->delete_flg) {
+							dev_kfree_skb_any(fifo->skbuff);
+							fifo->skbuff = NULL;
+							fifo->delete_flg = 0;
 						}
 						frame_complete = 0;
 						break;
@@ -1468,15 +1468,12 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 					case HFCUSB_B2_TX:
 						next_b_tx_frame(card, fifo->bch_idx);
 						
-						card->bch[fifo->bch_idx].tx_len =
-						    0;
-						test_and_clear_bit
-						    (BC_FLG_TX_BUSY,
-						     &card->bch[fifo->bch_idx].
-						     Flag);
+						card->bch[fifo->bch_idx].tx_len = 0;
+						tx_len = 0;
+						test_and_clear_bit(BC_FLG_TX_BUSY,
+							&card->bch[fifo->bch_idx].Flag);
 						card->bch[fifo->bch_idx].tx_idx =
-						    card->bch[fifo->bch_idx].
-						    tx_len;
+							card->bch[fifo->bch_idx].tx_len;
 						break;
 				}
 			}
@@ -1633,13 +1630,10 @@ start_int_fifo(usb_fifo * fifo)
 void
 hw_init(hfcsusb_t * card)
 {
-	/* setup basic function pointers */
-	card->dch.hw_bh = S0_new_state;
-
 	/* init bchannel mode */
 	mode_bchannel(&card->bch[0], 0, -1);
 	mode_bchannel(&card->bch[1], 1, -1);
-	card->dch.ph_state = 0;
+	card->dch.state = 0;
 }
 
 /* Hardware Initialization */
@@ -1797,7 +1791,7 @@ release_card(hfcsusb_t * card)
 	mode_bchannel(&card->bch[1], 1, ISDN_PID_NONE);
 	mISDN_free_bch(&card->bch[1]);
 	mISDN_free_bch(&card->bch[0]);
-	mISDN_free_dch(&card->dch);
+	mISDN_freechannel(&card->dch);
 	spin_unlock_irqrestore(&card->lock, flags);
 	hw_mISDNObj.ctrl(&card->dch.inst, MGR_UNREGLAYER | REQUEST, NULL);
 	spin_lock_irqsave(&hw_mISDNObj.lock, flags);
@@ -1856,7 +1850,7 @@ setup_instance(hfcsusb_t * card)
 	mISDN_init_instance(&card->dch.inst, &hw_mISDNObj, card, hfcsusb_l1hwD);
 	sprintf(card->dch.inst.name, "hfcsusb_%d", hfcsusb_cnt + 1);
 	mISDN_set_dchannel_pid(&pid, protocol[hfcsusb_cnt], layermask[hfcsusb_cnt]);
-	mISDN_init_dch(&card->dch);
+	mISDN_initchannel(&card->dch, MSK_DCHANNEL, MAX_DFRAME_LEN_L1);
 	card->dch.hw = card;
 	card->hw_mode = 0;
 	
@@ -1906,7 +1900,7 @@ setup_instance(hfcsusb_t * card)
 
 	err = setup_hfcsusb(card);
 	if (err) {
-		mISDN_free_dch(&card->dch);
+		mISDN_freechannel(&card->dch);
 		mISDN_free_bch(&card->bch[1]);
 		mISDN_free_bch(&card->bch[0]);
 		spin_lock_irqsave(&hw_mISDNObj.lock, flags);

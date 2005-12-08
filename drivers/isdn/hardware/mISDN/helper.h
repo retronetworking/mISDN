@@ -176,14 +176,6 @@ mISDN_sethead(u_int prim, int dinfo, struct sk_buff *skb)
 	hh->dinfo = dinfo;
 }
 
-static inline int mISDN_send_message(void) {return 0;};
-static inline int mISDN_send_data(void) {return 0;};
-static inline int mISDN_sendup(void) {return 0;};
-static inline int mISDN_sendup_newhead(void) {return 0;};
-static inline int mISDN_senddown(void) {return 0;};
-static inline int mISDN_senddown_newhead(void) {return 0;};
-
-
 #define mISDN_queue_up(i, a, s)		mISDN_queue_message(i, a | FLG_MSG_UP, s)
 #define mISDN_queue_down(i, a, s)	mISDN_queue_message(i, a | FLG_MSG_DOWN, s)
 
