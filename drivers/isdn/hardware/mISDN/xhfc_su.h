@@ -24,6 +24,7 @@
 #ifndef _XHFC_SU_H_
 #define _XHFC_SU_H_
 
+#include <linux/timer.h>
 #include "dchannel.h"
 #include "bchannel.h"
 #include "xhfc24succ.h"
@@ -72,7 +73,8 @@
 #define STA_ACTIVATE	0x60	/* start activation   in A_SU_WR_STA */
 #define STA_DEACTIVATE	0x40	/* start deactivation in A_SU_WR_STA */
 #define LIF_MODE_NT	0x04	/* Line Interface NT mode */
-
+#define XHFC_TIMER_T3	8000	/* 8s activation timer T3 */
+#define XHFC_TIMER_T4	500	/* 500ms deactivation timer T4 */
 
 /* xhfc Layer1 physical commands */
 #define HFC_L1_ACTIVATE_TE		0x01
@@ -82,6 +84,11 @@
 #define HFC_L1_TESTLOOP_B1		0x05
 #define HFC_L1_TESTLOOP_B2		0x06
 
+/* xhfc Layer1 Flags (stored in xhfc_port_t->l1_flags) */
+#define HFC_L1_ACTIVATING	1
+#define HFC_L1_ACTIVATED	2
+#define HFC_L1_DEACTTIMER	3
+#define HFC_L1_ACTTIMER		4
 
 #define FIFO_MASK_TX	0x55555555
 #define FIFO_MASK_RX	0xAAAAAAAA
@@ -98,6 +105,8 @@
 #define DEBUG_HFC_FIFO		0x8000	/* very(!) heavy messageslog load */
 
 #define USE_F0_COUNTER	1	/* akkumulate F0 counter diff every irq */
+
+
 
 
 /* private driver_data */
@@ -122,6 +131,10 @@ typedef struct {
 	__u8 dpid;		/* DChannel Protocoll ID */
 	__u16 mode;		/* NT/TE + ST/U */
 	int nt_timer;
+	
+	u_long	l1_flags;
+	struct timer_list t3_timer;	/* timer 3 for activation/deactivation */
+	struct timer_list t4_timer;	/* timer 4 for activation/deactivation */
 
 	/* chip registers */
 	reg_a_su_ctrl0 su_ctrl0;

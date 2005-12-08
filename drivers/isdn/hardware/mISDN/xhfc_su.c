@@ -48,13 +48,13 @@
  *        enable debugging (see xhfc_su.h for debug options)
  *
  */
-
+ 
+#include <linux/mISDNif.h>
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
 #include <asm/timex.h>
-#include "layer1.h"
 #include "helper.h"
 #include "debug.h"
 #include "xhfc_su.h"
@@ -87,6 +87,10 @@ static int debug = 0;
 static void release_card(xhfc_hw * hw);
 
 
+
+/****************************************************/
+/* Physical S/U commands to control Line Interface  */
+/****************************************************/
 static void
 xhfc_ph_command(dchannel_t * dch, u_char command)
 {
@@ -102,8 +106,8 @@ xhfc_ph_command(dchannel_t * dch, u_char command)
 		case HFC_L1_ACTIVATE_TE:
 			if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES)) {
 				mISDN_debugprint(&dch->inst,
-						 "HFC_L1_ACTIVATE_TE channel(%i) command(%i)",
-						 dch->channel, command);
+						 "HFC_L1_ACTIVATE_TE channel(%i))",
+						 dch->channel);
 			}
 
 			write_xhfc(hw, R_SU_SEL, pt);
@@ -116,12 +120,12 @@ xhfc_ph_command(dchannel_t * dch, u_char command)
 			udelay(7); /* wait at least 5,21 us */
 			write_xhfc(hw, A_SU_WR_STA, 0x03);
 			break;
-			
 
 		case HFC_L1_ACTIVATE_NT:
 			if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 				mISDN_debugprint(&dch->inst,
-					 "HFC_L1_ACTIVATE_NT channel(%i)");
+					 "HFC_L1_ACTIVATE_NT channel(%i)",
+					 dch->channel);
 
 			write_xhfc(hw, R_SU_SEL, pt);
 			write_xhfc(hw, A_SU_WR_STA,
@@ -131,7 +135,8 @@ xhfc_ph_command(dchannel_t * dch, u_char command)
 		case HFC_L1_DEACTIVATE_NT:
 			if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 				mISDN_debugprint(&dch->inst,
-						 "HFC_L1_DEACTIVATE_NT channel(%i)");
+						 "HFC_L1_DEACTIVATE_NT channel(%i)",
+						 dch->channel);
 
 			write_xhfc(hw, R_SU_SEL, pt);
 			write_xhfc(hw, A_SU_WR_STA, STA_DEACTIVATE);
@@ -166,14 +171,127 @@ xhfc_ph_command(dchannel_t * dch, u_char command)
 	}
 }
 
+
+static void
+l1_timer_start_t3(dchannel_t * dch)
+{
+	xhfc_hw *hw = dch->hw;
+	__u8 pt = hw->chan[dch->channel].port;
+
+	if (!timer_pending(&hw->port[pt].t3_timer)) {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "starting T3");
+
+		hw->port[pt].t3_timer.expires = jiffies + (XHFC_TIMER_T3 * HZ) / 1000;
+		add_timer(&hw->port[pt].t3_timer);
+	}
+}
+
+static void
+l1_timer_stop_t3(dchannel_t * dch)
+{
+	xhfc_hw *hw = dch->hw;
+	__u8 pt = hw->chan[dch->channel].port;
+
+	if (timer_pending(&hw->port[pt].t3_timer)) {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "stopping T3");
+					 		
+		del_timer(&hw->port[pt].t3_timer);
+	}
+}
+
+/***********************************/
+/* called when timer t3 expires    */
+/* -> activation failed            */
+/*    force clean L1 deactivation  */
+/***********************************/
+static void
+l1_timer_expire_t3(dchannel_t * dch)
+{
+	xhfc_hw *hw = dch->hw;
+	__u8 pt = hw->chan[dch->channel].port;
+
+	if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+		mISDN_debugprint(&dch->inst,
+			 "%s activation failed", __FUNCTION__);	
+
+	clear_bit(HFC_L1_ACTIVATING, &hw->port[pt].l1_flags),
+	xhfc_ph_command(dch, HFC_L1_FORCE_DEACTIVATE_TE);
+	
+	mISDN_queue_data(&dch->inst, FLG_MSG_UP,
+		(PH_DEACTIVATE | INDICATION),
+		0, 0, NULL, 0);
+	mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_DEACTIVATED,
+		0, NULL, 0);
+}
+
+static void
+l1_timer_start_t4(dchannel_t * dch)
+{
+	xhfc_hw *hw = dch->hw;
+	__u8 pt = hw->chan[dch->channel].port;
+
+	if (!timer_pending(&hw->port[pt].t4_timer)) {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "starting T4");
+
+		hw->port[pt].t4_timer.expires =
+		    jiffies + (XHFC_TIMER_T4 * HZ) / 1000;
+		add_timer(&hw->port[pt].t4_timer);
+	}
+}
+
+static void
+l1_timer_stop_t4(dchannel_t * dch)
+{
+	xhfc_hw *hw = dch->hw;
+	__u8 pt = hw->chan[dch->channel].port;
+
+	if (timer_pending(&hw->port[pt].t4_timer)) {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "stopping T4");
+		del_timer(&hw->port[pt].t4_timer);
+	}
+}
+
+/*****************************************************/
+/* called when timer t4 expires                      */
+/* send (PH_DEACTIVATE | INDICATION) to upper layer  */
+/*****************************************************/
+static void
+l1_timer_expire_t4(dchannel_t * dch)
+{
+	xhfc_hw *hw = dch->hw;
+	__u8 pt = hw->chan[dch->channel].port;
+
+	if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+		mISDN_debugprint(&dch->inst,
+			 "%s", __FUNCTION__);	
+
+	clear_bit(HFC_L1_DEACTTIMER, &hw->port[pt].l1_flags);
+	mISDN_queue_data(&dch->inst, FLG_MSG_UP,
+		(PH_DEACTIVATE | INDICATION), 0, 0, NULL, 0);
+	mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST,
+		MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_DEACTIVATED,
+		0, NULL, 0);	
+}
+
+
+
 /*********************************/
-/* S0 state change event handler */
+/* Line Interface State handler  */
 /*********************************/
 static void
 su_new_state(dchannel_t * dch)
 {
-	u_int prim = PH_SIGNAL | INDICATION;
-	u_int para = 0;
+	u_int prim = 0;
+	
 	xhfc_hw *hw = dch->hw;
 	__u8 pt;
 
@@ -185,42 +303,88 @@ su_new_state(dchannel_t * dch)
 					 "%s: TE %d",
 					 __FUNCTION__, dch->ph_state);
 
+
+		if (dch->ph_state < 4 || dch->ph_state >= 7)
+			l1_timer_stop_t3(dch);
+
+		if (dch->ph_state >= 7)
+			l1_timer_stop_t4(dch);
+
 		switch (dch->ph_state) {
 			case (0):
-				prim = PH_CONTROL | INDICATION;
-				para = HW_RESET;
-				break;
+			case (1):
+			case (2):
 			case (3):
-				prim = PH_CONTROL | INDICATION;
-				para = HW_DEACTIVATE;
-				break;
-			case (6):
-				para = INFO2;
-				break;
+				if (test_and_clear_bit(HFC_L1_ACTIVATED, &hw->port[pt].l1_flags)) {
+					if (!(test_and_set_bit(HFC_L1_DEACTTIMER, &hw->port[pt].l1_flags))) {
+						l1_timer_start_t4(dch);
+					} else {
+						if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+							mISDN_debugprint(&dch->inst,
+								 "T4 already running");
+					}
+				} else {
+					// printk (KERN_INFO "not HFC_L1_ACTIVATED\n");
+				}
+				return;
+
 			case (7):
-				para = INFO4_P8;
+				l1_timer_stop_t3(dch);
+				l1_timer_stop_t4(dch);
+
+				if (test_and_clear_bit(HFC_L1_ACTIVATING, &hw->port[pt].l1_flags)) {
+					if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+						mISDN_debugprint(&dch->inst,
+							 "l1->l2 (PH_ACTIVATE | CONFIRM)");
+							 
+					set_bit(HFC_L1_ACTIVATED, &hw->port[pt].l1_flags);
+					prim = PH_ACTIVATE | CONFIRM;
+				} else {
+					if (!(test_and_set_bit(HFC_L1_ACTIVATED, &hw->port[pt].l1_flags))) {
+						if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+							mISDN_debugprint(&dch->inst,
+								 "l1->l2 (PH_ACTIVATE | INDICATION)");
+						prim = PH_ACTIVATE | INDICATION;
+					} else {
+						// L1 was already activated (e.g. F8->F7)
+						return;
+					}
+				}
+				mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST,
+					MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_ACTIVATED,
+					0, NULL, 0);
 				break;
+				
+			case (4):
 			case (5):
+			case (6):
+				return;
+
 			case (8):
-				para = ANYSIGNAL;
-				break;
+				l1_timer_stop_t4(dch);
+				return;
+				
 			default:
 				return;
 		}
-	}
-
-	if (hw->port[pt].mode & PORT_MODE_NT) {
+		
+	} else if (hw->port[pt].mode & PORT_MODE_NT) {
+		
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
 					 "%s: NT %d",
 					 __FUNCTION__, dch->ph_state);
 
 		switch (dch->ph_state) {
+			
 			case (1):
+				dch->l1_up = 0;
 				hw->port[pt].nt_timer = 0;
 				hw->port[pt].mode &= ~NT_TIMER;
-				prim = PH_DEACTIVATE | INDICATION;
-				para = 0;
+				prim = (PH_DEACTIVATE | INDICATION);
+				if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+					mISDN_debugprint(&dch->inst,
+						 "l1->l2 (PH_DEACTIVATE | INDICATION)");
 				break;
 			case (2):
 				if (hw->port[pt].nt_timer < 0) {
@@ -239,10 +403,14 @@ su_new_state(dchannel_t * dch)
 				}
 				return;
 			case (3):
+				dch->l1_up = 1;
 				hw->port[pt].nt_timer = 0;
 				hw->port[pt].mode &= ~NT_TIMER;
-				prim = PH_ACTIVATE | INDICATION;
-				para = 0;
+				prim = (PH_ACTIVATE | INDICATION);
+				
+				if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+					mISDN_debugprint(&dch->inst,
+						 "l1->l2 (PH_ACTIVATE | INDICATION)");				
 				break;
 			case (4):
 				hw->port[pt].nt_timer = 0;
@@ -251,161 +419,144 @@ su_new_state(dchannel_t * dch)
 			default:
 				break;
 		}
+		mISDN_queue_data(&dch->inst, dch->inst.id | MSG_BROADCAST,
+			MGR_SHORTSTATUS | INDICATION, (dch->l1_up) ?
+			SSTATUS_L1_ACTIVATED : SSTATUS_L1_DEACTIVATED,
+			0, NULL, 0);
 	}
 
-	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, para, 0, NULL, 0);
+	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, 0, 0, NULL, 0);
 }
 
 
-/*************************************/
-/* Layer 1 D-channel hardware access */
-/*************************************/
+/***********************************************/
+/* handle Layer2 -> Layer 1 D-Channel messages */
+/***********************************************/
 static int
-xhfc_l1hwD(mISDNinstance_t *inst, struct sk_buff *skb)
+xhfc_l1_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	dchannel_t	*dch = container_of(inst, dchannel_t, inst);
 	int		ret = 0;
 	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
 	xhfc_hw		*hw = inst->privat;
+	__u8		pt = hw->chan[dch->channel].port;
 	u_long		flags;
 	__u16		i;
-		
-	if (hh->prim == PH_DATA_REQ) {
-		/* check oversize */
-		if (skb->len <= 0) {
-			printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
-			return(-EINVAL);
-		}
-		if (skb->len > MAX_DFRAME_LEN_L1) {
-			printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
-			return(-EINVAL);
-		}
-		
-		/* check for pending next_skb */
-		spin_lock_irqsave(inst->hwlock, flags);
-		if (dch->next_skb) {
-			test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
-			dch->next_skb = skb;
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			mISDN_debugprint(&dch->inst, "pending dch->next_skb!\n");
+	
+	
+	// printk ("xhfc_l1_from_up 0x%x = %i\n", hh->prim, hh->prim);
+	
+	switch (hh->prim) {
+		case (PH_ACTIVATE | REQUEST):
+			if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+				mISDN_debugprint(&dch->inst,
+					 "l2->l1 (PH_ACTIVATE | REQUEST)");				
 			
-			return (0);
-		}
-		
-		if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
-			if ((dch->debug) && (debug & DEBUG_HFC_DTRACE)) {
-				mISDN_debugprint(&dch->inst, "channel(%i) busy, attaching dch->next_skb!\n",
-						 dch->channel,
-						 skb->len);
+			if (hw->port[hw->chan[dch->channel].port].mode & PORT_MODE_TE) {
+				if (test_bit(HFC_L1_ACTIVATED, &hw->port[pt].l1_flags)) {
+					
+					if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+						mISDN_debugprint(&dch->inst,
+							 "l1->l2 (PH_ACTIVATE | CONFIRM)");
+					
+					mISDN_queue_data(&dch->inst, FLG_MSG_UP,
+					                 PH_ACTIVATE | CONFIRM,
+					                 0, 0, NULL, 0);
+				} else {
+					test_and_set_bit(HFC_L1_ACTIVATING,
+					                 &hw->port[pt].l1_flags);
+
+					xhfc_ph_command(dch, HFC_L1_ACTIVATE_TE);
+					l1_timer_start_t3(dch);
+				}
+			} else {
+				xhfc_ph_command(dch, HFC_L1_ACTIVATE_NT);
 			}
-			test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
-			dch->next_skb = skb;
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			return (0);
-		} else {
-			dch->tx_len = skb->len;
-			memcpy(dch->tx_buf, skb->data, dch->tx_len);
-			dch->tx_idx = 0;
-			if ((dch->debug) && (debug & DEBUG_HFC_DTRACE)) {
-				mISDN_debugprint(&dch->inst,
-						 "channel(%i) new D-TX len(%i): ",
-						 dch->channel,
-						 dch->tx_len);
-				i = 0;
-				printk("  ");
-				while (i < dch->tx_len)
-					printk("%02x ", skb->data[i++]);
-				printk("\n");
+			break;
+			
+		case (PH_DEACTIVATE | REQUEST):
+			if (hw->port[hw->chan[dch->channel].port].mode & PORT_MODE_TE) {
+				// no deact request in TE mode !
+				ret = -EINVAL;
+			} else {
+				xhfc_ph_command(dch, HFC_L1_DEACTIVATE_NT);
 			}
-			spin_unlock_irqrestore(inst->hwlock, flags);
-
-			/* schedule bottom half instead of */
-			/* calling xhfc_write_fifo */
-			tasklet_schedule(&hw->tasklet);
-
-			skb_trim(skb, 0);
-
-			return(mISDN_queueup_newhead(inst, 0, PH_DATA_CNF,
-				hh->dinfo, skb));
-		}
-	} else if (hh->prim == (PH_SIGNAL | REQUEST)) {
-		ret = -EINVAL;
-	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
-		spin_lock_irqsave(inst->hwlock, flags);
-		if (hh->dinfo == HW_RESET) {
-			if (dch->ph_state != 0)
-				xhfc_ph_command(dch, HFC_L1_ACTIVATE_TE);
-			spin_unlock_irqrestore(inst->hwlock, flags);
-			skb_trim(skb, 0);
-			return(mISDN_queueup_newhead(inst, 0, PH_CONTROL | INDICATION,HW_POWERUP, skb));
-		} else if (hh->dinfo == HW_DEACTIVATE) {
+			break;
+			
+		case (PH_DATA | REQUEST) :
+			/* check oversize */
+			if (skb->len <= 0) {
+				printk(KERN_WARNING "%s: skb too small\n", __FUNCTION__);
+				return(-EINVAL);
+			}
+			if (skb->len > MAX_DFRAME_LEN_L1) {
+				printk(KERN_WARNING "%s: skb too large\n", __FUNCTION__);
+				return(-EINVAL);
+			}
+			
+			/* check for pending next_skb */
+			spin_lock_irqsave(inst->hwlock, flags);
 			if (dch->next_skb) {
-				dev_kfree_skb(dch->next_skb);
-				dch->next_skb = NULL;
+				test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
+				dch->next_skb = skb;
+				spin_unlock_irqrestore(inst->hwlock, flags);
+				mISDN_debugprint(&dch->inst, "pending dch->next_skb!\n");
+				
+				return (0);
 			}
-			test_and_clear_bit(FLG_TX_NEXT, &dch->DFlags);
-			test_and_clear_bit(FLG_TX_BUSY, &dch->DFlags);
-#ifdef FIXME
-			if (test_and_clear_bit(FLG_L1_DBUSY, &dch->DFlags))
-				dchannel_sched_event(dch, D_CLEARBUSY);
-#endif
-		} else if ((hh->dinfo & HW_TESTLOOP) == HW_TESTLOOP) {
-			if (1 & hh->dinfo)
-				xhfc_ph_command(dch, HFC_L1_TESTLOOP_B1);
-				
-			if (2 & hh->dinfo)
-				xhfc_ph_command(dch, HFC_L1_TESTLOOP_B2);
-				
-		} else if (hh->dinfo == HW_POWERUP) {
-			xhfc_ph_command(dch, HFC_L1_FORCE_DEACTIVATE_TE);
-		} else {
-			if (dch->debug & L1_DEB_WARN)
-				mISDN_debugprint(&dch->inst,
-						 "xhfc_l1hw unknown ctrl %x",
-						 hh->dinfo);
-			ret = -EINVAL;
-		}
-		spin_unlock_irqrestore(inst->hwlock, flags);
-	} else if (hh->prim == (PH_ACTIVATE | REQUEST)) {
-		spin_lock_irqsave(inst->hwlock, flags);
-		if (hw->port[hw->chan[dch->channel].port].mode & PORT_MODE_NT) {
-			xhfc_ph_command(dch, HFC_L1_ACTIVATE_NT);
-		} else {
-			if (dch->debug & L1_DEB_WARN)
-				mISDN_debugprint(&dch->inst,
-						 "%s: PH_ACTIVATE none NT mode",
-						 __FUNCTION__);
-			ret = -EINVAL;
-		}
-		spin_unlock_irqrestore(inst->hwlock, flags);
-	} else if (hh->prim == (PH_DEACTIVATE | REQUEST)) {
-		spin_lock_irqsave(inst->hwlock, flags);
-		if (hw->port[hw->chan[dch->channel].port].mode & PORT_MODE_NT) {
-			xhfc_ph_command(dch, HFC_L1_DEACTIVATE_NT);
-		} else {
-			if (dch->debug & L1_DEB_WARN)
-				mISDN_debugprint(&dch->inst,
-						 "%s: PH_DEACTIVATE none NT mode",
-						 __FUNCTION__);
-			ret = -EINVAL;
-		}
-		spin_unlock_irqrestore(inst->hwlock, flags);
-	} else {
-		if (dch->debug & L1_DEB_WARN)
-			mISDN_debugprint(&dch->inst,
-					 "xhfc_l1hw unknown prim %x",
-					 hh->prim);
-		ret = -EINVAL;
+			
+			if (test_and_set_bit(FLG_TX_BUSY, &dch->DFlags)) {
+				if ((dch->debug) && (debug & DEBUG_HFC_DTRACE)) {
+					mISDN_debugprint(&dch->inst, "channel(%i) busy, attaching dch->next_skb!\n",
+							 dch->channel,
+							 skb->len);
+				}
+				test_and_set_bit(FLG_TX_NEXT, &dch->DFlags);
+				dch->next_skb = skb;
+				spin_unlock_irqrestore(inst->hwlock, flags);
+				return (0);
+			} else {
+				dch->tx_len = skb->len;
+				memcpy(dch->tx_buf, skb->data, dch->tx_len);
+				dch->tx_idx = 0;
+				if ((dch->debug) && (debug & DEBUG_HFC_DTRACE)) {
+					mISDN_debugprint(&dch->inst,
+							 "channel(%i) new D-TX len(%i): ",
+							 dch->channel,
+							 dch->tx_len);
+					i = 0;
+					printk("  ");
+					while (i < dch->tx_len)
+						printk("%02x ", skb->data[i++]);
+					printk("\n");
+				}
+				spin_unlock_irqrestore(inst->hwlock, flags);
+	
+				/* schedule bottom half instead of */
+				/* calling xhfc_write_fifo */
+				tasklet_schedule(&hw->tasklet);
+	
+				skb_trim(skb, 0);
+	
+				return(mISDN_queueup_newhead(inst, 0, PH_DATA_CNF,
+					hh->dinfo, skb));
+			}						
+			break;
+			
+		case (MDL_FINDTEI | REQUEST):
+			return(mISDN_queue_up(inst, 0, skb));
+			break;
 	}
-	if (!ret)
-		dev_kfree_skb(skb);
-	return (ret);
+	
+	return(ret);
+
 }
 
 
-/******************************/
-/* Layer2 -> Layer 1 Transfer */
-/******************************/
+
+/***********************************************/
+/* handle Layer2 -> Layer 1 B-Channel messages */
+/***********************************************/
 static int
 xhfc_l2l1B(mISDNinstance_t *inst, struct sk_buff *skb)
 {
@@ -587,7 +738,7 @@ xhfc_manager(void *data, u_int prim, void *arg)
 			if ((skb = create_link_skb(PH_CONTROL | REQUEST,
 			     HW_DEACTIVATE, 0, NULL, 0))) {
 				if (channel == 2) {
-					if (xhfc_l1hwD(inst, skb))
+					if (xhfc_l1_from_up(inst, skb))
 						dev_kfree_skb(skb);
 				} else {
 					if (xhfc_l2l1B(inst, skb))
@@ -1746,7 +1897,7 @@ init_mISDN_channels(xhfc_hw * hw)
 		dch->inst.obj = &hw_mISDNObj;
 		dch->inst.hwlock = &hw->lock;
 		dch->inst.class_dev.dev = &hw->pdev->dev;
-		mISDN_init_instance(&dch->inst, &hw_mISDNObj, hw, xhfc_l1hwD);
+		mISDN_init_instance(&dch->inst, &hw_mISDNObj, hw, xhfc_l1_from_up);
 		dch->inst.pid.layermask = ISDN_LAYER(0);
 		sprintf(dch->inst.name, "%s/%d", hw->card_name, pt);
 
@@ -1763,6 +1914,16 @@ init_mISDN_channels(xhfc_hw * hw)
 		}
 		dch->hw = hw;
 		hw->chan[ch].dch = dch;
+
+		/* init t3 timer */
+		init_timer(&hw->port[pt].t3_timer);
+		hw->port[pt].t3_timer.data = (long) dch;
+		hw->port[pt].t3_timer.function = (void *) l1_timer_expire_t3;
+
+		/* init t4 timer */
+		init_timer(&hw->port[pt].t4_timer);
+		hw->port[pt].t4_timer.data = (long) dch;
+		hw->port[pt].t4_timer.function = (void *) l1_timer_expire_t4;
 
 		/* init B channels */
 		for (b = 0; b < 2; b++) {
@@ -2190,14 +2351,10 @@ xhfc_init(void)
 	hw_mISDNObj.name = DRIVER_NAME;
 	hw_mISDNObj.own_ctrl = xhfc_manager;
 
-	hw_mISDNObj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 |
-	    ISDN_PID_L0_NT_S0;
-	hw_mISDNObj.DPROTO.protocol[1] = ISDN_PID_L1_NT_S0;
-	hw_mISDNObj.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS |
-	    ISDN_PID_L1_B_64HDLC;
-	hw_mISDNObj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS |
-	    ISDN_PID_L2_B_RAWDEV;
-
+	hw_mISDNObj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 | ISDN_PID_L0_NT_S0;
+	hw_mISDNObj.DPROTO.protocol[1] = ISDN_PID_L1_TE_S0 | ISDN_PID_L1_NT_S0;
+	hw_mISDNObj.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS | ISDN_PID_L1_B_64HDLC;
+	hw_mISDNObj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS | ISDN_PID_L2_B_RAWDEV;
 	card_cnt = 0;
 
 	if ((err = mISDN_register(&hw_mISDNObj))) {
