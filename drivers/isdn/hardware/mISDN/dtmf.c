@@ -36,7 +36,7 @@ typedef struct _dtmf {
 #define	FLG_DTMF_ULAW	1
 #define FLG_DTMF_ACTIV	2
 
-static int debug = 0;
+static u_int debug = 0;
 
 #define DEBUG_DTMF_MGR		0x001
 #define DEBUG_DTMF_TONE		0x010
@@ -559,7 +559,8 @@ static char MName[] = "DTMF";
 
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
-MODULE_PARM(debug, "1i");
+module_param (debug, uint, S_IRUGO | S_IWUSR);
+MODULE_PARM_DESC (debug, "dtmf debug mask");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif

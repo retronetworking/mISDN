@@ -556,6 +556,8 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 			data, prim, arg);
 		return(-EINVAL);
 	}
+	if (debug & MISDN_DEBUG_MANAGER)
+		printk(KERN_DEBUG "%s: channel %d\n", __FUNCTION__, channel);
 	switch(prim) {
 	    case MGR_REGLAYER | CONFIRM:
 		if (channel == 2)
@@ -686,7 +688,7 @@ static int __devinit setup_instance(sedl_fax *card)
 		card->bch[i].debug = debug;
 		card->bch[i].inst.class_dev.dev = dev;
 		sprintf(card->bch[i].inst.name, "%s B%d", card->dch.inst.name, i+1);
-		mISDN_initchannel(&card->dch, MSK_INIT_BCHANNEL, MAX_DATA_MEM);
+		mISDN_initchannel(&card->bch[i], MSK_INIT_BCHANNEL, MAX_DATA_MEM);
 	}
 	printk(KERN_DEBUG "sfax card %p dch %p bch1 %p bch2 %p\n",
 		card, &card->dch, &card->bch[0], &card->bch[1]);

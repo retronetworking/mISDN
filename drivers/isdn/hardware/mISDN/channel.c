@@ -13,7 +13,8 @@
 int
 mISDN_initchannel(channel_t *ch, ulong prop, int maxlen)
 {
-	if (!(ch->log = kmalloc(MAX_LOG_SPACE, GFP_ATOMIC))) {
+	ch->log = kmalloc(MAX_LOG_SPACE, GFP_ATOMIC);
+	if (!ch->log) {
 		printk(KERN_WARNING
 			"mISDN: No memory for channel log\n");
 		return(-ENOMEM);
