@@ -26,7 +26,6 @@
 
 #include <linux/timer.h>
 #include "channel.h"
-#include "bchannel.h"
 #include "xhfc24succ.h"
 
 #define DRIVER_NAME "XHFC"
@@ -105,8 +104,7 @@
 #define DEBUG_HFC_FIFO		0x8000	/* very(!) heavy messageslog load */
 
 #define USE_F0_COUNTER	1	/* akkumulate F0 counter diff every irq */
-
-
+#define TRANSP_PACKET_SIZE 0	/* minium tranparent packet size for transmittion to upper layer */
 
 
 /* private driver_data */
@@ -116,22 +114,14 @@ typedef struct {
 } xhfc_param;
 
 
-/* channel struct for each fifo */
-typedef struct {
-	bchannel_t *bch;
-	channel_t *dch;
-	int rx_idx;		/* for D-channel */
-	__u8 *rx_buf;		/* for D-channel */
-	int port;		/* index pointer to port struct */
-} xhfc_chan_t;
-
-
 /* port struct for each S/U port */
 typedef struct {
+	int idx;
+
 	__u8 dpid;		/* DChannel Protocoll ID */
 	__u16 mode;		/* NT/TE + ST/U */
 	int nt_timer;
-	
+
 	u_long	l1_flags;
 	struct timer_list t3_timer;	/* timer 3 for activation/deactivation */
 	struct timer_list t4_timer;	/* timer 4 for activation/deactivation */
@@ -142,6 +132,14 @@ typedef struct {
 	reg_a_su_ctrl2 su_ctrl2;
 	reg_a_su_ctrl3 su_ctrl3;
 } xhfc_port_t;
+
+
+/* channel struct for each fifo */
+typedef struct {
+	channel_t   ch;
+	xhfc_port_t * port;
+} xhfc_chan_t;
+
 
 struct _xhfx_hw;
 
@@ -175,8 +173,9 @@ typedef struct _xhfx_hw {
 	int num_ports;		/* number of S and U interfaces */
 	int max_fifo;		/* always 4 fifos per port */
 	__u8 max_z;		/* fifo depth -1 */
-	xhfc_chan_t chan[MAX_CHAN];	/* line interfaces */
-	xhfc_port_t port[MAX_PORT];
+	
+	xhfc_port_t port[MAX_PORT]; /* one for each Line intercace */
+	xhfc_chan_t chan[MAX_CHAN]; /* one each D/B/PCM channel */
 
 	__u32 irq_cnt;	/* count irqs */
 	__u32 f0_cnt;	/* last F0 counter value */
