@@ -1318,6 +1318,16 @@ l3dss1_progress(l3_process_t *pc, u_char pr, void *arg) {
 	err = check_infoelements(pc, skb, ie_PROGRESS);
 	if (err)
 		l3dss1_std_ie_err(pc, err);
+	/* 
+	 * clear T310 if running (should be cleared by a Progress 
+	 * Message, according to ETSI). 
+	 * 
+	 */
+	L3DelTimer(&pc->timer);
+	if (pc->t303skb) {
+		dev_kfree_skb(pc->t303skb);
+		pc->t303skb = NULL;
+	}
 	if (ERR_IE_COMPREHENSION != err) {
 		if (mISDN_l3up(pc, CC_PROGRESS | INDICATION, skb))
 			dev_kfree_skb(skb);
