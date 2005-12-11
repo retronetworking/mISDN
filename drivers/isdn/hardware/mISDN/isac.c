@@ -668,7 +668,9 @@ mISDN_ISAC_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 		}
 #endif
 		ret = 0;
-	} else {
+	} else if ((hh->prim & MISDN_CMD_MASK) == MGR_SHORTSTATUS)
+		ret = -EAGAIN;
+	else {
 		if (dch->debug & L1_DEB_WARN)
 			mISDN_debugprint(&dch->inst, "isac_l1hw unknown prim %x",
 				hh->prim);
