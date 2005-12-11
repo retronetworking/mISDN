@@ -1855,9 +1855,6 @@ setup_hfcpci(hfc_pci_t *hc)
 	struct pci_dev *tmp_hfcpci = NULL;
 	void *buffer;
 
-#ifdef __BIG_ENDIAN
-#error "not running on big endian machines now"
-#endif
 	strcpy(tmp, hfcpci_revision);
 	printk(KERN_INFO "mISDN: HFC-PCI driver Rev. %s\n", mISDN_getrev(tmp));
 	hc->hw.cirm = 0;
