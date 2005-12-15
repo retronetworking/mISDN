@@ -34,6 +34,7 @@ endif
 
 ifdef CONFIG_MISDN_SPEEDFAX
 obj-$(CONFIG_MISDN_DRV) += sedlfax.o
+# obj-$(CONFIG_MISDN_DRV) += faxl3.o
 endif
 
 ifdef CONFIG_MISDN_W6692
@@ -68,7 +69,8 @@ hfcmulti-objs := hfc_multi.o
 xhfc-objs := xhfc_su.o xhfc_pci2pi.o
 mISDN_isac-objs := isac.o arcofi.o
 mISDN_core-objs := core.o stack.o udevice.o helper.o debug.o fsm.o \
-			dchannel.o bchannel.o l3helper.o
+			channel.o l3helper.o \
+			sysfs_obj.o sysfs_inst.o sysfs_st.o
 ifdef CONFIG_MISDN_MEMDEBUG
 mISDN_core-objs += memdbg.o
 endif
@@ -80,8 +82,6 @@ mISDN_capi-objs := capi.o contr.o listen.o appl.o plci.o app_plci.o ncci.o asn1.
                    asn1_basic_service.o asn1_address.o asn1_enc.o capi_enc.o \
                    supp_serv.o
 mISDN_dtmf-objs := dtmf.o
-mISDN_dsp-objs := dsp_core.o dsp_cmx.o dsp_tones.o dsp_dtmf.o dsp_audio.o dsp_blowfish.o
+mISDN_dsp-objs := dsp_core.o dsp_cmx.o dsp_tones.o dsp_dtmf.o dsp_audio.o dsp_blowfish.o dsp_cancel.o
 mISDN_x25dte-objs := x25_dte.o x25_l3.o
 I4LmISDN-objs := i4l_mISDN.o
-
-include Rules.mISDN
