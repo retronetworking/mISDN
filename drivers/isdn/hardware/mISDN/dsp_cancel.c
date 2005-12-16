@@ -13,6 +13,7 @@
 #include "helper.h"
 #include "debug.h"
 #include "dsp.h"
+#include <asm/i387.h>
 
 
 /*
@@ -36,7 +37,13 @@ dsp_cancel_tx(dsp_t *dsp, u8 *data, int len)
 		memcpy(&dsp->txbuf[dsp->txbuflen],data,len);
 		dsp->txbuflen+=len;
 	} else {
-		printk("ECHOCAN: TXBUF Overflow len:%d newlen:%d\n",dsp->txbuflen,len);
+		static int i=0;
+		if(i==4000) {
+			printk("ECHOCAN: i:%d TXBUF Overflow txbuflen:%d txcancellen:%d\n", i, dsp->txbuflen,len);
+			i=0;
+		}
+		i+=len;
+
 		dsp->txbuflen=0;
 	}
 	
@@ -54,8 +61,10 @@ dsp_cancel_rx(dsp_t *dsp, u8 *data, int len)
 		int delta=dsp->txbuflen-len;
 		
 		memcpy(tmp,&dsp->txbuf[len],delta);
-		
+	
+		kernel_fpu_begin();
 		bchdev_echocancel_chunk(dsp, data, dsp->txbuf, len);
+		kernel_fpu_end();
 		
 		memcpy(dsp->txbuf,tmp,delta);
 		dsp->txbuflen=delta;
@@ -63,7 +72,12 @@ dsp_cancel_rx(dsp_t *dsp, u8 *data, int len)
 		
 		//bchdev_echocancel_chunk(dsp,  dsp->txbuf, data, len);
 	} else {
-		printk("ECHOCAN: TXBUF Underrun len:%d newlen:%d\n",dsp->txbuflen,len);
+		static int i=0;
+		if(i==4000) {
+			printk("ECHOCAN: i:%d TXBUF Underrun txbuflen:%d rxcancellen:%d\n",i,dsp->txbuflen,len);
+			i=0;
+		}
+		i+=len;
 	}
 	
 }

@@ -38,6 +38,7 @@ all:
 install: all
 	cd $(LINUX) ; make SUBDIRS=$(MISDN_SRC) modules_install 
 	cp $(MISDNDIR)/include/linux/*.h $(INSTALL_PREFIX)/usr/include/linux/
+	install -m755 misdn-init /etc/init.d/
 	depmod
 
 .PHONY: install all clean 
