@@ -36,7 +36,7 @@
 #define PORT_MODE_TE		0x01
 #define PORT_MODE_NT		0x02
 #define NT_ACTIVATION_TIMER	0x04 /* enables NT mode activation Timer */
-#define NT_T1_COUNT		100 // 10 !
+#define NT_T1_COUNT		10
 
 #define MAX_BCH_SIZE 2048	/* allowed B-channel packet size */
 
