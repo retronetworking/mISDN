@@ -20,8 +20,13 @@
 #define CLKDEL_TE	0x0f	/* CLKDEL in TE mode */
 #define CLKDEL_NT	0x6c	/* CLKDEL in NT mode */
 
+/* hfcsusb Layer1 commands */
+#define HFC_L1_ACTIVATE_TE	0x01
+#define HFC_L1_ACTIVATE_NT	0x02
+#define HFC_L1_DEACTIVATE_NT	0x03
+#define HFC_L1_FORCE_DEACTIVATE_TE 0x04
 
-/* bits in STATES */
+/* cmd FLAGS in HFCUSB_STATES register */
 #define HFCUSB_LOAD_STATE	0x10
 #define HFCUSB_ACTIVATE		0x20
 #define HFCUSB_DO_ACTION	0x40
@@ -31,13 +36,7 @@
 #define PORT_MODE_TE		0x01
 #define PORT_MODE_NT		0x02
 #define NT_ACTIVATION_TIMER	0x04 /* enables NT mode activation Timer */
-#define NT_T1_COUNT		10
-
-
-#define HFCUSB_L1_STATECHANGE 0	/* L1 state changed */
-#define HFCUSB_L1_DRX 1		/* D-frame received */
-#define HFCUSB_L1_ERX 2		/* E-frame received */
-#define HFCUSB_L1_DTX 4		/* D-frames completed */
+#define NT_T1_COUNT		100 // 10 !
 
 #define MAX_BCH_SIZE 2048	/* allowed B-channel packet size */
 
@@ -134,7 +133,6 @@ static int iso_packets[8] =
 /* USB related defines */
 /***********************/
 #define HFC_CTRL_BUFSIZE 32
-
 
 
 /*************************************************/

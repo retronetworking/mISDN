@@ -38,13 +38,6 @@
 #include "hfcs_usb.h"
 
 
-/* hfcsusb Layer1 commands */
-#define HFC_L1_ACTIVATE_TE	0x01
-#define HFC_L1_ACTIVATE_NT	0x02
-#define HFC_L1_DEACTIVATE_NT	0x03
-#define HFC_L1_FORCE_DEACTIVATE_TE 0x04
-
-
 #define DRIVER_NAME "mISDN_hfcsusb"
 const char *hfcsusb_rev = "$Revision$";
 
@@ -393,6 +386,11 @@ S0_new_state(channel_t * dch)
 			default:
 				return;
 		}
+		if (dch->state== 7)
+			test_and_set_bit(FLG_ACTIVE, &dch->Flags);
+		else
+			test_and_clear_bit(FLG_ACTIVE, &dch->Flags);
+		
 	} else {
 		if (dch->debug)
 			mISDN_debugprint(&card->chan[D].inst,
@@ -588,7 +586,7 @@ hfcsusb_ph_command(hfcsusb_t * card, u_char command)
 
 		case HFC_L1_DEACTIVATE_NT:
 			queued_Write_hfc(card, HFCUSB_STATES,
-					       HFCUSB_DO_ACTION);
+			 		       HFCUSB_DO_ACTION);
 			break;
 	}
 }
