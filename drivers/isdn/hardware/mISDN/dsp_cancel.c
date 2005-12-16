@@ -68,9 +68,6 @@ dsp_cancel_rx(dsp_t *dsp, u8 *data, int len)
 		
 		memcpy(dsp->txbuf,tmp,delta);
 		dsp->txbuflen=delta;
-		//dsp->txbuflen=0;
-		
-		//bchdev_echocancel_chunk(dsp,  dsp->txbuf, data, len);
 	} else {
 		static int i=0;
 		if(i==4000) {
