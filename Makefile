@@ -24,7 +24,7 @@ CONFIGS+=CONFIG_MISDN_AVM_FRITZ=m
 
 MINCLUDES+=-I$(MISDNDIR)/include
 
-all: 
+all: test_old_misdn
 	@echo
 	@echo "Makeing mISDN"
 	@echo "============="
@@ -40,6 +40,11 @@ install: all
 	cp $(MISDNDIR)/include/linux/*.h $(INSTALL_PREFIX)/usr/include/linux/
 	install -m755 misdn-init /etc/init.d/
 	depmod
+
+
+test_old_misdn:
+	@if ! echo -ne "#include <linux/mISDNif.h>\n#ifndef FLG_MSG_DOWN\n#error old mISDNif.h\n#endif\n" | gcc -C -E - > /dev/null ; then echo -e "you should remove /lib/modules/$(uname -r)/build/include/linux/mISDNif.h and\n/lib/modules/$(uname -r)/build/include/linux/isdn_compat.h\nIn order to upgrade to the mqueue branch\n\n" ;  exit 1; fi
+
 
 .PHONY: install all clean 
 
