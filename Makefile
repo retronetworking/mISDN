@@ -6,7 +6,10 @@ export INSTALL_PREFIX
 
 #PATH to linux source/headers
 #LINUX=/usr/src/linux
-LINUX=/lib/modules/$(shell uname -r)/build
+MODS=/lib/modules/$(shell uname -r)
+LINUX=$(MODS)/build
+LINUX_SOURCE=$(MODS)/source
+
 
 MISDNDIR=$(BASEDIR)
 MISDN_SRC=$(MISDNDIR)/drivers/isdn/hardware/mISDN
@@ -31,8 +34,7 @@ all: test_old_misdn
 	@echo
 	cp $(MISDNDIR)/drivers/isdn/hardware/mISDN/Makefile.v2.6 $(MISDNDIR)/drivers/isdn/hardware/mISDN/Makefile
 
-#	cd $(LINUX) ; make SUBDIRS=$(MISDN_SRC) modules $(CONFIGS) LINUXINCLUDE="$(MINCLUDES) -I$(LINUX)/include"
-	 make -C $(LINUX) SUBDIRS=$(MISDN_SRC) modules $(CONFIGS) 
+	 make -C $(LINUX) SUBDIRS=$(MISDN_SRC) LINUXINCLUDE="-I$(MISDNDIR)/include/ -I$(LINUX)/include -I$(LINUX_SOURCE)/include" modules $(CONFIGS) 
 
 
 install: all
