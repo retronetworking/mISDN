@@ -142,7 +142,7 @@ xhfc_ph_command(channel_t * dch, u_char command)
 			write_xhfc(hw, R_SU_SEL, port->idx);
 			write_xhfc(hw, A_SU_WR_STA, STA_DEACTIVATE);
 			break;
-			
+
 		case HFC_L1_TESTLOOP_B1:
 			setup_fifo(hw, port->idx*8,   0xC6, 0, 0, 0);	/* connect B1-SU RX with PCM TX */
 			setup_fifo(hw, port->idx*8+1, 0xC6, 0, 0, 0);	/* connect B1-SU TX with PCM RX */
@@ -182,10 +182,14 @@ l1_timer_start_t3(channel_t * dch)
 	if (!timer_pending(&port->t3_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "starting T3");
+				 "%s: starting T3", __FUNCTION__);
 
 		port->t3_timer.expires = jiffies + (XHFC_TIMER_T3 * HZ) / 1000;
 		add_timer(&port->t3_timer);
+	} else {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "%s: T3 already running", __FUNCTION__);
 	}
 }
 
@@ -195,12 +199,17 @@ l1_timer_stop_t3(channel_t * dch)
 	xhfc_hw * hw = dch->hw;
 	xhfc_port_t * port = hw->chan[dch->channel].port;
 
+	clear_bit(HFC_L1_ACTIVATING, &port->l1_flags);
 	if (timer_pending(&port->t3_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "stopping T3");
+				 "%s: stopping T3", __FUNCTION__);
 					 		
 		del_timer(&port->t3_timer);
+	} else {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "%s: no T3 running", __FUNCTION__);
 	}
 }
 
@@ -235,18 +244,21 @@ l1_timer_start_t4(channel_t * dch)
 {
 	xhfc_hw * hw = dch->hw;
 	xhfc_port_t * port = hw->chan[dch->channel].port;
-	
-	
+
 	set_bit(HFC_L1_DEACTTIMER, &port->l1_flags);
-	
+
 	if (!timer_pending(&port->t4_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "starting T4");
+				 "%s: starting T4", __FUNCTION__);
 
 		port->t4_timer.expires =
 		    jiffies + (XHFC_TIMER_T4 * HZ) / 1000;
 		add_timer(&port->t4_timer);
+	} else {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "%s: T4 already running", __FUNCTION__);
 	}
 }
 
@@ -256,11 +268,16 @@ l1_timer_stop_t4(channel_t * dch)
 	xhfc_hw * hw = dch->hw;
 	xhfc_port_t * port = hw->chan[dch->channel].port;
 
+	clear_bit(HFC_L1_DEACTTIMER, &port->l1_flags);
 	if (timer_pending(&port->t4_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "stopping T4");
+				 "%s: stopping T4", __FUNCTION__);
 		del_timer(&port->t4_timer);
+	} else {
+		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+			mISDN_debugprint(&dch->inst,
+				 "%s: no T4 running", __FUNCTION__);
 	}
 }
 
@@ -273,10 +290,12 @@ l1_timer_expire_t4(channel_t * dch)
 {
 	xhfc_hw * hw = dch->hw;
 	xhfc_port_t * port = hw->chan[dch->channel].port;
+	
+	printk ("l1_timer_expire_t4 (!!!) channel(%i)\n", dch->channel);
 
 	if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 		mISDN_debugprint(&dch->inst,
-			 "%s", __FUNCTION__);	
+			 "%s: l1->l2 (PH_DEACTIVATE | INDICATION)", __FUNCTION__);
 
 	clear_bit(HFC_L1_DEACTTIMER, &port->l1_flags);
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP,
@@ -316,22 +335,13 @@ su_new_state(channel_t * dch)
 			case (2):
 			case (3):
 				if (test_and_clear_bit(HFC_L1_ACTIVATED, &port->l1_flags)) {
-					if (!(test_bit(HFC_L1_DEACTTIMER, &port->l1_flags))) {
-						l1_timer_start_t4(dch);
-					} else {
-						if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-							mISDN_debugprint(&dch->inst,
-								 "T4 already running");
-					}
+					l1_timer_start_t4(dch);
 				} else {
-					// printk (KERN_INFO "not HFC_L1_ACTIVATED\n");
+					printk ("transtion ?->3, no T4 required...\n");
 				}
 				return;
 
 			case (7):
-				l1_timer_stop_t3(dch);
-				l1_timer_stop_t4(dch);
-
 				if (test_and_clear_bit(HFC_L1_ACTIVATING, &port->l1_flags)) {
 					if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 						mISDN_debugprint(&dch->inst,
@@ -569,15 +579,12 @@ xhfc_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 	int		ret = 0;
 	u_long		flags;
 	
-	
-	// printk ("xhfc_l2l1 0x%x = %i\n", hh->prim, hh->prim);
-	
 	if ((hh->prim == PH_DATA_REQ) || (hh->prim == DL_DATA_REQ)) {
 		spin_lock_irqsave(inst->hwlock, flags);
 		ret = channel_senddata(chan, hh->dinfo, skb);
 		if (ret > 0) { /* direct TX */
 			tasklet_schedule(&hw->tasklet);
-			printk ("%i bytes in channel(%i)\n", ret, chan->channel);
+			// printk ("PH_DATA_REQ: %i bytes in channel(%i)\n", ret, chan->channel);
 			ret = 0;
 		}
 		spin_unlock_irqrestore(inst->hwlock, flags);

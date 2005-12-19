@@ -86,8 +86,8 @@
 /* xhfc Layer1 Flags (stored in xhfc_port_t->l1_flags) */
 #define HFC_L1_ACTIVATING	1
 #define HFC_L1_ACTIVATED	2
-#define HFC_L1_DEACTTIMER	3
-#define HFC_L1_ACTTIMER		4
+#define HFC_L1_DEACTTIMER	4
+#define HFC_L1_ACTTIMER		8
 
 #define FIFO_MASK_TX	0x55555555
 #define FIFO_MASK_RX	0xAAAAAAAA
