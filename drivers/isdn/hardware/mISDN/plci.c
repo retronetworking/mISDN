@@ -80,8 +80,11 @@ int plci_l3l4(Plci_t *plci, int pr, struct sk_buff *skb)
 		case CC_SETUP | INDICATION:
 			plciHandleSetupInd(plci, pr, qi);
 			break;
+		/*
+		// no extra treatment for CC_RELEASE_CR | INDICATION ! 
 		case CC_RELEASE_CR | INDICATION:
 			break;
+		*/
 		default:
 			list_for_each_safe(item, next, &plci->AppPlcis) {
 				aplci = (AppPlci_t *)item;
