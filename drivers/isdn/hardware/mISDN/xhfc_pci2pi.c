@@ -1,6 +1,6 @@
 /* $Id$
  *
- * xhfc support for the PCI2PI Pci Bridge
+ * PCI2PI Pci Bridge support for xhfc_su.c
  *
  * Authors : Martin Bachem, Joerg Ciesielski
  * Contact : info@colognechip.com
