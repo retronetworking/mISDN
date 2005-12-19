@@ -1313,6 +1313,7 @@ static struct FsmNode fn_plci_list[] =
   {ST_PLCI_P_2,		EV_AP_CONNECT_RESP,		plci_connect_resp},
   {ST_PLCI_P_2,		EV_AP_DISCONNECT_REQ,		plci_disconnect_req},
   {ST_PLCI_P_2,		EV_PI_DISCONNECT_IND,		plci_disconnect_ind},
+  {ST_PLCI_P_2,		EV_L3_RELEASE_PROC_IND,		plci_cc_release_ind},
   {ST_PLCI_P_2,		EV_AP_INFO_REQ,			plci_info_req},
   {ST_PLCI_P_2,		EV_L3_RELEASE_IND,		plci_cc_release_ind},
   {ST_PLCI_P_2,		EV_AP_RELEASE,			plci_appl_release_disc},
@@ -1323,6 +1324,7 @@ static struct FsmNode fn_plci_list[] =
   {ST_PLCI_P_4,		EV_AP_INFO_REQ,			plci_info_req},
   {ST_PLCI_P_4,		EV_L3_SETUP_COMPL_IND,		plci_cc_setup_compl_ind},
   {ST_PLCI_P_4,		EV_L3_RELEASE_IND,		plci_cc_release_ind},
+  {ST_PLCI_P_4,		EV_L3_RELEASE_PROC_IND,		plci_cc_release_ind},
   {ST_PLCI_P_4,		EV_PI_CHANNEL_ERR,		plci_channel_err},
   {ST_PLCI_P_4,		EV_AP_RELEASE,			plci_appl_release_disc},
 
@@ -1336,6 +1338,7 @@ static struct FsmNode fn_plci_list[] =
   {ST_PLCI_P_ACT,	EV_PI_SUSPEND_CONF,		plci_suspend_conf},
   {ST_PLCI_P_ACT,	EV_L3_DISCONNECT_IND,		plci_cc_disconnect_ind},
   {ST_PLCI_P_ACT,	EV_L3_RELEASE_IND,		plci_cc_release_ind},
+  {ST_PLCI_P_ACT,	EV_L3_RELEASE_PROC_IND,		plci_cc_release_ind},
   {ST_PLCI_P_ACT,	EV_L3_NOTIFY_IND,		plci_cc_notify_ind},
   {ST_PLCI_P_ACT,	EV_L3_HOLD_IND,			plci_cc_hold_ind},
   {ST_PLCI_P_ACT,	EV_L3_HOLD_ACKNOWLEDGE,		plci_cc_hold_ack},
@@ -1355,12 +1358,14 @@ static struct FsmNode fn_plci_list[] =
   {ST_PLCI_P_HELD,	EV_L3_RETRIEVE_IND,		plci_cc_retrieve_ind},
   {ST_PLCI_P_HELD,	EV_L3_DISCONNECT_IND,		plci_cc_disconnect_ind},
   {ST_PLCI_P_HELD,	EV_L3_RELEASE_IND,		plci_cc_release_ind},
+  {ST_PLCI_P_HELD,	EV_L3_RELEASE_PROC_IND,		plci_cc_release_ind},  
   {ST_PLCI_P_HELD,	EV_L3_NOTIFY_IND,		plci_cc_notify_ind},
   {ST_PLCI_P_HELD,	EV_PI_DISCONNECT_IND,		plci_disconnect_ind},
   {ST_PLCI_P_HELD,	EV_AP_RELEASE,			plci_appl_release_disc},
 
   {ST_PLCI_P_5,		EV_PI_DISCONNECT_IND,		plci_disconnect_ind},
   {ST_PLCI_P_5,		EV_L3_RELEASE_IND,		plci_cc_release_ind},
+  {ST_PLCI_P_5,		EV_L3_RELEASE_PROC_IND,		plci_cc_release_ind},
   {ST_PLCI_P_5,		EV_AP_RELEASE,			plci_appl_release},
 
   {ST_PLCI_P_6,		EV_AP_DISCONNECT_RESP,		plci_disconnect_resp},
