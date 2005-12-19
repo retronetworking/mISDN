@@ -31,8 +31,8 @@ all: test_old_misdn
 	@echo
 	cp $(MISDNDIR)/drivers/isdn/hardware/mISDN/Makefile.v2.6 $(MISDNDIR)/drivers/isdn/hardware/mISDN/Makefile
 
-	cd $(LINUX) ; make SUBDIRS=$(MISDN_SRC) modules $(CONFIGS) LINUXINCLUDE="$(MINCLUDES) -I$(LINUX)/include"
-
+#	cd $(LINUX) ; make SUBDIRS=$(MISDN_SRC) modules $(CONFIGS) LINUXINCLUDE="$(MINCLUDES) -I$(LINUX)/include"
+	 make -C $(LINUX) SUBDIRS=$(MISDN_SRC) modules $(CONFIGS) 
 
 
 install: all
@@ -43,7 +43,12 @@ install: all
 
 
 test_old_misdn:
-	@if ! echo -ne "#include <linux/mISDNif.h>\n#ifndef FLG_MSG_DOWN\n#error old mISDNif.h\n#endif\n" | gcc -C -E - > /dev/null ; then echo -e "you should remove /lib/modules/$(uname -r)/build/include/linux/mISDNif.h and\n/lib/modules/$(uname -r)/build/include/linux/isdn_compat.h\nIn order to upgrade to the mqueue branch\n\n" ;  exit 1; fi
+	@if echo -ne "#include <linux/mISDNif.h>" | gcc -C -E - 2>/dev/null 1>/dev/null  ; then \
+		if ! echo -ne "#include <linux/mISDNif.h>\n#ifndef FLG_MSG_DOWN\n#error old mISDNif.h\n#endif\n" | gcc -C -E - 2>/dev/null 1>/dev/null ; then \
+			echo -ne "\n!!You should remove the following files:\n\n$(LINUX)/include/linux/mISDNif.h\n$(LINUX)/include/linux/isdn_compat.h\n/usr/include/linux/mISDNif.h\n/usr/include/linux/isdn_compat.h\n\nIn order to upgrade to the mqueue branch\n\n"; \
+			exit 1; \
+		fi ;\
+	fi
 
 
 .PHONY: install all clean 
