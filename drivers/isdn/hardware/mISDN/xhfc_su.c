@@ -326,22 +326,14 @@ su_new_state(channel_t * dch)
 		if (dch->state < 4 || dch->state >= 7)
 			l1_timer_stop_t3(dch);
 
-		if (dch->state >= 7)
-			l1_timer_stop_t4(dch);
-
 		switch (dch->state) {
-			case (0):
-			case (1):
-			case (2):
 			case (3):
-				if (test_and_clear_bit(HFC_L1_ACTIVATED, &port->l1_flags)) {
+				if (test_and_clear_bit(HFC_L1_ACTIVATED, &port->l1_flags))
 					l1_timer_start_t4(dch);
-				} else {
-					printk ("transtion ?->3, no T4 required...\n");
-				}
 				return;
 
 			case (7):
+				l1_timer_stop_t4(dch);
 				if (test_and_clear_bit(HFC_L1_ACTIVATING, &port->l1_flags)) {
 					if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 						mISDN_debugprint(&dch->inst,
@@ -364,16 +356,17 @@ su_new_state(channel_t * dch)
 					MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_ACTIVATED,
 					0, NULL, 0);
 				break;
-				
-			case (4):
-			case (5):
-			case (6):
-				return;
 
 			case (8):
 				l1_timer_stop_t4(dch);
 				return;
-				
+
+			case (0):
+			case (1):
+			case (2):
+			case (4):
+			case (5):
+			case (6):
 			default:
 				return;
 		}
@@ -1549,8 +1542,7 @@ setup_channel(xhfc_hw * hw, __u8 channel, int protocol)
 		}
 		return (0);
 	}
-
-	if (test_bit(FLG_DCHANNEL, &hw->chan[channel].ch.Flags)) {
+	else if (test_bit(FLG_DCHANNEL, &hw->chan[channel].ch.Flags)) {
 		if (debug & DEBUG_HFC_MODE)
 			mISDN_debugprint(&hw->chan[channel].ch.inst,
 					 "D channel(%i) protocol(%i)",
@@ -1651,7 +1643,7 @@ init_mISDN_channels(xhfc_hw * hw)
 			
 			sprintf(ch->inst.name, "%s/%d B%d",
 				hw->card_name, pt, b + 1);
-				
+
 			if (mISDN_initchannel(ch, MSK_INIT_BCHANNEL, MAX_DATA_MEM)) {
 				err = -ENOMEM;
 				goto free_channels;
@@ -1661,11 +1653,9 @@ init_mISDN_channels(xhfc_hw * hw)
 		
 		/* clear PCM */
 		memset(&hw->chan[(pt << 2) + 3], 0, sizeof(channel_t));
-		
 
 		mISDN_set_dchannel_pid(&pid, hw->port[pt].dpid,
 				       layermask[hw->param_idx + pt]);
-
 
 		/* register D Channel */
 		ch = &hw->chan[(pt << 2) + 2].ch;
@@ -1721,9 +1711,7 @@ init_mISDN_channels(xhfc_hw * hw)
 			}
 		}
 
-		err =
-		    hw_mISDNObj.ctrl(ch->inst.st, MGR_SETSTACK | REQUEST,
-				     &pid);
+		err = hw_mISDNObj.ctrl(ch->inst.st, MGR_SETSTACK | REQUEST, &pid);
 
 		if (err) {
 			printk(KERN_ERR
