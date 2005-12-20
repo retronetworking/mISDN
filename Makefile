@@ -48,6 +48,7 @@ test_old_misdn:
 	@if echo -ne "#include <linux/mISDNif.h>" | gcc -C -E - 2>/dev/null 1>/dev/null  ; then \
 		if ! echo -ne "#include <linux/mISDNif.h>\n#ifndef FLG_MSG_DOWN\n#error old mISDNif.h\n#endif\n" | gcc -C -E - 2>/dev/null 1>/dev/null ; then \
 			echo -ne "\n!!You should remove the following files:\n\n$(LINUX)/include/linux/mISDNif.h\n$(LINUX)/include/linux/isdn_compat.h\n/usr/include/linux/mISDNif.h\n/usr/include/linux/isdn_compat.h\n\nIn order to upgrade to the mqueue branch\n\n"; \
+			echo -ne "I can do that for you, just type: make force\n\n" ; \
 			exit 1; \
 		fi ;\
 	fi
@@ -55,8 +56,18 @@ test_old_misdn:
 
 .PHONY: install all clean 
 
+force:
+	rm -f $(LINUX)/include/linux/mISDNif.h
+	rm -f $(LINUX)/include/linux/isdn_compat.h
+	rm -f /usr/include/linux/mISDNif.h
+	rm -f /usr/include/linux/isdn_compat.h
+
 clean:
 	rm -rf drivers/isdn/hardware/mISDN/*.o
 	rm -rf drivers/isdn/hardware/mISDN/*.ko
 	rm -rf *~
+	find . -iname ".*.cmd" -exec rm -rf {} \;
+	find . -iname ".*.d" -exec rm -rf {} \;
+	find . -iname "*.mod.c" -exec rm -rf {} \;
+	find . -iname "*.mod" -exec rm -rf {} \;
 
