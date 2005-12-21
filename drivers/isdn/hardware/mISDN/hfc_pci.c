@@ -2099,15 +2099,14 @@ static int __init HFC_init(void)
 		mISDN_init_instance(&card->dch.inst, &HFC_obj, card, hfcpci_l2l1);
 		card->dch.inst.pid.layermask = ISDN_LAYER(0);
 		sprintf(card->dch.inst.name, "HFC%d", HFC_cnt+1);
-		card->dch.hw = card;
 		err = mISDN_initchannel(&card->dch, MSK_INIT_DCHANNEL, MAX_DFRAME_LEN_L1);
+		card->dch.hw = card;
 		if (err) {
 			mISDN_unregister(&HFC_obj);
 			return(err);
 		}
 		for (i=0; i<2; i++) {
 			card->bch[i].channel = i + 1;
-			card->bch[i].hw = card;
 			mISDN_init_instance(&card->bch[i].inst, &HFC_obj, card, hfcpci_l2l1);
 			card->bch[i].inst.pid.layermask = ISDN_LAYER(0);
 			card->bch[i].inst.hwlock = &card->lock;
@@ -2115,6 +2114,7 @@ static int __init HFC_init(void)
 			sprintf(card->bch[i].inst.name, "%s B%d",
 				card->dch.inst.name, i+1);
 			mISDN_initchannel(&card->bch[i], MSK_INIT_BCHANNEL, MAX_DATA_MEM);
+			card->bch[i].hw = card;
 #ifdef FIXME
 			if (card->bch[i].dev) {
 				card->bch[i].dev->wport.pif.func =
