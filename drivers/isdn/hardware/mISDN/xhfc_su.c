@@ -1,6 +1,6 @@
 /* $Id$
  *
- * mISDN driver for Colognechip XHFC chip
+ * mISDN driver for CologneChip AG's XHFC
  *
  * Authors : Martin Bachem, Joerg Ciesielski
  * Contact : info@colognechip.com
@@ -182,14 +182,11 @@ l1_timer_start_t3(channel_t * dch)
 	if (!timer_pending(&port->t3_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "%s: starting T3", __FUNCTION__);
+				 "%s channel(%i) state(F%i)",
+				 __FUNCTION__, dch->channel, dch->state);
 
 		port->t3_timer.expires = jiffies + (XHFC_TIMER_T3 * HZ) / 1000;
 		add_timer(&port->t3_timer);
-	} else {
-		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst,
-				 "%s: T3 already running", __FUNCTION__);
 	}
 }
 
@@ -203,13 +200,10 @@ l1_timer_stop_t3(channel_t * dch)
 	if (timer_pending(&port->t3_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "%s: stopping T3", __FUNCTION__);
+				 "%s channel(%i) state(F%i)",
+				 __FUNCTION__, dch->channel, dch->state);
 					 		
 		del_timer(&port->t3_timer);
-	} else {
-		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst,
-				 "%s: no T3 running", __FUNCTION__);
 	}
 }
 
@@ -226,7 +220,9 @@ l1_timer_expire_t3(channel_t * dch)
 
 	if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 		mISDN_debugprint(&dch->inst,
-			 "%s activation failed", __FUNCTION__);	
+			 "%s channel(%i) state(F%i), "
+			 "l1->l2 (PH_DEACTIVATE | INDICATION)",
+			 __FUNCTION__, dch->channel, dch->state);	
 
 	clear_bit(HFC_L1_ACTIVATING, &port->l1_flags),
 	xhfc_ph_command(dch, HFC_L1_FORCE_DEACTIVATE_TE);
@@ -250,15 +246,12 @@ l1_timer_start_t4(channel_t * dch)
 	if (!timer_pending(&port->t4_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "%s: starting T4", __FUNCTION__);
+				 "%s channel(%i) state(F%i)",
+				 __FUNCTION__, dch->channel, dch->state);
 
 		port->t4_timer.expires =
 		    jiffies + (XHFC_TIMER_T4 * HZ) / 1000;
 		add_timer(&port->t4_timer);
-	} else {
-		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst,
-				 "%s: T4 already running", __FUNCTION__);
 	}
 }
 
@@ -272,12 +265,9 @@ l1_timer_stop_t4(channel_t * dch)
 	if (timer_pending(&port->t4_timer)) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 			mISDN_debugprint(&dch->inst,
-				 "%s: stopping T4", __FUNCTION__);
+				 "%s channel(%i) state(F%i)", 
+				 __FUNCTION__, dch->channel, dch->state);
 		del_timer(&port->t4_timer);
-	} else {
-		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst,
-				 "%s: no T4 running", __FUNCTION__);
 	}
 }
 
@@ -291,11 +281,11 @@ l1_timer_expire_t4(channel_t * dch)
 	xhfc_hw * hw = dch->hw;
 	xhfc_port_t * port = hw->chan[dch->channel].port;
 	
-	printk ("l1_timer_expire_t4 (!!!) channel(%i)\n", dch->channel);
-
 	if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 		mISDN_debugprint(&dch->inst,
-			 "%s: l1->l2 (PH_DEACTIVATE | INDICATION)", __FUNCTION__);
+			 "%s channel(%i) state(F%i), "
+			 "l1->l2 (PH_DEACTIVATE | INDICATION)",
+			 __FUNCTION__, dch->channel, dch->state);
 
 	clear_bit(HFC_L1_DEACTTIMER, &port->l1_flags);
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP,
@@ -304,8 +294,6 @@ l1_timer_expire_t4(channel_t * dch)
 		MGR_SHORTSTATUS | INDICATION, SSTATUS_L1_DEACTIVATED,
 		0, NULL, 0);	
 }
-
-
 
 /*********************************/
 /* Line Interface State handler  */
@@ -320,10 +308,10 @@ su_new_state(channel_t * dch)
 
 	if (port->mode & PORT_MODE_TE) {
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst, "%s: TE %d",
+			mISDN_debugprint(&dch->inst, "%s: TE F%d",
 				__FUNCTION__, dch->state);
 
-		if (dch->state < 4 || dch->state >= 7)
+		if ((dch->state <= 3) || (dch->state >= 7))
 			l1_timer_stop_t3(dch);
 
 		switch (dch->state) {
@@ -333,7 +321,9 @@ su_new_state(channel_t * dch)
 				return;
 
 			case (7):
-				l1_timer_stop_t4(dch);
+				if (timer_pending(&port->t4_timer))
+					l1_timer_stop_t4(dch);
+					
 				if (test_and_clear_bit(HFC_L1_ACTIVATING, &port->l1_flags)) {
 					if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
 						mISDN_debugprint(&dch->inst,
@@ -361,12 +351,14 @@ su_new_state(channel_t * dch)
 				l1_timer_stop_t4(dch);
 				return;
 
+			/*
 			case (0):
 			case (1):
 			case (2):
 			case (4):
 			case (5):
 			case (6):
+			*/
 			default:
 				return;
 		}
@@ -374,7 +366,7 @@ su_new_state(channel_t * dch)
 	} else if (port->mode & PORT_MODE_NT) {
 		
 		if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
-			mISDN_debugprint(&dch->inst, "%s: NT %d",
+			mISDN_debugprint(&dch->inst, "%s: NT G%d",
 				__FUNCTION__, dch->state);
 
 		switch (dch->state) {
@@ -426,8 +418,6 @@ su_new_state(channel_t * dch)
 
 	mISDN_queue_data(&dch->inst, FLG_MSG_UP, prim, 0, 0, NULL, 0);
 }
-
-
 
 /*************************************/
 /* Layer 1 D-channel hardware access */
@@ -706,7 +696,6 @@ xhfc_manager(void *data, u_int prim, void *arg)
 	return (0);
 }
 
-
 /***********************************/
 /* check if new buffer for channel */
 /* is waitinng is transmitt queue  */
@@ -739,13 +728,11 @@ next_tx_frame(xhfc_hw * hw, __u8 channel)
 	return (0);
 }
 
-
 static inline void
 xhfc_waitbusy(xhfc_hw * hw)
 {
 	while (read_xhfc(hw, R_STATUS0) & M_BUSY);
 }
-
 
 static inline void
 xhfc_selfifo(xhfc_hw * hw, __u8 fifo)
@@ -754,7 +741,6 @@ xhfc_selfifo(xhfc_hw * hw, __u8 fifo)
 	xhfc_waitbusy(hw);
 }
 
-
 static inline void
 xhfc_inc_f(xhfc_hw * hw)
 {
@@ -762,14 +748,12 @@ xhfc_inc_f(xhfc_hw * hw)
 	xhfc_waitbusy(hw);
 }
 
-
 static inline void
 xhfc_resetfifo(xhfc_hw * hw)
 {
 	write_xhfc(hw, A_INC_RES_FIFO, M_RES_F | M_FIFO_ERR_RES);
 	xhfc_waitbusy(hw);
 }
-
 
 /**************************/
 /* fill fifo with TX data */
@@ -829,7 +813,6 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 			goto send_buffer;
 		}
 	}
-
 
 	if (free && fcnt && tcnt) {
 		data = ch->tx_skb->data + ch->tx_idx;
@@ -900,7 +883,6 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 		}
 	} 
 }
-
 
 /****************************/
 /* read RX data out of fifo */
@@ -1054,7 +1036,6 @@ xhfc_read_fifo(xhfc_hw * hw, __u8 channel)
 	}
 }
 
-
 /*************************************/
 /* bottom half handler for interrupt */
 /*************************************/
@@ -1065,7 +1046,6 @@ xhfc_bh_handler(unsigned long ul_hw)
 	int		i;
 	reg_a_su_rd_sta	su_state;
 	channel_t	*dch;
-	
 
 	/* timer interrupt */
 	if (hw->misc_irq.bit.v_ti_irq) {
@@ -1119,11 +1099,9 @@ xhfc_bh_handler(unsigned long ul_hw)
 				dch->state = su_state.bit.v_su_sta;
 				su_new_state(dch);
 			}
-
 		}
 	}
 }
-
 
 /*********************/
 /* Interrupt handler */
@@ -1224,7 +1202,6 @@ enable_interrupts(xhfc_hw * hw)
 	hw->irq_ctrl.bit.v_fifo_irq_en = 1;
 	write_xhfc(hw, R_IRQ_CTRL, hw->irq_ctrl.reg);
 }
-
 
 /***********************************/
 /* initialise the XHFC ISDN Chip   */
@@ -1347,7 +1324,6 @@ release_channels(xhfc_hw * hw)
 	}
 }
 
-
 /*********************************************/
 /* setup port (line interface) with SU_CRTLx */
 /*********************************************/
@@ -1465,7 +1441,6 @@ setup_su(xhfc_hw * hw, __u8 pt, __u8 bc, __u8 enable)
 	write_xhfc(hw, A_SU_CTRL0, hw->port[pt].su_ctrl0.reg);
 	write_xhfc(hw, A_SU_CTRL2, hw->port[pt].su_ctrl2.reg);
 }
-
 
 /*********************************************/
 /* (dis-) connect D/B-Channel using protocol */
@@ -1746,7 +1721,6 @@ init_mISDN_channels(xhfc_hw * hw)
 	return (err);
 }
 
-
 /********************************/
 /* parse module paramaters like */
 /* NE/TE and S0/Up port mode    */
@@ -1802,7 +1776,6 @@ parse_module_params(xhfc_hw * hw)
 			        );
 	}
 }
-
 
 /********************************/
 /* initialise the XHFC hardware */
@@ -1893,7 +1866,6 @@ setup_instance(xhfc_hw * hw)
 	return (err);
 }
 
-
 /************************/
 /* release single card  */
 /************************/
@@ -1916,7 +1888,6 @@ release_card(xhfc_hw * hw)
 	
 	kfree(hw);
 }
-
 
 #if BRIDGE == BRIDGE_PCI2PI
 
@@ -1998,7 +1969,6 @@ static struct pci_device_id xhfc_ids[] = {
 	{}
 };
 
-
 /***************/
 /* Module init */
 /***************/
@@ -2013,7 +1983,6 @@ static struct pci_driver xhfc_driver = {
 MODULE_DEVICE_TABLE(pci, xhfc_ids);
 
 #endif // BRIDGE_PCI2PI
-
 
 /***************/
 /* Module init */
@@ -2069,7 +2038,6 @@ xhfc_init(void)
       out:
 	return (err);
 }
-
 
 static void __exit
 xhfc_cleanup(void)
