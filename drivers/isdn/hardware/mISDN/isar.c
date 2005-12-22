@@ -9,6 +9,7 @@
  */
 
 #include <linux/delay.h>
+#include <linux/vmalloc.h>
 #include "layer1.h"
 #include "channel.h"
 #include "isar.h"
