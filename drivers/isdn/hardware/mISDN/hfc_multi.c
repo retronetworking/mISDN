@@ -1880,7 +1880,7 @@ handle_dmsg(channel_t *ch, struct sk_buff *skb)
 	u_long		flags;
 
 	if (hh->prim == (PH_SIGNAL | REQUEST)) {
-		spin_lock_irqsave(&ch->inst.hwlock, flags);
+		spin_lock_irqsave(ch->inst.hwlock, flags);
 		switch (hh->dinfo) {
 			case INFO3_P8:
 			case INFO3_P10:
@@ -1890,9 +1890,9 @@ handle_dmsg(channel_t *ch, struct sk_buff *skb)
 					__FUNCTION__, hh->dinfo);
 				ret = -EINVAL;
 		}
-		spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+		spin_unlock_irqrestore(ch->inst.hwlock, flags);
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
-		spin_lock_irqsave(&ch->inst.hwlock, flags);
+		spin_lock_irqsave(ch->inst.hwlock, flags);
 		ret = 0;
 		switch (hh->dinfo) {
 			case HW_RESET:
@@ -1908,7 +1908,7 @@ handle_dmsg(channel_t *ch, struct sk_buff *skb)
 					HFC_outb(hc, A_ST_WR_STATE, 3);
 					HFC_outb(hc, A_ST_WR_STATE, 3 | (V_ST_ACT*3)); /* activate */
 				}
-				spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+				spin_unlock_irqrestore(ch->inst.hwlock, flags);
 				skb_trim(skb, 0);
 				return(mISDN_queueup_newhead(&ch->inst, 0, PH_CONTROL | INDICATION,HW_POWERUP, skb));
 			case HW_DEACTIVATE:
@@ -1955,13 +1955,13 @@ handle_dmsg(channel_t *ch, struct sk_buff *skb)
 					__FUNCTION__, hh->dinfo);
 				ret = -EINVAL;
 		}
-		spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+		spin_unlock_irqrestore(ch->inst.hwlock, flags);
 	} else if (hh->prim == (PH_ACTIVATE | REQUEST)) {
 		if (test_bit(HFC_CFG_NTMODE, &hc->chan[ch->channel].cfg)) {
 			if (debug & DEBUG_HFCMULTI_MSG)
 				printk(KERN_DEBUG "%s: PH_ACTIVATE port %d (0..%d)\n",
 					__FUNCTION__, hc->chan[ch->channel].port, hc->type-1);
-			spin_lock_irqsave(&ch->inst.hwlock, flags);
+			spin_lock_irqsave(ch->inst.hwlock, flags);
 			/* start activation */
 			if (hc->type == 1) {
 				//chanannel_sched_event(chan, D_L1STATECHANGE);
@@ -1977,7 +1977,7 @@ handle_dmsg(channel_t *ch, struct sk_buff *skb)
 				HFC_outb(hc, A_ST_WR_STATE, 1 | (V_ST_ACT*3)); /* activate */
 				ch->state = 1;
 			}
-			spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+			spin_unlock_irqrestore(ch->inst.hwlock, flags);
 			ret = 0;
 		} else {
 			if (debug & DEBUG_HFCMULTI_MSG)
@@ -1990,7 +1990,7 @@ handle_dmsg(channel_t *ch, struct sk_buff *skb)
 			if (debug & DEBUG_HFCMULTI_MSG)
 				printk(KERN_DEBUG "%s: PH_DEACTIVATE port %d (0..%d)\n",
 					__FUNCTION__, hc->chan[ch->channel].port, hc->type-1);
-			spin_lock_irqsave(&ch->inst.hwlock, flags);
+			spin_lock_irqsave(ch->inst.hwlock, flags);
 hw_deactivate:
 			ch->state = 0;
 			/* start deactivation */
@@ -2019,7 +2019,7 @@ hw_deactivate:
 			test_and_clear_bit(FLG_TX_BUSY, &ch->Flags);
 			if (test_and_clear_bit(FLG_BUSY_TIMER, &ch->Flags))
 				del_timer(&ch->timer);
-			spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+			spin_unlock_irqrestore(ch->inst.hwlock, flags);
 			ret = 0;
 		} else {
 			if (debug & DEBUG_HFCMULTI_MSG)
@@ -2066,7 +2066,7 @@ handle_bmsg(channel_t *ch, struct sk_buff *skb)
 			printk(KERN_DEBUG "%s: PH_ACTIVATE ch %d (0..32)\n",
 				__FUNCTION__, ch->channel);
 		if (!test_and_set_bit(FLG_ACTIVE, &ch->Flags)) {
-			spin_lock_irqsave(&ch->inst.hwlock, flags);
+			spin_lock_irqsave(ch->inst.hwlock, flags);
 			if (ch->inst.pid.protocol[2] == ISDN_PID_L2_B_TRANS)
 				test_and_set_bit(FLG_L2DATA, &ch->Flags);
 			ret = mode_hfcmulti(hc, ch->channel,
@@ -2086,7 +2086,7 @@ handle_bmsg(channel_t *ch, struct sk_buff *skb)
 					HFC_outb(hc, R_DTMF, hc->hw.r_dtmf | V_RST_DTMF);
 				}
 			}
-			spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+			spin_unlock_irqrestore(ch->inst.hwlock, flags);
 		} else
 			ret = 0;
 		skb_trim(skb, 0);
@@ -2100,7 +2100,7 @@ handle_bmsg(channel_t *ch, struct sk_buff *skb)
 			printk(KERN_DEBUG "%s: PH_DEACTIVATE ch %d (0..32)\n",
 				__FUNCTION__, ch->channel);
 		/* deactivate B-channel if not already deactivated */
-		spin_lock_irqsave(&ch->inst.hwlock, flags);
+		spin_lock_irqsave(ch->inst.hwlock, flags);
 		if (ch->next_skb) {
 			test_and_clear_bit(FLG_TX_NEXT, &ch->Flags);
 			dev_kfree_skb(ch->next_skb);
@@ -2126,14 +2126,14 @@ handle_bmsg(channel_t *ch, struct sk_buff *skb)
 			hc->chan[ch->channel].bank_rx);
 		test_and_clear_bit(FLG_L2DATA, &ch->Flags);
 		test_and_clear_bit(FLG_ACTIVE, &ch->Flags);
-		spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+		spin_unlock_irqrestore(ch->inst.hwlock, flags);
 		skb_trim(skb, 0);
 		ret = 0;
 		if (hh->prim != (PH_CONTROL | REQUEST))
 			return(mISDN_queueup_newhead(&ch->inst, 0,
 				hh->prim | CONFIRM, ret, skb));
 	} else if (hh->prim == (PH_CONTROL | REQUEST)) {
-		spin_lock_irqsave(&ch->inst.hwlock, flags);
+		spin_lock_irqsave(ch->inst.hwlock, flags);
 		switch (hh->dinfo) {
 			case HW_FEATURES: /* fill features structure */
 				#warning this is dangerous, the skb should never used to transfer a pointer please use a message
@@ -2228,7 +2228,7 @@ handle_bmsg(channel_t *ch, struct sk_buff *skb)
 					__FUNCTION__, hh->dinfo);
 				ret = -EINVAL;
 		}
-		spin_unlock_irqrestore(&ch->inst.hwlock, flags);
+		spin_unlock_irqrestore(ch->inst.hwlock, flags);
 	} 
 	if (!ret)
 		dev_kfree_skb(skb);
