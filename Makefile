@@ -34,7 +34,7 @@ all: test_old_misdn
 	@echo
 	cp $(MISDNDIR)/drivers/isdn/hardware/mISDN/Makefile.v2.6 $(MISDNDIR)/drivers/isdn/hardware/mISDN/Makefile
 
-	 make -C $(LINUX) SUBDIRS=$(MISDN_SRC) LINUXINCLUDE="-I$(MISDNDIR)/include/ -I$(LINUX)/include -I$(LINUX_SOURCE)/include" modules $(CONFIGS) 
+	 export MINCLUDES=$(MISDNDIR)/include ; make -C $(LINUX) SUBDIRS=$(MISDN_SRC) modules $(CONFIGS) 
 
 
 install: all
