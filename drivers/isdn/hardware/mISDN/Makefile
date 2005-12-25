@@ -84,5 +84,8 @@ mISDN_capi-objs := capi.o contr.o listen.o appl.o plci.o app_plci.o ncci.o asn1.
                    supp_serv.o
 mISDN_dtmf-objs := dtmf.o
 mISDN_dsp-objs := dsp_core.o dsp_cmx.o dsp_tones.o dsp_dtmf.o dsp_audio.o dsp_blowfish.o dsp_cancel.o
+mISDN_loop-objs := loop.o
 mISDN_x25dte-objs := x25_dte.o x25_l3.o
 I4LmISDN-objs := i4l_mISDN.o
+
+
