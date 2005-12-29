@@ -94,6 +94,7 @@ typedef struct hfcmulti_hw	hfcmulti_hw_t;
 #define HFC_CHIP_DTMF		6 /* DTMF decoding is enabled */
 #define HFC_CHIP_ULAW		7 /* ULAW mode */
 #define HFC_CHIP_CLOCK2		8 /* double clock mode */
+#define HFC_CHIP_CRYSTAL_CLOCK	9 /* autarc clocking mode */
 
 struct hfc_multi {
 	struct list_head	list;
@@ -549,9 +550,9 @@ typedef struct hfc_multi	hfc_multi_t;
 #define V_PCM_SYNC		0x04
 #define V_NEG_CLK		0x08
 #define V_HCLK			0x10
-#define V_JATT_AUTO_DEL		0x20
-#define V_JATT_AUTO		0x40
-#define V_JATT_EN		0x80
+//#define V_JATT_AUTO_DEL		0x20
+//#define V_JATT_AUTO		0x40
+#define V_JATT_OFF		0x80
 /* R_STATE */
 #define V_E1_STA		0x01
 #define V_ALT_FR_RX		0x40

@@ -882,7 +882,10 @@ static int dsp_init(void)
 
 	/* set packet size */
 	if (poll == 0)
-		poll = 64;
+		if (HZ == 100)
+			poll = 80;
+		else
+			poll = 64;
 	if (poll > MAX_POLL) {
 		printk(KERN_ERR "%s: Wrong poll value (%d), using %d.\n", __FUNCTION__, poll, MAX_POLL);
 		poll = MAX_POLL;
@@ -896,7 +899,7 @@ static int dsp_init(void)
 	if (dsp_tics * 8000 == poll * HZ) 
 		printk(KERN_INFO "mISDN_dsp: DSP clocks every %d samples. This equals %d jiffies.\n", poll, dsp_tics);
 	else {
-		printk(KERN_INFO "mISDN_dsp: Cannot clock ever %d samples. Use a multiple of %d (jiffies)\n", poll, 8000 / HZ);
+		printk(KERN_INFO "mISDN_dsp: Cannot clock ever %d samples. Use a multiple of %d (samples)\n", poll, 8000 / HZ);
 		err = -EINVAL;
 		return(err);
 	}

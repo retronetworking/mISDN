@@ -42,6 +42,7 @@
 	Bit 15	= Use external ram (512K)
 	Bit 16	= Use 64 timeslots instead of 32
 	Bit 17	= Use 128 timeslots instead of anything else
+	Bit 18	= Use crystal clock for PCM and E1, for autarc clocking.
 
  * protocol:
 	NOTE: Must be given for all ports, not for the number of cards.
@@ -54,7 +55,6 @@
 	Bit 16	= Use master clock for this S/T interface (ony once per chip).
 	Bit 17	= transmitter line setup (non capacitive mode) DONT CARE!
 	Bit 18	= Disable E-channel. (No E-channel processing)
-	Bit 19	= Register E-channel as D-stack (TE-mode only)
 
 	HFC-E1 only bits:
 	Bit 16	= interface: 0=copper, 1=optical
@@ -2156,16 +2156,15 @@ handle_bmsg(channel_t *ch, struct sk_buff *skb)
 				ret = 0;
 				break;
 			case HW_PCM_CONN: /* connect interface to pcm timeslot (0..N) */
-				if (skb->len < 4*sizeof(int *)) {
+				if (skb->len < 4*sizeof(s32)) {
 					printk(KERN_WARNING "%s: HW_PCM_CONN lacks parameters\n",
 						__FUNCTION__);
 					break;
 				}
-				#warning use values not pointer
-				slot_tx = ((int *)skb->data)[0];
-				bank_tx = ((int *)skb->data)[1];
-				slot_rx = ((int *)skb->data)[2];
-				bank_rx = ((int *)skb->data)[3];
+				slot_tx = ((s32 *)skb->data)[0];
+				bank_tx = ((s32 *)skb->data)[1];
+				slot_rx = ((s32 *)skb->data)[2];
+				bank_rx = ((s32 *)skb->data)[3];
 				if (debug & DEBUG_HFCMULTI_MSG)
 					printk(KERN_DEBUG "%s: HW_PCM_CONN slot %d bank %d (TX) slot %d bank %d (RX)\n",
 						__FUNCTION__, slot_tx, bank_tx, slot_rx, bank_rx);
@@ -2185,12 +2184,11 @@ handle_bmsg(channel_t *ch, struct sk_buff *skb)
 				ret = 0;
 				break;
 			case HW_CONF_JOIN: /* join conference (0..7) */
-				#warning use values not pointer why u_long for such a small value ?
-				if (skb->len < sizeof(u_long *)) {
+				if (skb->len < sizeof(u32)) {
 					printk(KERN_WARNING "%s: HW_CONF_JOIN lacks parameters\n", __FUNCTION__);
 					break;
 				}
-				num = ((u_long *)skb->data)[0];
+				num = ((u32 *)skb->data)[0];
 				if (debug & DEBUG_HFCMULTI_MSG)
 					printk(KERN_DEBUG "%s: HW_CONF_JOIN conf %ld\n",
 						__FUNCTION__, num);
@@ -2419,7 +2417,8 @@ hfcmulti_initmode(hfc_multi_t *hc)
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk("%s: entered\n", __FUNCTION__);
 
-	spin_lock_irqsave(&hc->lock, flags);
+#warning KARSTEN: this causes a crash on UP and SMP with multiple cards
+//	spin_lock_irqsave(&hc->lock, flags);
 	if (hc->type == 1) {
 		nt_mode = test_bit(HFC_CFG_NTMODE, &hc->chan[16].cfg);
 		hc->chan[16].slot_tx = -1;
@@ -2535,14 +2534,20 @@ hfcmulti_initmode(hfc_multi_t *hc)
 		if (test_bit(HFC_CHIP_PCM_SLAVE, &hc->chip)) {
 			/* SLAVE (clock master) */
 			if (debug & DEBUG_HFCMULTI_INIT)
-				printk(KERN_DEBUG "%s: E1 port is clock master\n", __FUNCTION__);
-//			HFC_outb(hc, R_SYNC_CTRL, V_SYNC_OFFS | V_PCM_SYNC);
+				printk(KERN_DEBUG "%s: E1 port is clock master (clock from PCM)\n", __FUNCTION__);
 			HFC_outb(hc, R_SYNC_CTRL, V_EXT_CLK_SYNC | V_PCM_SYNC);
 		} else {
-			/* MASTER (clock slave) */
-			if (debug & DEBUG_HFCMULTI_INIT)
-				printk(KERN_DEBUG "%s: E1 port is clock slave\n", __FUNCTION__);
-			HFC_outb(hc, R_SYNC_CTRL, V_SYNC_OFFS);
+			if (test_bit(HFC_CHIP_CRYSTAL_CLOCK, &hc->chip)) {
+				/* MASTER (clock master) */
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: E1 port is clock master (clock from crystal)\n", __FUNCTION__);
+				HFC_outb(hc, R_SYNC_CTRL, V_EXT_CLK_SYNC | V_PCM_SYNC | V_JATT_OFF);
+			} else {
+				/* MASTER (clock slave) */
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: E1 port is clock slave (clock to PCM)\n", __FUNCTION__);
+				HFC_outb(hc, R_SYNC_CTRL, V_SYNC_OFFS);
+			}
 		}
 		if (test_bit(HFC_CFG_NTMODE, &hc->chan[(i<<2)+2].cfg)) {
 			if (debug & DEBUG_HFCMULTI_INIT)
@@ -2568,7 +2573,8 @@ hfcmulti_initmode(hfc_multi_t *hc)
 		HFC_outb(hc, R_E1_WR_STA, r_e1_wr_sta);
 
 	}
-	spin_unlock_irqrestore(&hc->lock, flags);
+#warning KARSTEN: this causes a crash on UP and SMP with multiple cards
+//	spin_unlock_irqrestore(&hc->lock, flags);
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk("%s: done\n", __FUNCTION__);
 }
@@ -3145,6 +3151,8 @@ static void find_type_entry(int hfc_type, int *card, int *port)
 
 	for(i=0;i<MAX_CARDS;i++)
 	{
+//#warning remove
+//printk(KERN_DEBUG "i=%d type[i]=%d hfc_type=%d allocated[i]=%d\n", i, type[i]&0xff,hfc_type,allocated[i]);
 		if((type[i]&0xff)==hfc_type && !allocated[i])
 		{
 			*card = i;
@@ -3271,6 +3279,8 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 		hc->slots = 64;
 	if (type[HFC_idx] & 0x20000)
 		hc->slots = 128;
+	if (type[HFC_idx] & 0x40000)
+		test_and_set_bit(HFC_CHIP_CRYSTAL_CLOCK, &hc->chip);
 	if (hc->type == 1)
 		sprintf(hc->name, "HFC-E1#%d", HFC_idx+1);
 	else

@@ -1321,10 +1321,10 @@ void dsp_cmx_send(void *data)
 					delay = dsp->delay[i];
 				i++;
 			}
-			if (dsp_debug & DEBUG_DSP_CMX)
-				printk(KERN_DEBUG "%s lowest delay of %d bytes for dsp %s\n", __FUNCTION__, delay, dsp->inst.name);
 			/* remove delay */
 			if (delay) {
+				if (dsp_debug & DEBUG_DSP_CMX)
+					printk(KERN_DEBUG "%s lowest delay of %d bytes for dsp %s are now removed.\n", __FUNCTION__, delay, dsp->inst.name);
 				r = dsp->rx_R;
 				rr = (r + delay) & CMX_BUFF_MASK;
 				/* delete rx-data */
