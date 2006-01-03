@@ -29,8 +29,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 
-#include "dchannel.h"
-#include "bchannel.h"
+#include "channel.h"
 #include "layer1.h"
 #include "debug.h"
 #include <linux/isdn_compat.h>
@@ -71,7 +70,7 @@ MODULE_PARM(debug, "1i");
  */
 static int loop_l1hw(mISDNinstance_t *inst, struct sk_buff *skb)
 {
-	dchannel_t	*dch = container_of(inst, dchannel_t, inst);
+	channel_t	*dch = container_of(inst, channel_t, inst);
 	loop_t		*hc;
 	int		ret = 0;
 	mISDN_head_t	*hh;
@@ -96,7 +95,7 @@ static int
 loop_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	int		ch;
-	bchannel_t	*bch = container_of(inst, bchannel_t, inst);
+	channel_t	*bch = container_of(inst, channel_t, inst);
 	int		ret = -EINVAL;
 	mISDN_head_t	*hh;
 	loop_t	*hc;
@@ -117,7 +116,7 @@ loop_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 			return(-EINVAL);
 		}
 		if ((nskb = skb_clone(skb, GFP_ATOMIC)))
-			queue_bch_frame(hc->bch[ch^1], INDICATION, MISDN_ID_ANY, nskb);
+			queue_ch_frame(hc->bch[ch^1], INDICATION, MISDN_ID_ANY, nskb);
 		skb_trim(skb, 0);
 		return(mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, hh->dinfo, skb));
 	} else if ((hh->prim == (PH_ACTIVATE | REQUEST))
@@ -166,7 +165,7 @@ loop_delete(loop_t *hc)
 	if (hc->dch) {
 		if (debug & DEBUG_LOOP_INIT)
 			printk(KERN_DEBUG "%s: free D-channel\n", __FUNCTION__);
-		mISDN_free_dch(hc->dch);
+		mISDN_freechannel(hc->dch);
 		kfree(hc->dch);
 		hc->dch = NULL;
 	}
@@ -175,7 +174,7 @@ loop_delete(loop_t *hc)
 		if (hc->bch[ch]) {
 			if (debug & DEBUG_LOOP_INIT)
 				printk(KERN_DEBUG "%s: free B-channel %d\n", __FUNCTION__, ch);
-			mISDN_free_bch(hc->bch[ch]);
+			mISDN_freechannel(hc->bch[ch]);
 			kfree(hc->bch[ch]);
 			hc->bch[ch] = NULL;
 		}
@@ -202,8 +201,8 @@ loop_manager(void *data, u_int prim, void *arg)
 	loop_t	*hc;
 	mISDNinstance_t	*inst = data;
 	struct sk_buff	*skb;
-	dchannel_t	*dch = NULL;
-	bchannel_t	*bch = NULL;
+	channel_t	*dch = NULL;
+	channel_t	*bch = NULL;
 	int		ch = 0;
 	u_long		flags;
 
@@ -219,6 +218,8 @@ loop_manager(void *data, u_int prim, void *arg)
 		if (hc->dch) if (&hc->dch->inst == inst) {
 			dch = hc->dch;
 			spin_unlock_irqrestore(&loop_obj.lock, flags);
+			if (debug & DEBUG_LOOP_MGR)
+				printk(KERN_DEBUG "%s: D-channel  data %p prim %x arg %p\n", __FUNCTION__, data, prim, arg);
 			goto found;
 		}
 
@@ -227,6 +228,8 @@ loop_manager(void *data, u_int prim, void *arg)
 			if (hc->bch[ch]) if (&hc->bch[ch]->inst == inst) {
 				bch = hc->bch[ch];
 				spin_unlock_irqrestore(&loop_obj.lock, flags);
+				if (debug & DEBUG_LOOP_MGR)
+					printk(KERN_DEBUG "%s: B-channel %d (0..%d)  data %p prim %x arg %p\n", __FUNCTION__, ch, LOOP_CHANNELS-1, data, prim, arg);
 				goto found;
 			}
 		}
@@ -236,17 +239,11 @@ loop_manager(void *data, u_int prim, void *arg)
 	return(-EINVAL);
 
 found:
-	if (debug & DEBUG_LOOP_MGR)
-		printk(KERN_DEBUG "%s: channel %d (0..31)  data %p prim %x arg %p\n", __FUNCTION__, ch, data, prim, arg);
-
 	switch(prim) {
 		case MGR_REGLAYER | CONFIRM:
 		if (debug & DEBUG_LOOP_MGR)
 			printk(KERN_DEBUG "%s: MGR_REGLAYER\n", __FUNCTION__);
-		if (dch)
-			dch_set_para(dch, &inst->st->para);
-		if (bch)
-			bch_set_para(bch, &inst->st->para);
+		mISDN_setpara(dch, &inst->st->para);
 		break;
 
 		case MGR_UNREGLAYER | REQUEST:
@@ -271,10 +268,7 @@ found:
 		case MGR_ADDSTPARA | INDICATION:
 		if (debug & DEBUG_LOOP_MGR)
 			printk(KERN_DEBUG "%s: MGR_***STPARA\n", __FUNCTION__);
-		if (dch)
-			dch_set_para(dch, arg);
-		if (bch)
-			bch_set_para(bch, arg);
+		mISDN_setpara(dch, arg);
 		break;
 
 		case MGR_RELEASE | INDICATION:
@@ -350,8 +344,8 @@ static int __devinit loop_new(void)
 	loop_t	*hc;
 	mISDN_pid_t	pid;
 	mISDNstack_t	*dst = NULL; /* make gcc happy */
-	dchannel_t	*dch;
-	bchannel_t	*bch;
+	channel_t	*dch;
+	channel_t	*bch;
 	u_long		flags;
 
 	if (debug & DEBUG_LOOP_INIT)
@@ -382,12 +376,12 @@ static int __devinit loop_new(void)
 
 	if (debug & DEBUG_LOOP_INIT)
 		printk(KERN_DEBUG "%s: Registering D-channel, card(%d)\n", __FUNCTION__, loop_cnt+1);
-	dch = kmalloc(sizeof(dchannel_t), GFP_ATOMIC);
+	dch = kmalloc(sizeof(channel_t), GFP_ATOMIC);
 	if (!dch) {
 		ret_err = -ENOMEM;
 		goto free_channels;
 	}
-	memset(dch, 0, sizeof(dchannel_t));
+	memset(dch, 0, sizeof(channel_t));
 	dch->channel = 0;
 	//dch->debug = debug;
 	dch->inst.obj = &loop_obj;
@@ -395,7 +389,7 @@ static int __devinit loop_new(void)
 	mISDN_init_instance(&dch->inst, &loop_obj, hc, loop_l1hw);
 	dch->inst.pid.layermask = ISDN_LAYER(0);
 	sprintf(dch->inst.name, "LOOP%d", loop_cnt+1);
-	if (mISDN_init_dch(dch)) {
+	if (mISDN_initchannel(dch, MSK_INIT_DCHANNEL, MAX_DATA_MEM)) {
 		ret_err = -ENOMEM;
 		goto free_channels;
 	}
@@ -405,12 +399,12 @@ static int __devinit loop_new(void)
 	while(ch < LOOP_CHANNELS) {
 		if (debug & DEBUG_LOOP_INIT)
 			printk(KERN_DEBUG "%s: Registering B-channel, card(%d) ch(%d)\n", __FUNCTION__, loop_cnt+1, ch);
-		bch = kmalloc(sizeof(bchannel_t), GFP_ATOMIC);
+		bch = kmalloc(sizeof(channel_t), GFP_ATOMIC);
 		if (!bch) {
 			ret_err = -ENOMEM;
 			goto free_channels;
 		}
-		memset(bch, 0, sizeof(bchannel_t));
+		memset(bch, 0, sizeof(channel_t));
 		bch->channel = ch;
 		mISDN_init_instance(&bch->inst, &loop_obj, hc, loop_l2l1);
 		bch->inst.pid.layermask = ISDN_LAYER(0);
@@ -418,7 +412,7 @@ static int __devinit loop_new(void)
 		//bch->debug = debug;
 		sprintf(bch->inst.name, "%s B%d",
 			dch->inst.name, ch+1);
-		if (mISDN_init_bch(bch)) {
+		if (mISDN_initchannel(bch, MSK_INIT_BCHANNEL, MAX_DATA_MEM)) {
 			kfree(bch);
 			ret_err = -ENOMEM;
 			goto free_channels;
@@ -434,6 +428,7 @@ static int __devinit loop_new(void)
 	}
 
 	/* set D-channel */
+	mISDN_set_dchannel_pid(&pid, 0x00, ISDN_LAYER(0));
 	pid.protocol[0] = ISDN_PID_L0_LOOP;
 	pid.layermask = ISDN_LAYER(0);
 
@@ -460,7 +455,6 @@ static int __devinit loop_new(void)
 			loop_obj.ctrl(dst, MGR_DELSTACK | REQUEST, NULL);
 			goto free_release;
 		}
-		bch->st = bch->inst.st;
 		ch++;
 	}
 	if (debug & DEBUG_LOOP_INIT)
@@ -488,7 +482,7 @@ static int __devinit loop_new(void)
 	if (hc->dch) {
 		if (debug & DEBUG_LOOP_INIT)
 			printk(KERN_DEBUG "%s: free D-channel\n", __FUNCTION__);
-		mISDN_free_dch(hc->dch);
+		mISDN_freechannel(hc->dch);
 		kfree(hc->dch);
 		hc->dch = NULL;
 	}
@@ -497,7 +491,7 @@ static int __devinit loop_new(void)
 		if (hc->bch[ch]) {
 			if (debug & DEBUG_LOOP_INIT)
 				printk(KERN_DEBUG "%s: free B-channel %d\n", __FUNCTION__, ch);
-			mISDN_free_bch(hc->bch[ch]);
+			mISDN_freechannel(hc->bch[ch]);
 			kfree(hc->bch[ch]);
 			hc->bch[ch] = NULL;
 		}
@@ -563,7 +557,7 @@ loop_init(void)
 	INIT_LIST_HEAD(&loop_obj.ilist);
 	loop_obj.name = LoopName;
 	loop_obj.own_ctrl = loop_manager;
-	loop_obj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;
+	loop_obj.DPROTO.protocol[0] = ISDN_PID_L0_LOOP;
 	loop_obj.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS | ISDN_PID_L1_B_64HDLC;
 	loop_obj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANS | ISDN_PID_L2_B_RAWDEV;
 

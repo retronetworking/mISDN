@@ -19,8 +19,8 @@ struct misdn_loop {
 
 	spinlock_t	lock;	/* the lock */
 
-	dchannel_t	*dch;
-	bchannel_t	*bch[LOOP_CHANNELS];
+	channel_t	*dch;
+	channel_t	*bch[LOOP_CHANNELS];
 };
 
 typedef struct misdn_loop	loop_t;

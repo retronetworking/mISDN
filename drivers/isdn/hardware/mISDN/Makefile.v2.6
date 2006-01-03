@@ -56,6 +56,10 @@ ifdef CONFIG_MISDN_DSP
 obj-$(CONFIG_MISDN_DRV) += mISDN_dsp.o
 endif
 
+ifdef CONFIG_MISDN_LOOP
+obj-$(CONFIG_MISDN_DRV) += mISDN_loop.o
+endif
+
 ifdef CONFIG_I4L_CAPI_LAYER
 obj-$(CONFIG_MISDN_DRV) += I4LmISDN.o
 endif
