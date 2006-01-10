@@ -51,7 +51,7 @@ typedef struct {
 
 // class definition
 //
-typedef struct  {
+struct echo_can_state {
   /* Echo canceller definition */
 
   /* absolute time */
@@ -86,7 +86,7 @@ typedef struct  {
   short max_y_tilde;
   int max_y_tilde_pos;
 
-} echo_can_state_t;
+};
 
 static inline void init_cb_s(echo_can_cb_s *cb, int len, void *where)
 {
@@ -112,12 +112,12 @@ static inline short get_cc_s(echo_can_cb_s *cb, int pos)
 	return cb->buf_d[cb->idx_d + pos];
 }
 
-static inline void init_cc(echo_can_state_t *ec, int N, int maxy, int maxu) {
+static inline void init_cc(struct echo_can_state *ec, int N, int maxy, int maxu) {
 
   void *ptr = ec;
   unsigned long tmp;
   /* double-word align past end of state */
-  ptr += sizeof(echo_can_state_t);
+  ptr += sizeof(struct echo_can_state);
   tmp = (unsigned long)ptr;
   tmp += 3;
   tmp &= ~3L;
@@ -163,18 +163,19 @@ static inline void init_cc(echo_can_state_t *ec, int N, int maxy, int maxu) {
   // reset the near-end speech detector
   //
   ec->s_tilde_i = 0;
+  ec->y_tilde_i = 0;
   ec->HCNTR_d = (int)0;
 
   // exit gracefully
   //
 }
 
-static inline void echo_can_free(echo_can_state_t *ec)
+static inline void echo_can_free(struct echo_can_state *ec)
 {
 	FREE(ec);
 }
 
-static inline short echo_can_update(echo_can_state_t *ec, short iref, short isig) {
+static inline short echo_can_update(struct echo_can_state *ec, short iref, short isig) {
 
   /* declare local variables that are used more than once
   */
@@ -239,9 +240,10 @@ static inline short echo_can_update(echo_can_state_t *ec, short iref, short isig
   
   /* compute the new convergence factor
   */
-  Py_i = (ec->Ly_i >> DEFAULT_SIGMA_LY_I) * (ec->Ly_i >> DEFAULT_SIGMA_LY_I);
-  Py_i >>= 15;
-  if (ec->HCNTR_d > 0) {
+  if (!ec->HCNTR_d) {
+  	Py_i = (ec->Ly_i >> DEFAULT_SIGMA_LY_I) * (ec->Ly_i >> DEFAULT_SIGMA_LY_I);
+  	Py_i >>= 15;
+  } else {
   	Py_i = (1 << 15);
   }
   
@@ -332,10 +334,21 @@ static inline short echo_can_update(echo_can_state_t *ec, short iref, short isig
   */
 #ifndef NO_ECHO_SUPPRESSOR
 #ifdef AGGRESSIVE_SUPPRESSOR
-  if ((ec->HCNTR_d < AGGRESSIVE_HCNTR) && (ec->Ly_i > (ec->Lu_i << 1))) {
- 	u = u * (ec->Lu_i >> DEFAULT_SIGMA_LU_I) / ((ec->Ly_i >> (DEFAULT_SIGMA_LY_I)) + 1);
- 	u = u * (ec->Lu_i >> DEFAULT_SIGMA_LU_I) / ((ec->Ly_i >> (DEFAULT_SIGMA_LY_I)) + 1);
+#ifdef AGGRESSIVE_TIMELIMIT /* This allows the aggressive suppressor to turn off after set amount of time */
+  if (ec->i_d > AGGRESSIVE_TIMELIMIT ) {
+  	if ((ec->HCNTR_d == 0) && ((ec->Ly_i/(ec->Lu_i + 1)) > DEFAULT_SUPPR_I)) {
+        	u = u * (ec->Lu_i >> DEFAULT_SIGMA_LU_I) / ((ec->Ly_i >> (DEFAULT_SIGMA_LY_I + 2)) + 1);
+  	}
   }
+  else {
+#endif
+  	if ((ec->HCNTR_d < AGGRESSIVE_HCNTR) && (ec->Ly_i > (ec->Lu_i << 1))) {
+ 		u = u * (ec->Lu_i >> DEFAULT_SIGMA_LU_I) / ((ec->Ly_i >> (DEFAULT_SIGMA_LY_I)) + 1);
+ 		u = u * (ec->Lu_i >> DEFAULT_SIGMA_LU_I) / ((ec->Ly_i >> (DEFAULT_SIGMA_LY_I)) + 1);
+  	}
+#ifdef AGGRESSIVE_TIMELIMIT  
+  }
+#endif
 #else	
   if ((ec->HCNTR_d == 0) && ((ec->Ly_i/(ec->Lu_i + 1)) > DEFAULT_SUPPR_I)) {
   	u = u * (ec->Lu_i >> DEFAULT_SIGMA_LU_I) / ((ec->Ly_i >> (DEFAULT_SIGMA_LY_I + 2)) + 1);
@@ -357,9 +370,9 @@ static inline short echo_can_update(echo_can_state_t *ec, short iref, short isig
   return u;
 }
 
-static inline echo_can_state_t *echo_can_create(int len, int adaption_mode)
+static inline struct echo_can_state *echo_can_create(int len, int adaption_mode)
 {
-	echo_can_state_t *ec;
+	struct echo_can_state *ec;
 	int maxy;
 	int maxu;
 	maxy = len + DEFAULT_M;
@@ -370,7 +383,7 @@ static inline echo_can_state_t *echo_can_create(int len, int adaption_mode)
 		maxy = (1 << DEFAULT_SIGMA_LY_I);
 	if (maxu < (1 << DEFAULT_SIGMA_LU_I))
 		maxu = (1 << DEFAULT_SIGMA_LU_I);
-	ec = (echo_can_state_t *)MALLOC(sizeof(echo_can_state_t) +
+	ec = (struct echo_can_state *)MALLOC(sizeof(struct echo_can_state) +
 									4 + 						/* align */
 									sizeof(int) * len +			/* a_i */
 									sizeof(short) * len + 		/* a_s */
@@ -379,7 +392,7 @@ static inline echo_can_state_t *echo_can_create(int len, int adaption_mode)
 									2 * sizeof(short) * (maxu) +		/* u_s */
 									2 * sizeof(short) * len);			/* y_tilde_s */
 	if (ec) {
-		memset(ec, 0, sizeof(echo_can_state_t) +
+		memset(ec, 0, sizeof(struct echo_can_state) +
 									4 + 						/* align */
 									sizeof(int) * len +			/* a_i */
 									sizeof(short) * len + 		/* a_s */
@@ -392,7 +405,7 @@ static inline echo_can_state_t *echo_can_create(int len, int adaption_mode)
 	return ec;
 }
 
-static inline int echo_can_traintap(echo_can_state_t *ec, int pos, short val)
+static inline int echo_can_traintap(struct echo_can_state *ec, int pos, short val)
 {
 	/* Reset hang counter to avoid adjustments after
 	   initial forced training */

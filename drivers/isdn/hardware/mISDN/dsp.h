@@ -37,11 +37,15 @@
 #endif
 
 #include "dsp_ecdis.h"
-#include "dsp_mec2.h"
 
-//#include "dsp_mec.h"
-//#include "dsp_mec3.h"
+/*
+ * You are now able to choose between the Mark2 and the 
+ * kb1 Echo cancellor. Just comment the one and comment 
+ * out the other.
+ */
 
+//#include "dsp_mec2.h"
+#include "dsp_kb1ec.h"
 
 extern int dsp_options;
 extern int dsp_debug;
@@ -217,9 +221,9 @@ typedef struct _dsp {
 
 	/* echo cancellation stuff */
 	int		cancel_enable;
-	echo_can_state_t* ec;      /**< == NULL: echo cancellation disabled;
+	struct echo_can_state * ec;      /**< == NULL: echo cancellation disabled;
 				      != NULL: echo cancellation enabled */
-	
+
 	echo_can_disable_detector_state_t* ecdis_rd;
 	echo_can_disable_detector_state_t* ecdis_wr;
 	
