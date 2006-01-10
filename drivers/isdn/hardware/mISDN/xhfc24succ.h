@@ -1,15 +1,15 @@
 /*___________________________________________________________________________________*/
 /*                                                                                   */
-/*  (C) Copyright Cologne Chip AG, 2005                                              */
+/*  (C) Copyright Cologne Chip AG, 2006                                              */
 /*___________________________________________________________________________________*/
 /*                                                                                   */
 
 /*                                                                                   */
 /*  File name:     xhfc24succ.h                                                      */
 /*  File content:  This file contains the XHFC-2S4U / XHFC-4SU register definitions. */
-/*  Creation date: 15.03.2005 16:46                                                  */
+/*  Creation date: 10.01.2006 16:34                                                  */
 /*  Creator:       Genero 3.2                                                        */
-/*  Data base:     HFC XML 1.1 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU        */
+/*  Data base:     HFC XML 1.5 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU        */
 /*  Address range: 0x00 - 0xFF                                                       */
 /*                                                                                   */
 /*  The information presented can not be considered as assured characteristics.      */
@@ -67,10 +67,19 @@ typedef enum
 	#define CHIP_MANUFACTURER	"Cologne Chip"
 	#define CHIP_ID_2S4U		0x62
 	#define CHIP_ID_4SU		0x63
-	#define CHIP_ID_1SU		0x64
-	#define CHIP_ID_2SU		0x65
-	#define CHIP_REGISTER_COUNT	100
-	#define CHIP_DATABASE		"Version HFC-XMLHFC XML 1.1 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU-GeneroGenero 3.2 "
+	#define CHIP_REGISTER_COUNT	122
+	#define CHIP_DATABASE		"Version HFC-XMLHFC XML 1.5 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU - GeneroGenero 3.2 "
+
+// This register file can also be used for XHFC-2SU and XHFC-1SU programming.
+// For this reason these chip names, IDs and titles are defined here as well:
+
+	#define CHIP_NAME_2SU		"XHFC-2SU"
+	#define CHIP_TITLE_2SU		"ISDN HDLC FIFO controller with 2 combined S/T and Up Interfaces"
+	#define CHIP_ID_2SU		0x61
+
+	#define CHIP_NAME_1SU		"XHFC-1SU"
+	#define CHIP_TITLE_1SU		"ISDN HDLC FIFO controller with a combined S/T and Up Interface"
+	#define CHIP_ID_1SU		0x60
 
 
 
@@ -82,6 +91,9 @@ typedef enum
 /*                                                                                   */
 
 #define R_CIRM 0x00 // register access
+	#define M_CLK_OFF 0x01 // bitmap mask (1bit)
+	#define M_WAIT_PROC 0x02 // bitmap mask (1bit)
+	#define M_WAIT_REG 0x04 // bitmap mask (1bit)
 	#define M_SRES 0x08 // bitmap mask (1bit)
 	#define M_HFC_RES 0x10 // bitmap mask (1bit)
 	#define M_PCM_RES 0x20 // bitmap mask (1bit)
@@ -89,33 +101,57 @@ typedef enum
 
 	typedef struct // bitmap construction
 	{
-		REGWORD reserved_1:3;
+		REGWORD v_clk_off:1;
+		REGWORD v_wait_proc:1;
+		REGWORD v_wait_reg:1;
 		REGWORD v_sres:1;
 		REGWORD v_hfc_res:1;
 		REGWORD v_pcm_res:1;
 		REGWORD v_su_res:1;
-		REGWORD reserved_2:1;
+		REGWORD reserved_0:1;
 	} bit_r_cirm; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_cirm bit;} reg_r_cirm; // register and bitmap access
 
 
 #define R_CTRL 0x01 // register access
 	#define M_FIFO_LPRIO 0x02 // bitmap mask (1bit)
-	#define M_CLK_OFF 0x20 // bitmap mask (1bit)
+	#define M_NT_SYNC 0x08 // bitmap mask (1bit)
+	#define M_OSC_OFF 0x20 // bitmap mask (1bit)
 	#define M_SU_CLK 0xC0 // bitmap mask (2bit)
 		#define M1_SU_CLK 0x40
 
 	typedef struct // bitmap construction
 	{
-		REGWORD reserved_3:1;
+		REGWORD reserved_1:1;
 		REGWORD v_fifo_lprio:1;
-		REGWORD reserved_4:1;
-		REGWORD reserved_5:1;
-		REGWORD reserved_6:1;
-		REGWORD v_clk_off:1;
+		REGWORD reserved_2:1;
+		REGWORD v_nt_sync:1;
+		REGWORD reserved_3:1;
+		REGWORD v_osc_off:1;
 		REGWORD v_su_clk:2;
 	} bit_r_ctrl; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_ctrl bit;} reg_r_ctrl; // register and bitmap access
+
+
+#define R_CLK_CFG 0x02 // register access
+	#define M_CLK_PLL 0x01 // bitmap mask (1bit)
+	#define M_CLKO_HI 0x02 // bitmap mask (1bit)
+	#define M_CLKO_PLL 0x04 // bitmap mask (1bit)
+	#define M_PCM_CLK 0x20 // bitmap mask (1bit)
+	#define M_CLKO_OFF 0x40 // bitmap mask (1bit)
+	#define M_CLK_F1 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_clk_pll:1;
+		REGWORD v_clko_hi:1;
+		REGWORD v_clko_pll:1;
+		REGWORD reserved_4:2;
+		REGWORD v_pcm_clk:1;
+		REGWORD v_clko_off:1;
+		REGWORD v_clk_f1:1;
+	} bit_r_clk_cfg; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_clk_cfg bit;} reg_r_clk_cfg; // register and bitmap access
 
 
 #define A_Z1 0x04 // register access
@@ -157,7 +193,7 @@ typedef enum
 	typedef struct // bitmap construction
 	{
 		REGWORD v_ram_addr1:4;
-		REGWORD reserved_7:2;
+		REGWORD reserved_5:2;
 		REGWORD v_addr_res:1;
 		REGWORD v_addr_inc:1;
 	} bit_r_ram_ctrl; // register and bitmap data
@@ -166,26 +202,16 @@ typedef enum
 
 #define R_FIRST_FIFO 0x0B // register access
 	#define M_FIRST_FIFO_DIR 0x01 // bitmap mask (1bit)
-	#define M_FIRST_FIFO_NUM 0x3E // bitmap mask (5bit)
+	#define M_FIRST_FIFO_NUM 0x1E // bitmap mask (4bit)
 		#define M1_FIRST_FIFO_NUM 0x02
 
 	typedef struct // bitmap construction
 	{
 		REGWORD v_first_fifo_dir:1;
-		REGWORD v_first_fifo_num:5;
-		REGWORD reserved_8:2;
+		REGWORD v_first_fifo_num:4;
+		REGWORD reserved_6:3;
 	} bit_r_first_fifo; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_first_fifo bit;} reg_r_first_fifo; // register and bitmap access
-
-
-#define A_F1 0x0C // register access
-	#define M_F1 0xFF // bitmap mask (8bit)
-
-	typedef struct // bitmap construction
-	{
-		REGWORD v_f1:8;
-	} bit_a_f1; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_f1 bit;} reg_a_f1; // register and bitmap access
 
 
 #define R_FIFO_THRES 0x0C // register access
@@ -202,6 +228,35 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_fifo_thres bit;} reg_r_fifo_thres; // register and bitmap access
 
 
+#define A_F1 0x0C // register access
+	#define M_F1 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_f1:8;
+	} bit_a_f1; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_f1 bit;} reg_a_f1; // register and bitmap access
+
+
+#define R_FIFO_MD 0x0D // register access
+	#define M_FIFO_MD 0x03 // bitmap mask (2bit)
+		#define M1_FIFO_MD 0x01
+	#define M_DF_MD 0x0C // bitmap mask (2bit)
+		#define M1_DF_MD 0x04
+	#define M_UNIDIR_MD 0x10 // bitmap mask (1bit)
+	#define M_UNIDIR_RX 0x20 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_fifo_md:2;
+		REGWORD v_df_md:2;
+		REGWORD v_unidir_md:1;
+		REGWORD v_unidir_rx:1;
+		REGWORD reserved_7:2;
+	} bit_r_fifo_md; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_fifo_md bit;} reg_r_fifo_md; // register and bitmap access
+
+
 #define A_F2 0x0D // register access
 	#define M_F2 0xFF // bitmap mask (8bit)
 
@@ -212,49 +267,33 @@ typedef enum
 	typedef union {REGWORD reg; bit_a_f2 bit;} reg_a_f2; // register and bitmap access
 
 
-#define R_FIFO_MD 0x0D // register access
-	#define M_FIFO_MD 0x03 // bitmap mask (2bit)
-		#define M1_FIFO_MD 0x01
-	#define M_DF_MD 0x0C // bitmap mask (2bit)
-		#define M1_DF_MD 0x04
-	#define M_UNIDIR 0x10 // bitmap mask (1bit)
-	#define M_UNIDIR_RX 0x20 // bitmap mask (1bit)
-
-	typedef struct // bitmap construction
-	{
-		REGWORD v_fifo_md:2;
-		REGWORD v_df_md:2;
-		REGWORD v_unidir:1;
-		REGWORD v_unidir_rx:1;
-		REGWORD reserved_9:2;
-	} bit_r_fifo_md; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_fifo_md bit;} reg_r_fifo_md; // register and bitmap access
-
-
 #define A_INC_RES_FIFO 0x0E // register access
 	#define M_INC_F 0x01 // bitmap mask (1bit)
-	#define M_RES_F 0x02 // bitmap mask (1bit)
+	#define M_RES_FIFO 0x02 // bitmap mask (1bit)
 	#define M_RES_LOST 0x04 // bitmap mask (1bit)
-	#define M_FIFO_ERR_RES 0x08 // bitmap mask (1bit)
+	#define M_RES_FIFO_ERR 0x08 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
 		REGWORD v_inc_f:1;
-		REGWORD v_res_f:1;
+		REGWORD v_res_fifo:1;
 		REGWORD v_res_lost:1;
-		REGWORD v_fifo_err_res:1;
-		REGWORD reserved_10:4;
+		REGWORD v_res_fifo_err:1;
+		REGWORD reserved_8:4;
 	} bit_a_inc_res_fifo; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_inc_res_fifo bit;} reg_a_inc_res_fifo; // register and bitmap access
 
 
 #define A_FIFO_STA 0x0E // register access
 	#define M_FIFO_ERR 0x01 // bitmap mask (1bit)
+	#define M_ABO_DONE 0x10 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
 		REGWORD v_fifo_err:1;
-		REGWORD reserved_0:7;
+		REGWORD reserved_11:3;
+		REGWORD v_abo_done:1;
+		REGWORD reserved_12:3;
 	} bit_a_fifo_sta; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_fifo_sta bit;} reg_a_fifo_sta; // register and bitmap access
 
@@ -266,7 +305,7 @@ typedef enum
 	typedef struct // bitmap construction
 	{
 		REGWORD v_idx:5;
-		REGWORD reserved_12:3;
+		REGWORD reserved_10:3;
 	} bit_r_fsm_idx; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_fsm_idx bit;} reg_r_fsm_idx; // register and bitmap access
 
@@ -281,12 +320,22 @@ typedef enum
 	{
 		REGWORD v_fifo_dir:1;
 		REGWORD v_fifo_num:4;
-		REGWORD reserved_11:2;
+		REGWORD reserved_9:2;
 		REGWORD v_rev:1;
 	} bit_r_fifo; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_fifo bit;} reg_r_fifo; // register and bitmap access
 
 
+#define R_SLOT 0x10 // register access
+	#define M_SL_DIR 0x01 // bitmap mask (1bit)
+	#define M_SL_NUM 0xFE // bitmap mask (7bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_sl_dir:1;
+		REGWORD v_sl_num:7;
+	} bit_r_slot; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_slot bit;} reg_r_slot; // register and bitmap access
 
 
 #define R_IRQ_OVIEW 0x10 // register access
@@ -305,44 +354,9 @@ typedef enum
 		REGWORD v_fifo_bl3_irq:1;
 		REGWORD v_misc_irq:1;
 		REGWORD v_ch_irq:1;
-		REGWORD reserved_13:2;
+		REGWORD reserved_19:2;
 	} bit_r_irq_oview; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_irq_oview bit;} reg_r_irq_oview; // register and bitmap access
-
-
-#define R_SLOT 0x10 // register access
-	#define M_SL_DIR 0x01 // bitmap mask (1bit)
-	#define M_SL_NUM 0xFE // bitmap mask (7bit)
-
-	typedef struct // bitmap construction
-	{
-		REGWORD v_sl_dir:1;
-		REGWORD v_sl_num:7;
-	} bit_r_slot; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_slot bit;} reg_r_slot; // register and bitmap access
-
-
-#define R_MISC_IRQ 0x11 // register access
-	#define M_SLIP_IRQ 0x01 // bitmap mask (1bit)
-	#define M_TI_IRQ 0x02 // bitmap mask (1bit)
-	#define M_PROC_IRQ 0x04 // bitmap mask (1bit)
-	#define M_CI_IRQ 0x10 // bitmap mask (1bit)
-	#define M_EXT_IRQ 0x20 // bitmap mask (1bit)
-	#define M_MON_TX_IRQ 0x40 // bitmap mask (1bit)
-	#define M_MON_RX_IRQ 0x80 // bitmap mask (1bit)
-
-	typedef struct // bitmap construction
-	{
-		REGWORD v_slip_irq:1;
-		REGWORD v_ti_irq:1;
-		REGWORD v_proc_irq:1;
-		REGWORD reserved_14:1;
-		REGWORD v_ci_irq:1;
-		REGWORD v_ext_irq:1;
-		REGWORD v_mon_tx_irq:1;
-		REGWORD v_mon_rx_irq:1;
-	} bit_r_misc_irq; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_misc_irq bit;} reg_r_misc_irq; // register and bitmap access
 
 
 #define R_MISC_IRQMSK 0x11 // register access
@@ -350,7 +364,7 @@ typedef enum
 	#define M_TI_IRQMSK 0x02 // bitmap mask (1bit)
 	#define M_PROC_IRQMSK 0x04 // bitmap mask (1bit)
 	#define M_CI_IRQMSK 0x10 // bitmap mask (1bit)
-	#define M_EXT_IRQMSK 0x20 // bitmap mask (1bit)
+	#define M_WAK_IRQMSK 0x20 // bitmap mask (1bit)
 	#define M_MON_TX_IRQMSK 0x40 // bitmap mask (1bit)
 	#define M_MON_RX_IRQMSK 0x80 // bitmap mask (1bit)
 
@@ -359,13 +373,36 @@ typedef enum
 		REGWORD v_slip_irqmsk:1;
 		REGWORD v_ti_irqmsk:1;
 		REGWORD v_proc_irqmsk:1;
-		REGWORD reserved_26:1;
+		REGWORD reserved_13:1;
 		REGWORD v_ci_irqmsk:1;
-		REGWORD v_ext_irqmsk:1;
+		REGWORD v_wak_irqmsk:1;
 		REGWORD v_mon_tx_irqmsk:1;
 		REGWORD v_mon_rx_irqmsk:1;
 	} bit_r_misc_irqmsk; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_misc_irqmsk bit;} reg_r_misc_irqmsk; // register and bitmap access
+
+
+#define R_MISC_IRQ 0x11 // register access
+	#define M_SLIP_IRQ 0x01 // bitmap mask (1bit)
+	#define M_TI_IRQ 0x02 // bitmap mask (1bit)
+	#define M_PROC_IRQ 0x04 // bitmap mask (1bit)
+	#define M_CI_IRQ 0x10 // bitmap mask (1bit)
+	#define M_WAK_IRQ 0x20 // bitmap mask (1bit)
+	#define M_MON_TX_IRQ 0x40 // bitmap mask (1bit)
+	#define M_MON_RX_IRQ 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_slip_irq:1;
+		REGWORD v_ti_irq:1;
+		REGWORD v_proc_irq:1;
+		REGWORD reserved_20:1;
+		REGWORD v_ci_irq:1;
+		REGWORD v_wak_irq:1;
+		REGWORD v_mon_tx_irq:1;
+		REGWORD v_mon_rx_irq:1;
+	} bit_r_misc_irq; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_misc_irq bit;} reg_r_misc_irq; // register and bitmap access
 
 
 #define R_SU_IRQ 0x12 // register access
@@ -380,7 +417,7 @@ typedef enum
 		REGWORD v_su1_irq:1;
 		REGWORD v_su2_irq:1;
 		REGWORD v_su3_irq:1;
-		REGWORD reserved_18:4;
+		REGWORD reserved_27:4;
 	} bit_r_su_irq; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_su_irq bit;} reg_r_su_irq; // register and bitmap access
 
@@ -397,7 +434,7 @@ typedef enum
 		REGWORD v_su1_irqmsk:1;
 		REGWORD v_su2_irqmsk:1;
 		REGWORD v_su3_irqmsk:1;
-		REGWORD reserved_27:4;
+		REGWORD reserved_29:4;
 	} bit_r_su_irqmsk; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_su_irqmsk bit;} reg_r_su_irqmsk; // register and bitmap access
 
@@ -414,7 +451,7 @@ typedef enum
 		REGWORD v_su1_af0:1;
 		REGWORD v_su2_af0:1;
 		REGWORD v_su3_af0:1;
-		REGWORD reserved_15:4;
+		REGWORD reserved_28:4;
 	} bit_r_af0_oview; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_af0_oview bit;} reg_r_af0_oview; // register and bitmap access
 
@@ -427,10 +464,10 @@ typedef enum
 	typedef struct // bitmap construction
 	{
 		REGWORD v_fifo_irq_en:1;
-		REGWORD reserved_21:2;
+		REGWORD reserved_14:2;
 		REGWORD v_glob_irq_en:1;
 		REGWORD v_irq_pol:1;
-		REGWORD reserved_22:3;
+		REGWORD reserved_15:3;
 	} bit_r_irq_ctrl; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_irq_ctrl bit;} reg_r_irq_ctrl; // register and bitmap access
 
@@ -464,16 +501,6 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_pcm_md0 bit;} reg_r_pcm_md0; // register and bitmap access
 
 
-#define R_RAM_USE 0x15 // register access
-	#define M_SRAM_USE 0xFF // bitmap mask (8bit)
-
-	typedef struct // bitmap construction
-	{
-		REGWORD v_sram_use:8;
-	} bit_r_ram_use; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_ram_use bit;} reg_r_ram_use; // register and bitmap access
-
-
 #define R_SL_SEL0 0x15 // register access
 	#define M_SL_SEL0 0x7F // bitmap mask (7bit)
 	#define M_SH_SEL0 0x80 // bitmap mask (1bit)
@@ -496,6 +523,17 @@ typedef enum
 		REGWORD v_sh_sel1:1;
 	} bit_r_sl_sel1; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_sl_sel1 bit;} reg_r_sl_sel1; // register and bitmap access
+
+
+#define R_SL_SEL7 0x15 // register access
+	#define M_SL_SEL7 0x7F // bitmap mask (7bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_sl_sel7:7;
+		REGWORD reserved_30:1;
+	} bit_r_sl_sel7; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_sl_sel7 bit;} reg_r_sl_sel7; // register and bitmap access
 
 
 #define R_MSS0 0x15 // register access
@@ -528,38 +566,39 @@ typedef enum
 	#define M_PCM_DR 0x30 // bitmap mask (2bit)
 		#define M1_PCM_DR 0x10
 	#define M_PCM_LOOP 0x40 // bitmap mask (1bit)
+	#define M_PCM_SMPL 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD reserved_45:1;
+		REGWORD reserved_31:1;
 		REGWORD v_pcm_od:1;
 		REGWORD v_pll_adj:2;
 		REGWORD v_pcm_dr:2;
 		REGWORD v_pcm_loop:1;
-		REGWORD reserved_46:1;
+		REGWORD v_pcm_smpl:1;
 	} bit_r_pcm_md1; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_pcm_md1 bit;} reg_r_pcm_md1; // register and bitmap access
 
 
 #define R_PCM_MD2 0x15 // register access
-	#define M_SYNC_PLL 0x02 // bitmap mask (1bit)
+	#define M_SYNC_OUT1 0x02 // bitmap mask (1bit)
 	#define M_SYNC_SRC 0x04 // bitmap mask (1bit)
-	#define M_SYNC_OUT 0x08 // bitmap mask (1bit)
+	#define M_SYNC_OUT2 0x08 // bitmap mask (1bit)
 	#define M_C2O_EN 0x10 // bitmap mask (1bit)
-	#define M_C2_C4 0x20 // bitmap mask (1bit)
-	#define M_ICR_FR 0x40 // bitmap mask (1bit)
-	#define M_EN_PLL 0x80 // bitmap mask (1bit)
+	#define M_C2I_EN 0x20 // bitmap mask (1bit)
+	#define M_PLL_ICR 0x40 // bitmap mask (1bit)
+	#define M_PLL_MAN 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD reserved_47:1;
-		REGWORD v_sync_pll:1;
+		REGWORD reserved_32:1;
+		REGWORD v_sync_out1:1;
 		REGWORD v_sync_src:1;
-		REGWORD v_sync_out:1;
+		REGWORD v_sync_out2:1;
 		REGWORD v_c2o_en:1;
-		REGWORD v_c2_c4:1;
-		REGWORD v_icr_fr:1;
-		REGWORD v_en_pll:1;
+		REGWORD v_c2i_en:1;
+		REGWORD v_pll_icr:1;
+		REGWORD v_pll_man:1;
 	} bit_r_pcm_md2; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_pcm_md2 bit;} reg_r_pcm_md2; // register and bitmap access
 
@@ -567,14 +606,14 @@ typedef enum
 #define R_MSS1 0x15 // register access
 	#define M_MSS_OFFS 0x07 // bitmap mask (3bit)
 		#define M1_MSS_OFFS 0x01
-	#define M_PCM_SMPL 0x08 // bitmap mask (1bit)
+	#define M_MS_SSYNC1 0x08 // bitmap mask (1bit)
 	#define M_MSS_DLY 0xF0 // bitmap mask (4bit)
 		#define M1_MSS_DLY 0x10
 
 	typedef struct // bitmap construction
 	{
 		REGWORD v_mss_offs:3;
-		REGWORD v_pcm_smpl:1;
+		REGWORD v_ms_ssync1:1;
 		REGWORD v_mss_dly:4;
 	} bit_r_mss1; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_mss1 bit;} reg_r_mss1; // register and bitmap access
@@ -620,6 +659,16 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_sh1h bit;} reg_r_sh1h; // register and bitmap access
 
 
+#define R_RAM_USE 0x15 // register access
+	#define M_SRAM_USE 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_sram_use:8;
+	} bit_r_ram_use; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_ram_use bit;} reg_r_ram_use; // register and bitmap access
+
+
 #define R_SU_SEL 0x16 // register access
 	#define M_SU_SEL 0x03 // bitmap mask (2bit)
 		#define M1_SU_SEL 0x01
@@ -628,9 +677,9 @@ typedef enum
 	typedef struct // bitmap construction
 	{
 		REGWORD v_su_sel:2;
-		REGWORD reserved_28:1;
+		REGWORD reserved_25:1;
 		REGWORD v_mult_su:1;
-		REGWORD reserved_29:4;
+		REGWORD reserved_26:4;
 	} bit_r_su_sel; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_su_sel bit;} reg_r_su_sel; // register and bitmap access
 
@@ -675,10 +724,10 @@ typedef enum
 	typedef struct // bitmap construction
 	{
 		REGWORD v_rd_sync_src:3;
-		REGWORD reserved_19:1;
+		REGWORD reserved_21:1;
 		REGWORD v_bert_sync:1;
 		REGWORD v_bert_inv_data:1;
-		REGWORD reserved_20:2;
+		REGWORD reserved_22:2;
 	} bit_r_bert_sta; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_bert_sta bit;} reg_r_bert_sta; // register and bitmap access
 
@@ -703,6 +752,16 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_f0_cnth bit;} reg_r_f0_cnth; // register and bitmap access
 
 
+#define R_BERT_ECL 0x1A // register access
+	#define M_BERT_ECL 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_bert_ecl:8;
+	} bit_r_bert_ecl; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_bert_ecl bit;} reg_r_bert_ecl; // register and bitmap access
+
+
 #define R_TI_WD 0x1A // register access
 	#define M_EV_TS 0x0F // bitmap mask (4bit)
 		#define M1_EV_TS 0x01
@@ -717,14 +776,14 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_ti_wd bit;} reg_r_ti_wd; // register and bitmap access
 
 
-#define R_BERT_ECL 0x1A // register access
-	#define M_BERT_ECL 0xFF // bitmap mask (8bit)
+#define R_BERT_ECH 0x1B // register access
+	#define M_BERT_ECH 0xFF // bitmap mask (8bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_bert_ecl:8;
-	} bit_r_bert_ecl; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_bert_ecl bit;} reg_r_bert_ecl; // register and bitmap access
+		REGWORD v_bert_ech:8;
+	} bit_r_bert_ech; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_bert_ech bit;} reg_r_bert_ech; // register and bitmap access
 
 
 #define R_BERT_WD_MD 0x1B // register access
@@ -738,30 +797,20 @@ typedef enum
 	{
 		REGWORD v_pat_seq:3;
 		REGWORD v_bert_err:1;
-		REGWORD reserved_23:1;
+		REGWORD reserved_16:1;
 		REGWORD v_auto_wd_res:1;
-		REGWORD reserved_24:1;
+		REGWORD reserved_17:1;
 		REGWORD v_wd_res:1;
 	} bit_r_bert_wd_md; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_bert_wd_md bit;} reg_r_bert_wd_md; // register and bitmap access
 
 
-#define R_BERT_ECH 0x1B // register access
-	#define M_BERT_ECH 0xFF // bitmap mask (8bit)
-
-	typedef struct // bitmap construction
-	{
-		REGWORD v_bert_ech:8;
-	} bit_r_bert_ech; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_bert_ech bit;} reg_r_bert_ech; // register and bitmap access
-
-
-#define R_STATUS0 0x1C // register access
+#define R_STATUS 0x1C // register access
 	#define M_BUSY 0x01 // bitmap mask (1bit)
 	#define M_PROC 0x02 // bitmap mask (1bit)
 	#define M_LOST_STA 0x08 // bitmap mask (1bit)
 	#define M_PCM_INIT 0x10 // bitmap mask (1bit)
-	#define M_EXT_IRQSTA 0x20 // bitmap mask (1bit)
+	#define M_WAK_STA 0x20 // bitmap mask (1bit)
 	#define M_MISC_IRQSTA 0x40 // bitmap mask (1bit)
 	#define M_FR_IRQSTA 0x80 // bitmap mask (1bit)
 
@@ -769,17 +818,27 @@ typedef enum
 	{
 		REGWORD v_busy:1;
 		REGWORD v_proc:1;
-		REGWORD reserved_16:1;
+		REGWORD reserved_23:1;
 		REGWORD v_lost_sta:1;
 		REGWORD v_pcm_init:1;
-		REGWORD v_ext_irqsta:1;
+		REGWORD v_wak_sta:1;
 		REGWORD v_misc_irqsta:1;
 		REGWORD v_fr_irqsta:1;
-	} bit_r_status0; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_status0 bit;} reg_r_status0; // register and bitmap access
+	} bit_r_status; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_status bit;} reg_r_status; // register and bitmap access
 
 
-#define R_MISC 0x1E // register access
+#define R_SL_MAX 0x1D // register access
+	#define M_SL_MAX 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_sl_max:8;
+	} bit_r_sl_max; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_sl_max bit;} reg_r_sl_max; // register and bitmap access
+
+
+#define R_PWM_CFG 0x1E // register access
 	#define M_PWM0_16KHZ 0x10 // bitmap mask (1bit)
 	#define M_PWM1_16KHZ 0x20 // bitmap mask (1bit)
 	#define M_PWM_FRQ 0xC0 // bitmap mask (2bit)
@@ -787,12 +846,12 @@ typedef enum
 
 	typedef struct // bitmap construction
 	{
-		REGWORD reserved_25:4;
+		REGWORD reserved_18:4;
 		REGWORD v_pwm0_16khz:1;
 		REGWORD v_pwm1_16khz:1;
 		REGWORD v_pwm_frq:2;
-	} bit_r_misc; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_misc bit;} reg_r_misc; // register and bitmap access
+	} bit_r_pwm_cfg; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_pwm_cfg bit;} reg_r_pwm_cfg; // register and bitmap access
 
 
 #define R_CHIP_RV 0x1F // register access
@@ -802,7 +861,7 @@ typedef enum
 	typedef struct // bitmap construction
 	{
 		REGWORD v_chip_rv:4;
-		REGWORD reserved_17:4;
+		REGWORD reserved_24:4;
 	} bit_r_chip_rv; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_chip_rv bit;} reg_r_chip_rv; // register and bitmap access
 
@@ -999,6 +1058,105 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_fill_bl3 bit;} reg_r_fill_bl3; // register and bitmap access
 
 
+#define R_CI_TX 0x28 // register access
+	#define M_GCI_C 0x3F // bitmap mask (6bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gci_c:6;
+		REGWORD reserved_33:2;
+	} bit_r_ci_tx; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_ci_tx bit;} reg_r_ci_tx; // register and bitmap access
+
+
+#define R_CI_RX 0x28 // register access
+	#define M_GCI_I 0x3F // bitmap mask (6bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gci_i:6;
+		REGWORD reserved_35:2;
+	} bit_r_ci_rx; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_ci_rx bit;} reg_r_ci_rx; // register and bitmap access
+
+
+#define R_GCI_CFG0 0x29 // register access
+	#define M_MON_END 0x01 // bitmap mask (1bit)
+	#define M_MON_SLOW 0x02 // bitmap mask (1bit)
+	#define M_MON_DLL 0x04 // bitmap mask (1bit)
+	#define M_MON_CI6 0x08 // bitmap mask (1bit)
+	#define M_GCI_SWAP_TXHS 0x10 // bitmap mask (1bit)
+	#define M_GCI_SWAP_RXHS 0x20 // bitmap mask (1bit)
+	#define M_GCI_SWAP_STIO 0x40 // bitmap mask (1bit)
+	#define M_GCI_EN 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_mon_end:1;
+		REGWORD v_mon_slow:1;
+		REGWORD v_mon_dll:1;
+		REGWORD v_mon_ci6:1;
+		REGWORD v_gci_swap_txhs:1;
+		REGWORD v_gci_swap_rxhs:1;
+		REGWORD v_gci_swap_stio:1;
+		REGWORD v_gci_en:1;
+	} bit_r_gci_cfg0; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gci_cfg0 bit;} reg_r_gci_cfg0; // register and bitmap access
+
+
+#define R_GCI_STA 0x29 // register access
+	#define M_MON_RXR 0x01 // bitmap mask (1bit)
+	#define M_MON_TXR 0x02 // bitmap mask (1bit)
+	#define M_GCI_MX 0x04 // bitmap mask (1bit)
+	#define M_GCI_MR 0x08 // bitmap mask (1bit)
+	#define M_GCI_RX 0x10 // bitmap mask (1bit)
+	#define M_GCI_ABO 0x20 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_mon_rxr:1;
+		REGWORD v_mon_txr:1;
+		REGWORD v_gci_mx:1;
+		REGWORD v_gci_mr:1;
+		REGWORD v_gci_rx:1;
+		REGWORD v_gci_abo:1;
+		REGWORD reserved_36:2;
+	} bit_r_gci_sta; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gci_sta bit;} reg_r_gci_sta; // register and bitmap access
+
+
+#define R_GCI_CFG1 0x2A // register access
+	#define M_GCI_SL 0x1F // bitmap mask (5bit)
+		#define M1_GCI_SL 0x01
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gci_sl:5;
+		REGWORD reserved_34:3;
+	} bit_r_gci_cfg1; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gci_cfg1 bit;} reg_r_gci_cfg1; // register and bitmap access
+
+
+#define R_MON_RX 0x2A // register access
+	#define M_MON_RX 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_mon_rx:8;
+	} bit_r_mon_rx; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_mon_rx bit;} reg_r_mon_rx; // register and bitmap access
+
+
+#define R_MON_TX 0x2B // register access
+	#define M_MON_TX 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_mon_tx:8;
+	} bit_r_mon_tx; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_mon_tx bit;} reg_r_mon_tx; // register and bitmap access
+
+
 #define A_SU_WR_STA 0x30 // register access
 	#define M_SU_SET_STA 0x0F // bitmap mask (4bit)
 		#define M1_SU_SET_STA 0x01
@@ -1023,7 +1181,7 @@ typedef enum
 	#define M_SU_FR_SYNC 0x10 // bitmap mask (1bit)
 	#define M_SU_T2_EXP 0x20 // bitmap mask (1bit)
 	#define M_SU_INFO0 0x40 // bitmap mask (1bit)
-	#define M_SU_G2_G3 0x80 // bitmap mask (1bit)
+	#define M_G2_G3 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
@@ -1031,139 +1189,152 @@ typedef enum
 		REGWORD v_su_fr_sync:1;
 		REGWORD v_su_t2_exp:1;
 		REGWORD v_su_info0:1;
-		REGWORD v_su_g2_g3:1;
+		REGWORD v_g2_g3:1;
 	} bit_a_su_rd_sta; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_su_rd_sta bit;} reg_a_su_rd_sta; // register and bitmap access
 
 
 #define A_SU_CTRL0 0x31 // register access
-	#define M_SU_B1_EN 0x01 // bitmap mask (1bit)
-	#define M_SU_B2_EN 0x02 // bitmap mask (1bit)
+	#define M_B1_TX_EN 0x01 // bitmap mask (1bit)
+	#define M_B2_TX_EN 0x02 // bitmap mask (1bit)
 	#define M_SU_MD 0x04 // bitmap mask (1bit)
 	#define M_ST_D_LPRIO 0x08 // bitmap mask (1bit)
 	#define M_ST_SQ_EN 0x10 // bitmap mask (1bit)
 	#define M_SU_TST_SIG 0x20 // bitmap mask (1bit)
-	#define M_ST_TX_LI 0x40 // bitmap mask (1bit)
+	#define M_ST_PU_CTRL 0x40 // bitmap mask (1bit)
 	#define M_SU_STOP 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_su_b1_en:1;
-		REGWORD v_su_b2_en:1;
+		REGWORD v_b1_tx_en:1;
+		REGWORD v_b2_tx_en:1;
 		REGWORD v_su_md:1;
 		REGWORD v_st_d_lprio:1;
 		REGWORD v_st_sq_en:1;
 		REGWORD v_su_tst_sig:1;
-		REGWORD v_st_tx_li:1;
+		REGWORD v_st_pu_ctrl:1;
 		REGWORD v_su_stop:1;
 	} bit_a_su_ctrl0; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_su_ctrl0 bit;} reg_a_su_ctrl0; // register and bitmap access
 
 
-#define A_SU_DLY_L 0x31 // register access
-	#define M_SU_DLY_L 0x1F // bitmap mask (5bit)
-		#define M1_SU_DLY_L 0x01
+#define A_SU_DLYL 0x31 // register access
+	#define M_SU_DLYL 0x1F // bitmap mask (5bit)
+		#define M1_SU_DLYL 0x01
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_su_dly_l:5;
-		REGWORD reserved_30:3;
-	} bit_a_su_dly_l; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_su_dly_l bit;} reg_a_su_dly_l; // register and bitmap access
+		REGWORD v_su_dlyl:5;
+		REGWORD reserved_46:3;
+	} bit_a_su_dlyl; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_su_dlyl bit;} reg_a_su_dlyl; // register and bitmap access
 
 
 #define A_SU_CTRL1 0x32 // register access
-	#define M_SU_G2_G3_EN 0x01 // bitmap mask (1bit)
-	#define M_SU_D_HI 0x04 // bitmap mask (1bit)
+	#define M_G2_G3_EN 0x01 // bitmap mask (1bit)
+	#define M_D_RES 0x04 // bitmap mask (1bit)
 	#define M_ST_E_IGNO 0x08 // bitmap mask (1bit)
 	#define M_ST_E_LO 0x10 // bitmap mask (1bit)
 	#define M_BAC_D 0x40 // bitmap mask (1bit)
-	#define M_SU_B12_SWAP 0x80 // bitmap mask (1bit)
+	#define M_B12_SWAP 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_su_g2_g3_en:1;
-		REGWORD reserved_36:1;
-		REGWORD v_su_d_hi:1;
+		REGWORD v_g2_g3_en:1;
+		REGWORD reserved_37:1;
+		REGWORD v_d_res:1;
 		REGWORD v_st_e_igno:1;
 		REGWORD v_st_e_lo:1;
-		REGWORD reserved_37:1;
+		REGWORD reserved_38:1;
 		REGWORD v_bac_d:1;
-		REGWORD v_su_b12_swap:1;
+		REGWORD v_b12_swap:1;
 	} bit_a_su_ctrl1; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_su_ctrl1 bit;} reg_a_su_ctrl1; // register and bitmap access
 
 
-#define A_SU_DLY_H 0x32 // register access
-	#define M_SU_DLY_H 0x1F // bitmap mask (5bit)
-		#define M1_SU_DLY_H 0x01
+#define A_SU_DLYH 0x32 // register access
+	#define M_SU_DLYH 0x1F // bitmap mask (5bit)
+		#define M1_SU_DLYH 0x01
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_su_dly_h:5;
-		REGWORD reserved_31:3;
-	} bit_a_su_dly_h; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_su_dly_h bit;} reg_a_su_dly_h; // register and bitmap access
+		REGWORD v_su_dlyh:5;
+		REGWORD reserved_47:3;
+	} bit_a_su_dlyh; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_su_dlyh bit;} reg_a_su_dlyh; // register and bitmap access
 
 
 #define A_SU_CTRL2 0x33 // register access
-	#define M_SU_B1_RX_EN 0x01 // bitmap mask (1bit)
-	#define M_SU_B2_RX_EN 0x02 // bitmap mask (1bit)
-	#define M_SU_BAC_DE 0x04 // bitmap mask (1bit)
+	#define M_B1_RX_EN 0x01 // bitmap mask (1bit)
+	#define M_B2_RX_EN 0x02 // bitmap mask (1bit)
+	#define M_MS_SSYNC2 0x04 // bitmap mask (1bit)
+	#define M_BAC_S_SEL 0x08 // bitmap mask (1bit)
 	#define M_SU_SYNC_NT 0x10 // bitmap mask (1bit)
 	#define M_SU_2KHZ 0x20 // bitmap mask (1bit)
 	#define M_SU_TRI 0x40 // bitmap mask (1bit)
-	#define M_SU_EXCH 0x80 // bitmap mask (1bit)
+	#define M_SU_EXCHG 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_su_b1_rx_en:1;
-		REGWORD v_su_b2_rx_en:1;
-		REGWORD v_su_bac_de:1;
-		REGWORD reserved_38:1;
+		REGWORD v_b1_rx_en:1;
+		REGWORD v_b2_rx_en:1;
+		REGWORD v_ms_ssync2:1;
+		REGWORD v_bac_s_sel:1;
 		REGWORD v_su_sync_nt:1;
 		REGWORD v_su_2khz:1;
 		REGWORD v_su_tri:1;
-		REGWORD v_su_exch:1;
+		REGWORD v_su_exchg:1;
 	} bit_a_su_ctrl2; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_su_ctrl2 bit;} reg_a_su_ctrl2; // register and bitmap access
 
 
-#define A_SU_MS_WR 0x34 // register access
-	#define M_SU_MS_WR 0x0F // bitmap mask (4bit)
-		#define M1_SU_MS_WR 0x01
-	#define M_UP_S_WR 0x40 // bitmap mask (1bit)
+#define A_MS_TX 0x34 // register access
+	#define M_MS_TX 0x0F // bitmap mask (4bit)
+		#define M1_MS_TX 0x01
+	#define M_UP_S_TX 0x40 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_su_ms_wr:4;
+		REGWORD v_ms_tx:4;
 		REGWORD reserved_39:2;
-		REGWORD v_up_s_wr:1;
+		REGWORD v_up_s_tx:1;
 		REGWORD reserved_40:1;
-	} bit_a_su_ms_wr; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_su_ms_wr bit;} reg_a_su_ms_wr; // register and bitmap access
+	} bit_a_ms_tx; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_ms_tx bit;} reg_a_ms_tx; // register and bitmap access
 
 
-#define A_SU_MS_RD 0x34 // register access
-	#define M_SU_MS_RD 0x0F // bitmap mask (4bit)
-		#define M1_SU_MS_RD 0x01
+#define A_MS_RX 0x34 // register access
+	#define M_MS_RX 0x0F // bitmap mask (4bit)
+		#define M1_MS_RX 0x01
 	#define M_MS_RX_RDY 0x10 // bitmap mask (1bit)
-	#define M_UP_S_RD 0x40 // bitmap mask (1bit)
+	#define M_UP_S_RX 0x40 // bitmap mask (1bit)
 	#define M_MS_TX_RDY 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_su_ms_rd:4;
+		REGWORD v_ms_rx:4;
 		REGWORD v_ms_rx_rdy:1;
-		REGWORD reserved_32:1;
-		REGWORD v_up_s_rd:1;
+		REGWORD reserved_48:1;
+		REGWORD v_up_s_rx:1;
 		REGWORD v_ms_tx_rdy:1;
-	} bit_a_su_ms_rd; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_su_ms_rd bit;} reg_a_su_ms_rd; // register and bitmap access
+	} bit_a_ms_rx; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_ms_rx bit;} reg_a_ms_rx; // register and bitmap access
 
 
-#define A_SU_CTRL3 0x35 // register access
-	#define M_UP_EN 0x01 // bitmap mask (1bit)
+#define A_ST_CTRL3 0x35 // register access
+	#define M_ST_SEL 0x01 // bitmap mask (1bit)
+	#define M_ST_PULSE 0xFE // bitmap mask (7bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_st_sel:1;
+		REGWORD v_st_pulse:7;
+	} bit_a_st_ctrl3; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_st_ctrl3 bit;} reg_a_st_ctrl3; // register and bitmap access
+
+
+#define A_UP_CTRL3 0x35 // register access
+	#define M_UP_SEL 0x01 // bitmap mask (1bit)
 	#define M_UP_VIO 0x02 // bitmap mask (1bit)
 	#define M_UP_DC_STR 0x04 // bitmap mask (1bit)
 	#define M_UP_DC_OFF 0x08 // bitmap mask (1bit)
@@ -1174,7 +1345,7 @@ typedef enum
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_up_en:1;
+		REGWORD v_up_sel:1;
 		REGWORD v_up_vio:1;
 		REGWORD v_up_dc_str:1;
 		REGWORD v_up_dc_off:1;
@@ -1182,27 +1353,48 @@ typedef enum
 		REGWORD v_up_scrm_md:1;
 		REGWORD v_up_scrm_tx_off:1;
 		REGWORD v_up_scrm_rx_off:1;
-	} bit_a_su_ctrl3; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_su_ctrl3 bit;} reg_a_su_ctrl3; // register and bitmap access
+	} bit_a_up_ctrl3; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_up_ctrl3 bit;} reg_a_up_ctrl3; // register and bitmap access
 
 
 #define A_SU_STA 0x35 // register access
-	#define M_ST_D_HPRIO_9 0x01 // bitmap mask (1bit)
-	#define M_ST_D_LPRIO_11 0x02 // bitmap mask (1bit)
+	#define M_ST_D_HPRIO9 0x01 // bitmap mask (1bit)
+	#define M_ST_D_LPRIO11 0x02 // bitmap mask (1bit)
 	#define M_ST_D_CONT 0x04 // bitmap mask (1bit)
 	#define M_ST_D_ACT 0x08 // bitmap mask (1bit)
 	#define M_SU_AF0 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_st_d_hprio_9:1;
-		REGWORD v_st_d_lprio_11:1;
+		REGWORD v_st_d_hprio9:1;
+		REGWORD v_st_d_lprio11:1;
 		REGWORD v_st_d_cont:1;
 		REGWORD v_st_d_act:1;
-		REGWORD reserved_33:3;
+		REGWORD reserved_49:3;
 		REGWORD v_su_af0:1;
 	} bit_a_su_sta; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_su_sta bit;} reg_a_su_sta; // register and bitmap access
+
+
+#define A_MS_DF 0x36 // register access
+	#define M_BAC_NINV 0x01 // bitmap mask (1bit)
+	#define M_SG_AB_INV 0x02 // bitmap mask (1bit)
+	#define M_SQ_T_SRC 0x04 // bitmap mask (1bit)
+	#define M_M_S_SRC 0x08 // bitmap mask (1bit)
+	#define M_SQ_T_DST 0x10 // bitmap mask (1bit)
+	#define M_SU_RX_VAL 0x20 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_bac_ninv:1;
+		REGWORD v_sg_ab_inv:1;
+		REGWORD v_sq_t_src:1;
+		REGWORD v_m_s_src:1;
+		REGWORD v_sq_t_dst:1;
+		REGWORD v_su_rx_val:1;
+		REGWORD reserved_41:2;
+	} bit_a_ms_df; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_ms_df bit;} reg_a_ms_df; // register and bitmap access
 
 
 #define A_SU_CLK_DLY 0x37 // register access
@@ -1215,7 +1407,7 @@ typedef enum
 	{
 		REGWORD v_su_clk_dly:4;
 		REGWORD v_st_smpl:3;
-		REGWORD reserved_41:1;
+		REGWORD reserved_42:1;
 	} bit_a_su_clk_dly; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_su_clk_dly bit;} reg_a_su_clk_dly; // register and bitmap access
 
@@ -1281,102 +1473,72 @@ typedef enum
 
 
 #define A_D_TX 0x3E // register access
+	#define M_D_TX_S 0x01 // bitmap mask (1bit)
+	#define M_D_TX_BAC 0x20 // bitmap mask (1bit)
 	#define M_D_TX 0xC0 // bitmap mask (2bit)
 		#define M1_D_TX 0x40
 
 	typedef struct // bitmap construction
 	{
-		REGWORD reserved_42:6;
+		REGWORD v_d_tx_s:1;
+		REGWORD reserved_43:4;
+		REGWORD v_d_tx_bac:1;
 		REGWORD v_d_tx:2;
 	} bit_a_d_tx; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_d_tx bit;} reg_a_d_tx; // register and bitmap access
 
 
 #define A_D_RX 0x3E // register access
-	#define M_D_S 0x01 // bitmap mask (1bit)
-	#define M_D_AB 0x10 // bitmap mask (1bit)
-	#define M_D_SG 0x20 // bitmap mask (1bit)
+	#define M_D_RX_S 0x01 // bitmap mask (1bit)
+	#define M_D_RX_AB 0x10 // bitmap mask (1bit)
+	#define M_D_RX_SG 0x20 // bitmap mask (1bit)
 	#define M_D_RX 0xC0 // bitmap mask (2bit)
 		#define M1_D_RX 0x40
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_d_s:1;
-		REGWORD reserved_34:3;
-		REGWORD v_d_ab:1;
-		REGWORD v_d_sg:1;
+		REGWORD v_d_rx_s:1;
+		REGWORD reserved_50:3;
+		REGWORD v_d_rx_ab:1;
+		REGWORD v_d_rx_sg:1;
 		REGWORD v_d_rx:2;
 	} bit_a_d_rx; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_d_rx bit;} reg_a_d_rx; // register and bitmap access
 
 
 #define A_E_RX 0x3F // register access
-	#define M_E_S 0x01 // bitmap mask (1bit)
-	#define M_E_AB 0x10 // bitmap mask (1bit)
-	#define M_E_SG 0x20 // bitmap mask (1bit)
+	#define M_E_RX_S 0x01 // bitmap mask (1bit)
+	#define M_E_RX_AB 0x10 // bitmap mask (1bit)
+	#define M_E_RX_SG 0x20 // bitmap mask (1bit)
 	#define M_E_RX 0xC0 // bitmap mask (2bit)
 		#define M1_E_RX 0x40
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_e_s:1;
-		REGWORD reserved_35:3;
-		REGWORD v_e_ab:1;
-		REGWORD v_e_sg:1;
+		REGWORD v_e_rx_s:1;
+		REGWORD reserved_51:3;
+		REGWORD v_e_rx_ab:1;
+		REGWORD v_e_rx_sg:1;
 		REGWORD v_e_rx:2;
 	} bit_a_e_rx; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_e_rx bit;} reg_a_e_rx; // register and bitmap access
 
 
-#define R_GPIO_OUT0 0x40 // register access
-	#define M_GPIO_OUT0 0x01 // bitmap mask (1bit)
-	#define M_GPIO_OUT1 0x02 // bitmap mask (1bit)
-	#define M_GPIO_OUT2 0x04 // bitmap mask (1bit)
-	#define M_GPIO_OUT3 0x08 // bitmap mask (1bit)
-	#define M_GPIO_OUT4 0x10 // bitmap mask (1bit)
-	#define M_GPIO_OUT5 0x20 // bitmap mask (1bit)
-	#define M_GPIO_OUT6 0x40 // bitmap mask (1bit)
-	#define M_GPIO_OUT7 0x80 // bitmap mask (1bit)
+#define A_BAC_S_TX 0x3F // register access
+	#define M_S_TX 0x01 // bitmap mask (1bit)
+	#define M_BAC_TX 0x20 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_gpio_out0:1;
-		REGWORD v_gpio_out1:1;
-		REGWORD v_gpio_out2:1;
-		REGWORD v_gpio_out3:1;
-		REGWORD v_gpio_out4:1;
-		REGWORD v_gpio_out5:1;
-		REGWORD v_gpio_out6:1;
-		REGWORD v_gpio_out7:1;
-	} bit_r_gpio_out0; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_gpio_out0 bit;} reg_r_gpio_out0; // register and bitmap access
+		REGWORD v_s_tx:1;
+		REGWORD reserved_44:4;
+		REGWORD v_bac_tx:1;
+		REGWORD reserved_45:2;
+	} bit_a_bac_s_tx; // register and bitmap data
+	typedef union {REGWORD reg; bit_a_bac_s_tx bit;} reg_a_bac_s_tx; // register and bitmap access
 
 
-#define R_GPIO_IN0 0x40 // register access
-	#define M_GPIO_IN0 0x01 // bitmap mask (1bit)
-	#define M_GPIO_IN1 0x02 // bitmap mask (1bit)
-	#define M_GPIO_IN2 0x04 // bitmap mask (1bit)
-	#define M_GPIO_IN3 0x08 // bitmap mask (1bit)
-	#define M_GPIO_IN4 0x10 // bitmap mask (1bit)
-	#define M_GPIO_IN5 0x20 // bitmap mask (1bit)
-	#define M_GPIO_IN6 0x40 // bitmap mask (1bit)
-	#define M_GPIO_IN7 0x80 // bitmap mask (1bit)
-
-	typedef struct // bitmap construction
-	{
-		REGWORD v_gpio_in0:1;
-		REGWORD v_gpio_in1:1;
-		REGWORD v_gpio_in2:1;
-		REGWORD v_gpio_in3:1;
-		REGWORD v_gpio_in4:1;
-		REGWORD v_gpio_in5:1;
-		REGWORD v_gpio_in6:1;
-		REGWORD v_gpio_in7:1;
-	} bit_r_gpio_in0; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_gpio_in0 bit;} reg_r_gpio_in0; // register and bitmap access
-
-
-#define R_GPIO_OUT1 0x41 // register access
+#define R_GPIO_OUT1 0x40 // register access
 	#define M_GPIO_OUT8 0x01 // bitmap mask (1bit)
 	#define M_GPIO_OUT9 0x02 // bitmap mask (1bit)
 	#define M_GPIO_OUT10 0x04 // bitmap mask (1bit)
@@ -1400,7 +1562,7 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_gpio_out1 bit;} reg_r_gpio_out1; // register and bitmap access
 
 
-#define R_GPIO_IN1 0x41 // register access
+#define R_GPIO_IN1 0x40 // register access
 	#define M_GPIO_IN8 0x01 // bitmap mask (1bit)
 	#define M_GPIO_IN9 0x02 // bitmap mask (1bit)
 	#define M_GPIO_IN10 0x04 // bitmap mask (1bit)
@@ -1424,31 +1586,55 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_gpio_in1 bit;} reg_r_gpio_in1; // register and bitmap access
 
 
-#define R_GPIO_EN0 0x42 // register access
-	#define M_GPIO_EN0 0x01 // bitmap mask (1bit)
-	#define M_GPIO_EN1 0x02 // bitmap mask (1bit)
-	#define M_GPIO_EN2 0x04 // bitmap mask (1bit)
-	#define M_GPIO_EN3 0x08 // bitmap mask (1bit)
-	#define M_GPIO_EN4 0x10 // bitmap mask (1bit)
-	#define M_GPIO_EN5 0x20 // bitmap mask (1bit)
-	#define M_GPIO_EN6 0x40 // bitmap mask (1bit)
-	#define M_GPIO_EN7 0x80 // bitmap mask (1bit)
+#define R_GPIO_OUT3 0x41 // register access
+	#define M_GPIO_OUT24 0x01 // bitmap mask (1bit)
+	#define M_GPIO_OUT25 0x02 // bitmap mask (1bit)
+	#define M_GPIO_OUT26 0x04 // bitmap mask (1bit)
+	#define M_GPIO_OUT27 0x08 // bitmap mask (1bit)
+	#define M_GPIO_OUT28 0x10 // bitmap mask (1bit)
+	#define M_GPIO_OUT29 0x20 // bitmap mask (1bit)
+	#define M_GPIO_OUT30 0x40 // bitmap mask (1bit)
+	#define M_GPIO_OUT31 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_gpio_en0:1;
-		REGWORD v_gpio_en1:1;
-		REGWORD v_gpio_en2:1;
-		REGWORD v_gpio_en3:1;
-		REGWORD v_gpio_en4:1;
-		REGWORD v_gpio_en5:1;
-		REGWORD v_gpio_en6:1;
-		REGWORD v_gpio_en7:1;
-	} bit_r_gpio_en0; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_gpio_en0 bit;} reg_r_gpio_en0; // register and bitmap access
+		REGWORD v_gpio_out24:1;
+		REGWORD v_gpio_out25:1;
+		REGWORD v_gpio_out26:1;
+		REGWORD v_gpio_out27:1;
+		REGWORD v_gpio_out28:1;
+		REGWORD v_gpio_out29:1;
+		REGWORD v_gpio_out30:1;
+		REGWORD v_gpio_out31:1;
+	} bit_r_gpio_out3; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_out3 bit;} reg_r_gpio_out3; // register and bitmap access
 
 
-#define R_GPIO_EN1 0x43 // register access
+#define R_GPIO_IN3 0x41 // register access
+	#define M_GPIO_IN24 0x01 // bitmap mask (1bit)
+	#define M_GPIO_IN25 0x02 // bitmap mask (1bit)
+	#define M_GPIO_IN26 0x04 // bitmap mask (1bit)
+	#define M_GPIO_IN27 0x08 // bitmap mask (1bit)
+	#define M_GPIO_IN28 0x10 // bitmap mask (1bit)
+	#define M_GPIO_IN29 0x20 // bitmap mask (1bit)
+	#define M_GPIO_IN30 0x40 // bitmap mask (1bit)
+	#define M_GPIO_IN31 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gpio_in24:1;
+		REGWORD v_gpio_in25:1;
+		REGWORD v_gpio_in26:1;
+		REGWORD v_gpio_in27:1;
+		REGWORD v_gpio_in28:1;
+		REGWORD v_gpio_in29:1;
+		REGWORD v_gpio_in30:1;
+		REGWORD v_gpio_in31:1;
+	} bit_r_gpio_in3; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_in3 bit;} reg_r_gpio_in3; // register and bitmap access
+
+
+#define R_GPIO_EN1 0x42 // register access
 	#define M_GPIO_EN8 0x01 // bitmap mask (1bit)
 	#define M_GPIO_EN9 0x02 // bitmap mask (1bit)
 	#define M_GPIO_EN10 0x04 // bitmap mask (1bit)
@@ -1472,45 +1658,45 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_gpio_en1 bit;} reg_r_gpio_en1; // register and bitmap access
 
 
-#define R_GPIO_SEL 0x44 // register access
-	#define M_GPIO_SEL0 0x01 // bitmap mask (1bit)
-	#define M_GPIO_SEL1 0x02 // bitmap mask (1bit)
-	#define M_GPIO_SEL2 0x04 // bitmap mask (1bit)
-	#define M_GPIO_SEL3 0x08 // bitmap mask (1bit)
+#define R_GPIO_EN3 0x43 // register access
+	#define M_GPIO_EN24 0x01 // bitmap mask (1bit)
+	#define M_GPIO_EN25 0x02 // bitmap mask (1bit)
+	#define M_GPIO_EN26 0x04 // bitmap mask (1bit)
+	#define M_GPIO_EN27 0x08 // bitmap mask (1bit)
+	#define M_GPIO_EN28 0x10 // bitmap mask (1bit)
+	#define M_GPIO_EN29 0x20 // bitmap mask (1bit)
+	#define M_GPIO_EN30 0x40 // bitmap mask (1bit)
+	#define M_GPIO_EN31 0x80 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_gpio_sel0:1;
-		REGWORD v_gpio_sel1:1;
-		REGWORD v_gpio_sel2:1;
-		REGWORD v_gpio_sel3:1;
-		REGWORD reserved_43:4;
-	} bit_r_gpio_sel; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_gpio_sel bit;} reg_r_gpio_sel; // register and bitmap access
+		REGWORD v_gpio_en24:1;
+		REGWORD v_gpio_en25:1;
+		REGWORD v_gpio_en26:1;
+		REGWORD v_gpio_en27:1;
+		REGWORD v_gpio_en28:1;
+		REGWORD v_gpio_en29:1;
+		REGWORD v_gpio_en30:1;
+		REGWORD v_gpio_en31:1;
+	} bit_r_gpio_en3; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_en3 bit;} reg_r_gpio_en3; // register and bitmap access
 
 
-#define R_GPIO_IN2 0x45 // register access
-	#define M_GPIO_IN16 0x01 // bitmap mask (1bit)
-	#define M_GPIO_IN17 0x02 // bitmap mask (1bit)
-	#define M_GPIO_IN18 0x04 // bitmap mask (1bit)
-	#define M_GPIO_IN19 0x08 // bitmap mask (1bit)
-	#define M_GPIO_IN20 0x10 // bitmap mask (1bit)
-	#define M_GPIO_IN21 0x20 // bitmap mask (1bit)
-	#define M_GPIO_IN22 0x40 // bitmap mask (1bit)
-	#define M_GPIO_IN23 0x80 // bitmap mask (1bit)
+#define R_GPIO_SEL_BL 0x44 // register access
+	#define M_GPIO_BL0 0x01 // bitmap mask (1bit)
+	#define M_GPIO_BL1 0x02 // bitmap mask (1bit)
+	#define M_GPIO_BL2 0x04 // bitmap mask (1bit)
+	#define M_GPIO_BL3 0x08 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
-		REGWORD v_gpio_in16:1;
-		REGWORD v_gpio_in17:1;
-		REGWORD v_gpio_in18:1;
-		REGWORD v_gpio_in19:1;
-		REGWORD v_gpio_in20:1;
-		REGWORD v_gpio_in21:1;
-		REGWORD v_gpio_in22:1;
-		REGWORD v_gpio_in23:1;
-	} bit_r_gpio_in2; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_gpio_in2 bit;} reg_r_gpio_in2; // register and bitmap access
+		REGWORD v_gpio_bl0:1;
+		REGWORD v_gpio_bl1:1;
+		REGWORD v_gpio_bl2:1;
+		REGWORD v_gpio_bl3:1;
+		REGWORD reserved_54:4;
+	} bit_r_gpio_sel_bl; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_sel_bl bit;} reg_r_gpio_sel_bl; // register and bitmap access
 
 
 #define R_GPIO_OUT2 0x45 // register access
@@ -1537,7 +1723,32 @@ typedef enum
 	typedef union {REGWORD reg; bit_r_gpio_out2 bit;} reg_r_gpio_out2; // register and bitmap access
 
 
+#define R_GPIO_IN2 0x45 // register access
+	#define M_GPIO_IN16 0x01 // bitmap mask (1bit)
+	#define M_GPIO_IN17 0x02 // bitmap mask (1bit)
+	#define M_GPIO_IN18 0x04 // bitmap mask (1bit)
+	#define M_GPIO_IN19 0x08 // bitmap mask (1bit)
+	#define M_GPIO_IN20 0x10 // bitmap mask (1bit)
+	#define M_GPIO_IN21 0x20 // bitmap mask (1bit)
+	#define M_GPIO_IN22 0x40 // bitmap mask (1bit)
+	#define M_GPIO_IN23 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gpio_in16:1;
+		REGWORD v_gpio_in17:1;
+		REGWORD v_gpio_in18:1;
+		REGWORD v_gpio_in19:1;
+		REGWORD v_gpio_in20:1;
+		REGWORD v_gpio_in21:1;
+		REGWORD v_gpio_in22:1;
+		REGWORD v_gpio_in23:1;
+	} bit_r_gpio_in2; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_in2 bit;} reg_r_gpio_in2; // register and bitmap access
+
+
 #define R_PWM_MD 0x46 // register access
+	#define M_WAK_EN 0x02 // bitmap mask (1bit)
 	#define M_PWM0_MD 0x30 // bitmap mask (2bit)
 		#define M1_PWM0_MD 0x10
 	#define M_PWM1_MD 0xC0 // bitmap mask (2bit)
@@ -1545,7 +1756,9 @@ typedef enum
 
 	typedef struct // bitmap construction
 	{
-		REGWORD reserved_44:4;
+		REGWORD reserved_52:1;
+		REGWORD v_wak_en:1;
+		REGWORD reserved_53:2;
 		REGWORD v_pwm0_md:2;
 		REGWORD v_pwm1_md:2;
 	} bit_r_pwm_md; // register and bitmap data
@@ -1574,6 +1787,161 @@ typedef enum
 		REGWORD v_gpio_en23:1;
 	} bit_r_gpio_en2; // register and bitmap data
 	typedef union {REGWORD reg; bit_r_gpio_en2 bit;} reg_r_gpio_en2; // register and bitmap access
+
+
+#define R_GPIO_IN0 0x48 // register access
+	#define M_GPIO_IN0 0x01 // bitmap mask (1bit)
+	#define M_GPIO_IN1 0x02 // bitmap mask (1bit)
+	#define M_GPIO_IN2 0x04 // bitmap mask (1bit)
+	#define M_GPIO_IN3 0x08 // bitmap mask (1bit)
+	#define M_GPIO_IN4 0x10 // bitmap mask (1bit)
+	#define M_GPIO_IN5 0x20 // bitmap mask (1bit)
+	#define M_GPIO_IN6 0x40 // bitmap mask (1bit)
+	#define M_GPIO_IN7 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gpio_in0:1;
+		REGWORD v_gpio_in1:1;
+		REGWORD v_gpio_in2:1;
+		REGWORD v_gpio_in3:1;
+		REGWORD v_gpio_in4:1;
+		REGWORD v_gpio_in5:1;
+		REGWORD v_gpio_in6:1;
+		REGWORD v_gpio_in7:1;
+	} bit_r_gpio_in0; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_in0 bit;} reg_r_gpio_in0; // register and bitmap access
+
+
+#define R_GPIO_OUT0 0x48 // register access
+	#define M_GPIO_OUT0 0x01 // bitmap mask (1bit)
+	#define M_GPIO_OUT1 0x02 // bitmap mask (1bit)
+	#define M_GPIO_OUT2 0x04 // bitmap mask (1bit)
+	#define M_GPIO_OUT3 0x08 // bitmap mask (1bit)
+	#define M_GPIO_OUT4 0x10 // bitmap mask (1bit)
+	#define M_GPIO_OUT5 0x20 // bitmap mask (1bit)
+	#define M_GPIO_OUT6 0x40 // bitmap mask (1bit)
+	#define M_GPIO_OUT7 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gpio_out0:1;
+		REGWORD v_gpio_out1:1;
+		REGWORD v_gpio_out2:1;
+		REGWORD v_gpio_out3:1;
+		REGWORD v_gpio_out4:1;
+		REGWORD v_gpio_out5:1;
+		REGWORD v_gpio_out6:1;
+		REGWORD v_gpio_out7:1;
+	} bit_r_gpio_out0; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_out0 bit;} reg_r_gpio_out0; // register and bitmap access
+
+
+#define R_GPIO_EN0 0x4A // register access
+	#define M_GPIO_EN0 0x01 // bitmap mask (1bit)
+	#define M_GPIO_EN1 0x02 // bitmap mask (1bit)
+	#define M_GPIO_EN2 0x04 // bitmap mask (1bit)
+	#define M_GPIO_EN3 0x08 // bitmap mask (1bit)
+	#define M_GPIO_EN4 0x10 // bitmap mask (1bit)
+	#define M_GPIO_EN5 0x20 // bitmap mask (1bit)
+	#define M_GPIO_EN6 0x40 // bitmap mask (1bit)
+	#define M_GPIO_EN7 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gpio_en0:1;
+		REGWORD v_gpio_en1:1;
+		REGWORD v_gpio_en2:1;
+		REGWORD v_gpio_en3:1;
+		REGWORD v_gpio_en4:1;
+		REGWORD v_gpio_en5:1;
+		REGWORD v_gpio_en6:1;
+		REGWORD v_gpio_en7:1;
+	} bit_r_gpio_en0; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_en0 bit;} reg_r_gpio_en0; // register and bitmap access
+
+
+#define R_GPIO_SEL 0x4C // register access
+	#define M_GPIO_SEL0 0x01 // bitmap mask (1bit)
+	#define M_GPIO_SEL1 0x02 // bitmap mask (1bit)
+	#define M_GPIO_SEL2 0x04 // bitmap mask (1bit)
+	#define M_GPIO_SEL3 0x08 // bitmap mask (1bit)
+	#define M_GPIO_SEL4 0x10 // bitmap mask (1bit)
+	#define M_GPIO_SEL5 0x20 // bitmap mask (1bit)
+	#define M_GPIO_SEL6 0x40 // bitmap mask (1bit)
+	#define M_GPIO_SEL7 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_gpio_sel0:1;
+		REGWORD v_gpio_sel1:1;
+		REGWORD v_gpio_sel2:1;
+		REGWORD v_gpio_sel3:1;
+		REGWORD v_gpio_sel4:1;
+		REGWORD v_gpio_sel5:1;
+		REGWORD v_gpio_sel6:1;
+		REGWORD v_gpio_sel7:1;
+	} bit_r_gpio_sel; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_gpio_sel bit;} reg_r_gpio_sel; // register and bitmap access
+
+
+#define R_PLL_STA 0x50 // register access
+	#define M_PLL_LOCK 0x80 // bitmap mask (1bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD reserved_56:7;
+		REGWORD v_pll_lock:1;
+	} bit_r_pll_sta; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_pll_sta bit;} reg_r_pll_sta; // register and bitmap access
+
+
+#define R_PLL_CTRL 0x50 // register access
+	#define M_PLL_NRES 0x01 // bitmap mask (1bit)
+	#define M_PLL_TST 0x02 // bitmap mask (1bit)
+	#define M_PLL_FREEZE 0x20 // bitmap mask (1bit)
+	#define M_PLL_M 0xC0 // bitmap mask (2bit)
+		#define M1_PLL_M 0x40
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_pll_nres:1;
+		REGWORD v_pll_tst:1;
+		REGWORD reserved_55:3;
+		REGWORD v_pll_freeze:1;
+		REGWORD v_pll_m:2;
+	} bit_r_pll_ctrl; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_pll_ctrl bit;} reg_r_pll_ctrl; // register and bitmap access
+
+
+#define R_PLL_P 0x51 // register access
+	#define M_PLL_P 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_pll_p:8;
+	} bit_r_pll_p; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_pll_p bit;} reg_r_pll_p; // register and bitmap access
+
+
+#define R_PLL_N 0x52 // register access
+	#define M_PLL_N 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_pll_n:8;
+	} bit_r_pll_n; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_pll_n bit;} reg_r_pll_n; // register and bitmap access
+
+
+#define R_PLL_S 0x53 // register access
+	#define M_PLL_S 0xFF // bitmap mask (8bit)
+
+	typedef struct // bitmap construction
+	{
+		REGWORD v_pll_s:8;
+	} bit_r_pll_s; // register and bitmap data
+	typedef union {REGWORD reg; bit_r_pll_s bit;} reg_r_pll_s; // register and bitmap access
 
 
 #define A_FIFO_DATA 0x80 // register access
@@ -1687,7 +2055,7 @@ typedef enum
 	{
 		REGWORD v_ch_fdir:1;
 		REGWORD v_ch_fnum:4;
-		REGWORD reserved_48:3;
+		REGWORD reserved_57:3;
 	} bit_a_channel; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_channel bit;} reg_a_channel; // register and bitmap access
 
@@ -1702,9 +2070,9 @@ typedef enum
 	{
 		REGWORD v_next_fifo_dir:1;
 		REGWORD v_next_fifo_num:4;
-		REGWORD reserved_49:1;
+		REGWORD reserved_58:1;
 		REGWORD v_seq_end:1;
-		REGWORD reserved_50:1;
+		REGWORD reserved_59:1;
 	} bit_a_fifo_seq; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_fifo_seq bit;} reg_a_fifo_seq; // register and bitmap access
 
@@ -1713,17 +2081,19 @@ typedef enum
 	#define M_FIFO_IRQMSK 0x01 // bitmap mask (1bit)
 	#define M_BERT_EN 0x02 // bitmap mask (1bit)
 	#define M_MIX_IRQ 0x04 // bitmap mask (1bit)
-	#define M_FR_ABORT 0x08 // bitmap mask (1bit)
+	#define M_FR_ABO 0x08 // bitmap mask (1bit)
 	#define M_NO_CRC 0x10 // bitmap mask (1bit)
+	#define M_NO_REP 0x20 // bitmap mask (1bit)
 
 	typedef struct // bitmap construction
 	{
 		REGWORD v_fifo_irqmsk:1;
 		REGWORD v_bert_en:1;
 		REGWORD v_mix_irq:1;
-		REGWORD v_fr_abort:1;
+		REGWORD v_fr_abo:1;
 		REGWORD v_no_crc:1;
-		REGWORD reserved_51:3;
+		REGWORD v_no_rep:1;
+		REGWORD reserved_60:2;
 	} bit_a_fifo_ctrl; // register and bitmap data
 	typedef union {REGWORD reg; bit_a_fifo_ctrl bit;} reg_a_fifo_ctrl; // register and bitmap access
 
@@ -1734,8 +2104,8 @@ typedef enum
 /*                                                                                   */
 /*  End of XHFC-2S4U / XHFC-4SU register definitions.                                */
 /*                                                                                   */
-/*  Total number of registers processed: 100 of 100                                  */
-/*  Total number of bitmaps processed  : 426                                         */
+/*  Total number of registers processed: 122 of 122                                  */
+/*  Total number of bitmaps processed  : 523                                         */
 /*                                                                                   */
 /*___________________________________________________________________________________*/
 /*                                                                                   */

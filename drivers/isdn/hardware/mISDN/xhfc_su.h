@@ -37,10 +37,10 @@
 #define CHIP_ID_4SU	0x63
 #endif
 #ifndef CHIP_ID_1SU
-#define CHIP_ID_1SU	0x64
+#define CHIP_ID_1SU	0x60
 #endif
 #ifndef CHIP_ID_2SU
-#define CHIP_ID_2SU	0x65
+#define CHIP_ID_2SU	0x61
 #endif
 	
 
@@ -130,7 +130,7 @@ typedef struct {
 	reg_a_su_ctrl0 su_ctrl0;
 	reg_a_su_ctrl1 su_ctrl1;
 	reg_a_su_ctrl2 su_ctrl2;
-	reg_a_su_ctrl3 su_ctrl3;
+	reg_a_st_ctrl3 st_ctrl3;
 } xhfc_port_t;
 
 

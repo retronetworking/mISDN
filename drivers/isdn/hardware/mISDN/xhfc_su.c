@@ -731,7 +731,7 @@ next_tx_frame(xhfc_hw * hw, __u8 channel)
 static inline void
 xhfc_waitbusy(xhfc_hw * hw)
 {
-	while (read_xhfc(hw, R_STATUS0) & M_BUSY);
+	while (read_xhfc(hw, R_STATUS) & M_BUSY);
 }
 
 static inline void
@@ -751,7 +751,7 @@ xhfc_inc_f(xhfc_hw * hw)
 static inline void
 xhfc_resetfifo(xhfc_hw * hw)
 {
-	write_xhfc(hw, A_INC_RES_FIFO, M_RES_F | M_FIFO_ERR_RES);
+	write_xhfc(hw, A_INC_RES_FIFO, M_RES_FIFO | M_RES_FIFO_ERR);
 	xhfc_waitbusy(hw);
 }
 
@@ -805,7 +805,7 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 					 ch->tx_idx, fstat);
 		}
 
-		write_xhfc(hw, A_INC_RES_FIFO, M_FIFO_ERR_RES);
+		write_xhfc(hw, A_INC_RES_FIFO, M_RES_FIFO_ERR);
 
 		/* restart frame transmission */
 		if ((test_bit(FLG_HDLC, &ch->Flags)) && ch->tx_idx) {
@@ -853,7 +853,7 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 							 channel,
 							 fstat);
 				}
-				write_xhfc(hw, A_INC_RES_FIFO, M_FIFO_ERR_RES);
+				write_xhfc(hw, A_INC_RES_FIFO, M_RES_FIFO_ERR);
 
 				if (test_bit(FLG_HDLC, &ch->Flags)) {
 					// restart frame transmission
@@ -909,7 +909,7 @@ xhfc_read_fifo(xhfc_hw * hw, __u8 channel)
 					 "RX fifo overflow channel(%i), "
 					 "A_FIFO_STA(0x%02x) f0cnt(%i)",
 					 channel, fstat, hw->f0_akku);
-		write_xhfc(hw, A_INC_RES_FIFO, M_FIFO_ERR_RES);
+		write_xhfc(hw, A_INC_RES_FIFO, M_RES_FIFO_ERR);
 	}
 
 	if (test_bit(FLG_HDLC, &ch->Flags)) {
@@ -1271,7 +1271,7 @@ init_xhfc(xhfc_hw * hw)
 
 	write_xhfc(hw, R_FIFO_THRES, 0x11);
 
-	while ((read_xhfc(hw, R_STATUS0) & (M_BUSY | M_PCM_INIT))
+	while ((read_xhfc(hw, R_STATUS) & (M_BUSY | M_PCM_INIT))
 	       && (timeout))
 		timeout--;
 
@@ -1342,11 +1342,11 @@ init_su(xhfc_hw * hw, __u8 pt)
 		port->su_ctrl0.bit.v_su_md = 1;
 
 	if (port->mode & PORT_MODE_EXCH_POL) 
-		port->su_ctrl2.reg = M_SU_EXCH;
+		port->su_ctrl2.reg = M_SU_EXCHG;
 
 	if (port->mode & PORT_MODE_UP) {
-		port->su_ctrl3.bit.v_up_en = 1;
-		write_xhfc(hw, A_SU_MS_WR, 0x0F);
+		port->st_ctrl3.bit.v_st_sel = 1;
+		write_xhfc(hw, A_MS_TX, 0x0F);
 		port->su_ctrl0.bit.v_st_sq_en = 1;
 	}
 
@@ -1354,14 +1354,14 @@ init_su(xhfc_hw * hw, __u8 pt)
 		printk(KERN_INFO "%s %s su_ctrl0(0x%02x) "
 		       "su_ctrl1(0x%02x) "
 		       "su_ctrl2(0x%02x) "
-		       "su_ctrl3(0x%02x)\n",
+		       "st_ctrl3(0x%02x)\n",
 		       hw->card_name, __FUNCTION__,
 		       port->su_ctrl0.reg,
 		       port->su_ctrl1.reg,
 		       port->su_ctrl2.reg,
-		       port->su_ctrl3.reg);
+		       port->st_ctrl3.reg);
 
-	write_xhfc(hw, A_SU_CTRL3, port->su_ctrl3.reg);
+	write_xhfc(hw, A_ST_CTRL3, port->st_ctrl3.reg);
 	write_xhfc(hw, A_SU_CTRL0, port->su_ctrl0.reg);
 	write_xhfc(hw, A_SU_CTRL1, port->su_ctrl1.reg);
 	write_xhfc(hw, A_SU_CTRL2, port->su_ctrl2.reg);
@@ -1424,15 +1424,13 @@ setup_su(xhfc_hw * hw, __u8 pt, __u8 bc, __u8 enable)
 		       hw->card_name, __FUNCTION__,
 		       (enable) ? ("enable") : ("disable"), pt, bc);
 
-	if (bc)
-		port->su_ctrl0.bit.v_su_b2_en = (enable?1:0);
-	else
-		port->su_ctrl0.bit.v_su_b1_en = (enable?1:0);
-
-	if (bc)
-		port->su_ctrl2.bit.v_su_b2_rx_en = (enable?1:0);
-	else
-		port->su_ctrl2.bit.v_su_b1_rx_en = (enable?1:0);
+	if (bc) {
+		port->su_ctrl2.bit.v_b2_rx_en = (enable?1:0);
+		port->su_ctrl0.bit.v_b2_tx_en = (enable?1:0);
+	} else {
+		port->su_ctrl2.bit.v_b1_rx_en = (enable?1:0);
+		port->su_ctrl0.bit.v_b1_tx_en = (enable?1:0);
+	}
 
 	if (hw->port[pt].mode & PORT_MODE_NT)
 		hw->port[pt].su_ctrl0.bit.v_su_md = 1;
@@ -1500,8 +1498,8 @@ setup_channel(xhfc_hw * hw, __u8 channel, int protocol)
 				if (debug & DEBUG_HFC_MODE)
 					mISDN_debugprint(&hw->chan[channel].ch.inst,
 							 "ISDN_PID_L1_B_64HDLC");
-				setup_fifo(hw, (channel << 1), 4, 0, M_FR_ABORT, 1);	// TX Fifo
-				setup_fifo(hw, (channel << 1) + 1, 4, 0, M_FR_ABORT | M_FIFO_IRQMSK, 1);	// RX Fifo
+				setup_fifo(hw, (channel << 1), 4, 0, M_FR_ABO, 1);	// TX Fifo
+				setup_fifo(hw, (channel << 1) + 1, 4, 0, M_FR_ABO | M_FIFO_IRQMSK, 1);	// RX Fifo
 
 				setup_su(hw, port->idx, (channel % 4) ? 1 : 0, 1);
 
@@ -1523,8 +1521,8 @@ setup_channel(xhfc_hw * hw, __u8 channel, int protocol)
 					 "D channel(%i) protocol(%i)",
 					 channel, protocol);
 
-		setup_fifo(hw, (channel << 1), 5, 2, M_FR_ABORT, 1);	/* D TX fifo */
-		setup_fifo(hw, (channel << 1) + 1, 5, 2, M_FR_ABORT | M_FIFO_IRQMSK, 1);	/* D RX fifo */
+		setup_fifo(hw, (channel << 1), 5, 2, M_FR_ABO, 1);	/* D TX fifo */
+		setup_fifo(hw, (channel << 1) + 1, 5, 2, M_FR_ABO | M_FIFO_IRQMSK, 1);	/* D RX fifo */
 
 		return (0);
 	}
