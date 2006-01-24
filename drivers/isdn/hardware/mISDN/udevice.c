@@ -182,8 +182,9 @@ mISDN_rdata(mISDNdevice_t *dev, struct sk_buff *skb)
 	spin_lock_irqsave(&dev->rport.lock, flags);
 	if (skb_queue_len(&dev->rport.queue) >= dev->rport.maxqlen) {
 		spin_unlock_irqrestore(&dev->rport.lock, flags);
-		printk(KERN_WARNING "%s: rport queue overflow %d/%d\n",
-			__FUNCTION__, skb_queue_len(&dev->rport.queue), dev->rport.maxqlen);
+		printk(KERN_WARNING "%s: rport queue overflow %d/%d [addr:%x prim:%x dinfo:%x]\n",
+		       __FUNCTION__, skb_queue_len(&dev->rport.queue), dev->rport.maxqlen,
+		       hp->addr, hp->prim, hp->dinfo);
 		return(-ENOSPC);
 	}
 	skb_queue_tail(&dev->rport.queue, skb);
