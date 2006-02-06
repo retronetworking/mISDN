@@ -809,8 +809,9 @@ hdlc_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		printk(KERN_WARNING "hdlc_down unknown prim(%x)\n", hh->prim);
 		ret = -EINVAL;
 	}
-	if (!ret)
-		dev_kfree_skb(skb);
+	if (!ret || 1) { /* free the skb anyway */
+		if(skb) dev_kfree_skb(skb);
+	}
 	return(ret);
 }
 

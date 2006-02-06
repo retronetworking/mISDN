@@ -982,8 +982,9 @@ dev_init_timer(mISDNdevice_t *dev, u_int id)
 	} else if (device_debug & DEBUG_DEV_TIMER)
 		printk(KERN_DEBUG "%s: old(%x)\n", __FUNCTION__, ht->id);
 	if (timer_pending(&ht->tl)) {
-		printk(KERN_WARNING "%s: timer(%x) pending\n", __FUNCTION__,
-			ht->id);
+		if (device_debug & DEBUG_DEV_TIMER)	
+			printk(KERN_WARNING "%s: timer(%x) pending\n", 
+					__FUNCTION__, ht->id);
 		del_timer(&ht->tl);
 	}
 	init_timer(&ht->tl);
@@ -1037,9 +1038,11 @@ dev_del_timer(mISDNdevice_t *dev, u_int id)
 		printk(KERN_DEBUG "%s: timer(%x)\n",
 			__FUNCTION__, ht->id);
 	del_timer(&ht->tl);
-	if (!test_and_clear_bit(FLG_MGR_TIMER_RUNING, &ht->Flags))
-		printk(KERN_WARNING "%s: timer(%x) not running\n",
-			__FUNCTION__, ht->id);
+	if (!test_and_clear_bit(FLG_MGR_TIMER_RUNING, &ht->Flags)) {
+		if (device_debug & DEBUG_DEV_TIMER)
+			printk(KERN_WARNING "%s: timer(%x) not running\n",
+				__FUNCTION__, ht->id);
+	}
 	return(0);
 }
 
