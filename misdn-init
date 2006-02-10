@@ -461,7 +461,7 @@ case "$1" in
 		$MODPROBE mISDN_l1 debug=0
 		$MODPROBE mISDN_l2 debug=0
 		$MODPROBE l3udss1 debug=0
-		$MODPROBE mISDN_dsp debug=0xf options=0x0
+		$MODPROBE mISDN_dsp debug=0x0 options=0x0
 		$MODPROBE mISDN_capi
 		
 		load_card_modules
