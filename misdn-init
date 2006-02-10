@@ -48,6 +48,16 @@ ulaw=8
 dtmf=9
 pcm_slave=11
 
+
+function remove_preloaded_modules {
+	tmp=$(lsmod)
+	cards="hfcmulti hfcpci avmfritz w6692 hfcusb"
+
+	for i in $cards ; do 
+		echo $tmp | grep $i >/dev/null && (echo "$i already loaded, removing it"; modprobe -r $i)
+	done
+}
+
 function load_card_modules {
 
 	IFS=$'\n'
@@ -454,6 +464,8 @@ function check_cfg_file {
 
 case "$1" in
 	start|--start)
+
+		remove_preloaded_modules
 
 		check_cfg_file
 	
