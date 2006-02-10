@@ -45,7 +45,8 @@
  */
 
 //#include "dsp_mec2.h"
-#include "dsp_kb1ec.h"
+//#include "dsp_kb1ec.h"
+#include "dsp_mg2ec.h"
 
 extern int dsp_options;
 extern int dsp_debug;
