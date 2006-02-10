@@ -878,14 +878,16 @@ static int dsp_init(void)
 	dsp_debug = debug;
 
 	/* display revision */
-	printk(KERN_INFO "mISDN_dsp: Audio DSP  Rev. %s (debug=0x%x)\n", mISDN_getrev(dsp_revision), debug);
+	printk(KERN_INFO "mISDN_dsp: Audio DSP  Rev. %s (debug=0x%x) EchoCancellor %s\n", mISDN_getrev(dsp_revision), debug, EC_TYPE);
 
 	/* set packet size */
-	if (poll == 0)
+	if (poll == 0) {
 		if (HZ == 100)
 			poll = 80;
 		else
 			poll = 64;
+	}
+
 	if (poll > MAX_POLL) {
 		printk(KERN_ERR "%s: Wrong poll value (%d), using %d.\n", __FUNCTION__, poll, MAX_POLL);
 		poll = MAX_POLL;

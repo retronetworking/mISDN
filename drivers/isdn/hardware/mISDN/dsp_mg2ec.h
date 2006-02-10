@@ -26,6 +26,9 @@
 #ifndef _MG2_ECHO_H
 #define _MG2_ECHO_H
 
+
+#define EC_TYPE "MG2"
+
 #ifdef __KERNEL__
 #include <linux/kernel.h>
 #include <linux/slab.h>

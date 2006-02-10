@@ -26,6 +26,8 @@
 #ifndef _MARK2_ECHO_H
 #define _MARK2_ECHO_H
 
+#define EC_TYPE "KB1"
+
 #ifdef __KERNEL__
 #include <linux/kernel.h>
 #include <linux/slab.h>
