@@ -28,8 +28,7 @@
 #include "xhfc_pci2pi.h"
 
 
-#if PI_MODE == PI_INTELMX
-#define GPIODEFAULT	XHFC_BOND | PI_INTELMX_GPIO
+
 static PCI2PI_cfg PCI2PI_config = {
 	/* default PI_INTELMX config */
 	.del_cs = 0,
@@ -40,7 +39,7 @@ static PCI2PI_cfg PCI2PI_config = {
 	.del_dout = 0,
 	.default_adr = 0x00,
 	.default_dout = 0x00,
-	.pi_mode = PI_INTELMX,
+	.pi_mode = PI_MODE,
 	.setup = 1,
 	.hold = 1,
 	.cycle = 1,
@@ -60,7 +59,7 @@ static PCI2PI_cfg PCI2PI_config = {
 	.spi_cfg3 = 0,
 	.eep_recover = 4,
 };
-#endif
+
 
 
 /***********************************/
@@ -87,7 +86,7 @@ init_pci_bridge(xhfc_hw * hw)
 		return (err);
 
 	/* enable hardware reset XHFC */
-	WritePCI2PI_u32(hw, PCI2PI_GPIO_OUT, GPIODEFAULT);
+	WritePCI2PI_u32(hw, PCI2PI_GPIO_OUT, GPIO_OUT_VAL);
 
 	WritePCI2PI_u32(hw, PCI2PI_PI_MODE, PCI2PI_config.pi_mode);
 	WritePCI2PI_u32(hw, PCI2PI_DEL_CS, PCI2PI_config.del_cs);
@@ -128,8 +127,7 @@ init_pci_bridge(xhfc_hw * hw)
 
 
 	/* release hardware reset XHFC */
-	WritePCI2PI_u32(hw, PCI2PI_GPIO_OUT,
-			GPIODEFAULT | PCI2PI_GPIO7_NRST);
+	WritePCI2PI_u32(hw, PCI2PI_GPIO_OUT, GPIO_OUT_VAL | PCI2PI_GPIO7_NRST);
 	udelay(10);
 
 	return (err);
