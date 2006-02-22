@@ -84,6 +84,8 @@ typedef struct hfcmulti_hw	hfcmulti_hw_t;
 #define HFC_CFG_REPORT_AIS	6 /* the card should report alarm ind. sign. */
 #define HFC_CFG_REPORT_SLIP	7 /* the card should report bit slips */
 #define HFC_CFG_DTMF		8 /* enable DTMF-detection */
+#define HFC_CFG_CRC4		9 /* disable CRC-4 Multiframe mode,
+				     use double frame instead. */
 
 #define HFC_CHIP_EXRAM_128	0 /* external ram 128k */
 #define HFC_CHIP_EXRAM_512	1 /* external ram 256k */

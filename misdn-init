@@ -42,6 +42,7 @@ optical=16
 los=18
 ais=19
 slip=20
+nocrc4=24
 
 # Card Settings
 ulaw=8
@@ -408,10 +409,13 @@ function create_misdn_init_conf {
 #              los           - report LOS (only HFC-E1)
 #              ais           - report AIS (only HFC-E1)
 #              slip          - report SLIP (only HFC-E1)
+#              nocrc4	     - turn off crc4 mode use double frame instead 
+#				(only HFC-E1)
 #
 #option=1,master_clock
-#option=2,ais
+#option=2,ais,nocrc4
 #option=3,optical,los,ais,slip
+
 
 #
 # General Options for your hfcmulti hardware
@@ -435,7 +439,7 @@ function create_misdn_init_conf {
 #
 #        Enable debugging (see hfc_multi.h for debug options).
 #
-poll=64
+poll=128
 #pcm=1
 debug=0"
 

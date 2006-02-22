@@ -63,6 +63,7 @@
 	Bit 19	= Report AIS
 	Bit 20	= Report SLIP
 	Bit 21-22 = elastic jitter buffer (1-3), Use 0 for default.
+	Bit 23  = Turn off CRC-4 Multiframe Mode, use double frame mode instead.
 (all other bits are reserved and shall be 0)
 
  * layermask:
@@ -2528,9 +2529,15 @@ hfcmulti_initmode(hfc_multi_t *hc)
 		HFC_outb(hc, R_TX1, hc->hw.r_tx1);
 		HFC_outb(hc, R_TX_FR0, 0x00);
 		HFC_outb(hc, R_TX_FR1, 0xf8);
-		HFC_outb(hc, R_TX_FR2, V_TX_MF | V_TX_E | V_NEG_E);
+
+		if (test_bit(HFC_CFG_CRC4, &hc->chan[16].cfg)) 
+			HFC_outb(hc, R_TX_FR2, V_TX_MF | V_TX_E | V_NEG_E);
+
 		HFC_outb(hc, R_RX_FR0, V_AUTO_RESYNC | V_AUTO_RECO | 0);
-		HFC_outb(hc, R_RX_FR1, V_RX_MF | V_RX_MF_SYNC);
+
+		if (test_bit(HFC_CFG_CRC4, &hc->chan[16].cfg)) 
+			HFC_outb(hc, R_RX_FR1, V_RX_MF | V_RX_MF_SYNC);
+
 		if (test_bit(HFC_CHIP_PCM_SLAVE, &hc->chip)) {
 			/* SLAVE (clock master) */
 			if (debug & DEBUG_HFCMULTI_INIT)
@@ -3491,6 +3498,19 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 				hc->chan[ch].jitter = (protocol[port_idx]>>21) & 0x3;
 			} else
 				hc->chan[ch].jitter = 2; /* default */
+
+			
+			/* set CRC-4 Mode */
+			if (! (protocol[port_idx] & 0x800000)) {
+				if (debug & DEBUG_HFCMULTI_INIT)
+					printk(KERN_DEBUG "%s: PROTOCOL turn on CRC4 report: card(%d) port(%d)\n", __FUNCTION__, HFC_idx+1, pt);
+				test_and_set_bit(HFC_CFG_CRC4, &hc->chan[ch].cfg);
+				
+				printk(KERN_DEBUG "%s: PROTOCOL turn on CRC4 report: card(%d) port(%d)\n", __FUNCTION__, HFC_idx+1, pt);
+			} else {
+				printk(KERN_DEBUG "%s: PROTOCOL turn off CRC4 report: card(%d) port(%d)\n", __FUNCTION__, HFC_idx+1, pt);
+			}
+
 		}
 
 		memcpy(&pids[pt], &pid, sizeof(pid));
