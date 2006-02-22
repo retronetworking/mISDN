@@ -7,9 +7,9 @@
 /*                                                                                   */
 /*  File name:     xhfc24succ.h                                                      */
 /*  File content:  This file contains the XHFC-2S4U / XHFC-4SU register definitions. */
-/*  Creation date: 10.01.2006 16:34                                                  */
-/*  Creator:       Genero 3.2                                                        */
-/*  Data base:     HFC XML 1.5 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU        */
+/*  Creation date: 21.02.2006 14:59                                                  */
+/*  Creator:       Genero 3.4                                                        */
+/*  Data base:     HFC XML 1.6 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU        */
 /*  Address range: 0x00 - 0xFF                                                       */
 /*                                                                                   */
 /*  The information presented can not be considered as assured characteristics.      */
@@ -68,7 +68,7 @@ typedef enum
 	#define CHIP_ID_2S4U		0x62
 	#define CHIP_ID_4SU		0x63
 	#define CHIP_REGISTER_COUNT	122
-	#define CHIP_DATABASE		"Version HFC-XMLHFC XML 1.5 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU - GeneroGenero 3.2 "
+	#define CHIP_DATABASE		"Version HFC-XMLHFC XML 1.6 for XHFC-1SU, XHFC-2SU, XHFC-2S4U and XHFC-4SU - GeneroGenero 3.4 "
 
 // This register file can also be used for XHFC-2SU and XHFC-1SU programming.
 // For this reason these chip names, IDs and titles are defined here as well:
@@ -307,7 +307,7 @@ typedef enum
 		REGWORD v_idx:5;
 		REGWORD reserved_10:3;
 	} bit_r_fsm_idx; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_fsm_idx bit;} reg_r_fsm_idx; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_fsm_idx bit;} reg_r_fsm_idx; // register and bitmap access	#define IDX_FSM_IDX 0x01 // index value selecting this multi-register
 
 
 #define R_FIFO 0x0F // register access
@@ -323,7 +323,7 @@ typedef enum
 		REGWORD reserved_9:2;
 		REGWORD v_rev:1;
 	} bit_r_fifo; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_fifo bit;} reg_r_fifo; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_fifo bit;} reg_r_fifo; // register and bitmap access	#define IDX_FIFO 0x00 // index value selecting this multi-register
 
 
 #define R_SLOT 0x10 // register access
@@ -510,7 +510,7 @@ typedef enum
 		REGWORD v_sl_sel0:7;
 		REGWORD v_sh_sel0:1;
 	} bit_r_sl_sel0; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_sl_sel0 bit;} reg_r_sl_sel0; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_sl_sel0 bit;} reg_r_sl_sel0; // register and bitmap access	#define IDX_SL_SEL0 0x00 // index value selecting this multi-register
 
 
 #define R_SL_SEL1 0x15 // register access
@@ -522,7 +522,7 @@ typedef enum
 		REGWORD v_sl_sel1:7;
 		REGWORD v_sh_sel1:1;
 	} bit_r_sl_sel1; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_sl_sel1 bit;} reg_r_sl_sel1; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_sl_sel1 bit;} reg_r_sl_sel1; // register and bitmap access	#define IDX_SL_SEL1 0x01 // index value selecting this multi-register
 
 
 #define R_SL_SEL7 0x15 // register access
@@ -533,7 +533,7 @@ typedef enum
 		REGWORD v_sl_sel7:7;
 		REGWORD reserved_30:1;
 	} bit_r_sl_sel7; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_sl_sel7 bit;} reg_r_sl_sel7; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_sl_sel7 bit;} reg_r_sl_sel7; // register and bitmap access	#define IDX_SL_SEL7 0x07 // index value selecting this multi-register
 
 
 #define R_MSS0 0x15 // register access
@@ -556,7 +556,7 @@ typedef enum
 		REGWORD v_mss_out_rep:1;
 		REGWORD v_mss_src:2;
 	} bit_r_mss0; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_mss0 bit;} reg_r_mss0; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_mss0 bit;} reg_r_mss0; // register and bitmap access	#define IDX_MSS0 0x08 // index value selecting this multi-register
 
 
 #define R_PCM_MD1 0x15 // register access
@@ -577,7 +577,7 @@ typedef enum
 		REGWORD v_pcm_loop:1;
 		REGWORD v_pcm_smpl:1;
 	} bit_r_pcm_md1; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_pcm_md1 bit;} reg_r_pcm_md1; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_pcm_md1 bit;} reg_r_pcm_md1; // register and bitmap access	#define IDX_PCM_MD1 0x09 // index value selecting this multi-register
 
 
 #define R_PCM_MD2 0x15 // register access
@@ -600,7 +600,7 @@ typedef enum
 		REGWORD v_pll_icr:1;
 		REGWORD v_pll_man:1;
 	} bit_r_pcm_md2; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_pcm_md2 bit;} reg_r_pcm_md2; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_pcm_md2 bit;} reg_r_pcm_md2; // register and bitmap access	#define IDX_PCM_MD2 0x0A // index value selecting this multi-register
 
 
 #define R_MSS1 0x15 // register access
@@ -616,7 +616,7 @@ typedef enum
 		REGWORD v_ms_ssync1:1;
 		REGWORD v_mss_dly:4;
 	} bit_r_mss1; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_mss1 bit;} reg_r_mss1; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_mss1 bit;} reg_r_mss1; // register and bitmap access	#define IDX_MSS1 0x0B // index value selecting this multi-register
 
 
 #define R_SH0L 0x15 // register access
@@ -626,7 +626,7 @@ typedef enum
 	{
 		REGWORD v_sh0l:8;
 	} bit_r_sh0l; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_sh0l bit;} reg_r_sh0l; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_sh0l bit;} reg_r_sh0l; // register and bitmap access	#define IDX_SH0L 0x0C // index value selecting this multi-register
 
 
 #define R_SH0H 0x15 // register access
@@ -636,7 +636,7 @@ typedef enum
 	{
 		REGWORD v_sh0h:8;
 	} bit_r_sh0h; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_sh0h bit;} reg_r_sh0h; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_sh0h bit;} reg_r_sh0h; // register and bitmap access	#define IDX_SH0H 0x0D // index value selecting this multi-register
 
 
 #define R_SH1L 0x15 // register access
@@ -646,7 +646,7 @@ typedef enum
 	{
 		REGWORD v_sh1l:8;
 	} bit_r_sh1l; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_sh1l bit;} reg_r_sh1l; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_sh1l bit;} reg_r_sh1l; // register and bitmap access	#define IDX_SH1L 0x0E // index value selecting this multi-register
 
 
 #define R_SH1H 0x15 // register access
@@ -656,7 +656,7 @@ typedef enum
 	{
 		REGWORD v_sh1h:8;
 	} bit_r_sh1h; // register and bitmap data
-	typedef union {REGWORD reg; bit_r_sh1h bit;} reg_r_sh1h; // register and bitmap access
+	typedef union {REGWORD reg; bit_r_sh1h bit;} reg_r_sh1h; // register and bitmap access	#define IDX_SH1H 0x0F // index value selecting this multi-register
 
 
 #define R_RAM_USE 0x15 // register access
@@ -1330,7 +1330,7 @@ typedef enum
 		REGWORD v_st_sel:1;
 		REGWORD v_st_pulse:7;
 	} bit_a_st_ctrl3; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_st_ctrl3 bit;} reg_a_st_ctrl3; // register and bitmap access
+	typedef union {REGWORD reg; bit_a_st_ctrl3 bit;} reg_a_st_ctrl3; // register and bitmap access	#define IDX_ST_CTRL3 0x00 // index value selecting this multi-register
 
 
 #define A_UP_CTRL3 0x35 // register access
@@ -1354,7 +1354,7 @@ typedef enum
 		REGWORD v_up_scrm_tx_off:1;
 		REGWORD v_up_scrm_rx_off:1;
 	} bit_a_up_ctrl3; // register and bitmap data
-	typedef union {REGWORD reg; bit_a_up_ctrl3 bit;} reg_a_up_ctrl3; // register and bitmap access
+	typedef union {REGWORD reg; bit_a_up_ctrl3 bit;} reg_a_up_ctrl3; // register and bitmap access	#define IDX_UP_CTRL3 0x01 // index value selecting this multi-register
 
 
 #define A_SU_STA 0x35 // register access
