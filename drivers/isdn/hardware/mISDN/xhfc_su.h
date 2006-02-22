@@ -173,7 +173,7 @@ typedef struct _xhfx_hw {
 	int num_ports;		/* number of S and U interfaces */
 	int max_fifo;		/* always 4 fifos per port */
 	__u8 max_z;		/* fifo depth -1 */
-	
+
 	xhfc_port_t port[MAX_PORT]; /* one for each Line intercace */
 	xhfc_chan_t chan[MAX_CHAN]; /* one each D/B/PCM channel */
 
@@ -189,6 +189,9 @@ typedef struct _xhfx_hw {
 	reg_r_su_irqmsk		su_irqmsk;	/* mask of line interface state change interrupts */
 	reg_r_su_irq		su_irq;		/* collect interrupt status bits */
 	reg_r_ti_wd		ti_wd;		/* timer interval */
+
+	reg_r_pcm_md0		pcm_md0;
+	reg_r_pcm_md1		pcm_md1;
 
 	__u32 fifo_irq;		/* fifo bl irq */
 	__u32 fifo_irqmsk;	/* fifo bl irq */

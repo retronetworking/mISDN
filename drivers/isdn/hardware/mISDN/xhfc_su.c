@@ -116,10 +116,13 @@ xhfc_ph_command(channel_t * dch, u_char command)
 			break;
 			
 		case HFC_L1_FORCE_DEACTIVATE_TE:
+			if ((dch->debug) & (debug & DEBUG_HFC_S0_STATES))
+				mISDN_debugprint(&dch->inst,
+						 "HFC_L1_FORCE_DEACTIVATE_TE channel(%i)",
+						 dch->channel);
+
 			write_xhfc(hw, R_SU_SEL, port->idx);
-			write_xhfc(hw, A_SU_WR_STA, 0x13);
-			udelay(7); /* wait at least 5,21 us */
-			write_xhfc(hw, A_SU_WR_STA, 0x03);
+			write_xhfc(hw, A_SU_WR_STA, STA_DEACTIVATE);
 			break;
 
 		case HFC_L1_ACTIVATE_NT:
@@ -146,16 +149,16 @@ xhfc_ph_command(channel_t * dch, u_char command)
 		case HFC_L1_TESTLOOP_B1:
 			setup_fifo(hw, port->idx*8,   0xC6, 0, 0, 0);	/* connect B1-SU RX with PCM TX */
 			setup_fifo(hw, port->idx*8+1, 0xC6, 0, 0, 0);	/* connect B1-SU TX with PCM RX */
-			
+
 			write_xhfc(hw, R_SLOT, port->idx*8);		/* PCM timeslot B1 TX */
 			write_xhfc(hw, A_SL_CFG, port->idx*8 + 0x80); 	/* enable B1 TX timeslot on STIO1 */
-			
+
 			write_xhfc(hw, R_SLOT, port->idx*8+1);		/* PCM timeslot B1 RX */
 			write_xhfc(hw, A_SL_CFG, port->idx*8+1 + 0xC0); /* enable B1 RX timeslot on STIO1*/
-			
+
 			setup_su(hw, port->idx, 0, 1);
 			break;
-			
+
 		case HFC_L1_TESTLOOP_B2:
 			setup_fifo(hw, port->idx*8+2, 0xC6, 0, 0, 0);	/* connect B2-SU RX with PCM TX */
 			setup_fifo(hw, port->idx*8+3, 0xC6, 0, 0, 0);	/* connect B2-SU TX with PCM RX */
@@ -168,7 +171,6 @@ xhfc_ph_command(channel_t * dch, u_char command)
 
 			setup_su(hw, port->idx, 1, 1);
 			break;
-
 	}
 }
 
@@ -821,18 +823,24 @@ xhfc_write_fifo(xhfc_hw * hw, __u8 channel)
 		if (debug & DEBUG_HFC_FIFO) {
 			printk("%s channel(%i) writing: ",
 			       hw->card_name, channel);
-		}
-		i = tcnt;
-		while (i--) {
-			if (debug & DEBUG_HFC_FIFO) {
-				printk("%02x ", *data);
-			}
-			write_xhfc(hw, A_FIFO_DATA, *data++);
-		}
-		if (debug & DEBUG_HFC_FIFO) {
-			printk("\n");
-		}
 
+			i=0;
+			while (i<tcnt)
+				printk("%02x ", *(data+(i++)));
+			printk ("\n");
+		}
+		
+		/* write data to FIFO */
+		i=0;
+		while (i<tcnt) {
+			if ((tcnt-i) >= 4) {
+				write32_xhfc(hw, A_FIFO_DATA, *((__u32 *) (data+i)));
+				i += 4;
+			} else {
+				write_xhfc(hw, A_FIFO_DATA, *(data+i));
+				i++;
+			}
+		}
 
 		if (ch->tx_idx == ch->tx_skb->len) {
 			if (test_bit(FLG_HDLC, &ch->Flags)) {
@@ -947,9 +955,18 @@ xhfc_read_fifo(xhfc_hw * hw, __u8 channel)
 			}
 		}
 		data = skb_put(ch->rx_skb, rcnt);
-		/* read data from FIFO*/
-		while (rcnt--)
-			*data++ = read_xhfc(hw, A_FIFO_DATA);
+		
+		/* read data from FIFO */
+		i=0;
+		while (i<rcnt) {
+			if ((rcnt-i) >= 4) {
+				*((__u32 *) (data+i)) = read32_xhfc(hw, A_FIFO_DATA);
+				i += 4;
+			} else {
+				*(data+i) = read_xhfc(hw, A_FIFO_DATA);
+				i++;
+			}
+		}		
 	} else
 		return;
 		
@@ -1284,7 +1301,14 @@ init_xhfc(xhfc_hw * hw)
 	}
 
 	/* set PCM master mode */
-	write_xhfc(hw, R_PCM_MD0, M_PCM_MD);
+	hw->pcm_md0.bit.v_pcm_md = 1;
+	write_xhfc(hw, R_PCM_MD0, hw->pcm_md0.reg);
+
+	/* set pll adjust */
+	hw->pcm_md0.bit.v_pcm_idx = IDX_PCM_MD1;
+	hw->pcm_md1.bit.v_pll_adj = 3;
+	write_xhfc(hw, R_PCM_MD0, hw->pcm_md0.reg);
+	write_xhfc(hw, R_PCM_MD1, hw->pcm_md1.reg);
 
 	enable_interrupts(hw);
 
