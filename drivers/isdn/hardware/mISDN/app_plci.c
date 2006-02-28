@@ -834,8 +834,17 @@ plci_cc_setup_ind(struct FsmInst *fi, int event, void *arg)
 #endif
 		// all else set to default
 	}
-	if (mISDN_FsmEvent(&aplci->plci_m, EV_PI_CONNECT_IND, cmsg))
+	if (mISDN_FsmEvent(&aplci->plci_m, EV_PI_CONNECT_IND, cmsg)) {
 		cmsg_free(cmsg);
+		return;
+	}
+	if (qi) {
+		AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+		AppPlciInfoIndIE(aplci, IE_USER_USER, CAPI_INFOMASK_USERUSER, qi);
+		AppPlciInfoIndIE(aplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, qi);
+		AppPlciInfoIndIE(aplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, qi);
+		AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
+	}
 }
 
 static void
@@ -1742,11 +1751,6 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 		case CC_SETUP | INDICATION:
 			if (!qi)
 				return;
-			AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
-			AppPlciInfoIndIE(aplci, IE_USER_USER, CAPI_INFOMASK_USERUSER, qi);
-			AppPlciInfoIndIE(aplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, qi);
-			AppPlciInfoIndIE(aplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, qi);
-			AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
 			if (qi->channel_id.off) {
 				ie = (u_char *)qi;
 				ie += L3_EXTRA_SIZE + qi->channel_id.off;
