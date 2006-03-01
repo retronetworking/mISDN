@@ -834,17 +834,8 @@ plci_cc_setup_ind(struct FsmInst *fi, int event, void *arg)
 #endif
 		// all else set to default
 	}
-	if (mISDN_FsmEvent(&aplci->plci_m, EV_PI_CONNECT_IND, cmsg)) {
+	if (mISDN_FsmEvent(&aplci->plci_m, EV_PI_CONNECT_IND, cmsg))
 		cmsg_free(cmsg);
-		return;
-	}
-	if (qi) {
-		AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
-		AppPlciInfoIndIE(aplci, IE_USER_USER, CAPI_INFOMASK_USERUSER, qi);
-		AppPlciInfoIndIE(aplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, qi);
-		AppPlciInfoIndIE(aplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, qi);
-		AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
-	}
 }
 
 static void
@@ -1756,7 +1747,16 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 				ie += L3_EXTRA_SIZE + qi->channel_id.off;
 				aplci->channel = plci_parse_channel_id(ie);
 			}
-			mISDN_FsmEvent(&aplci->plci_m, EV_L3_SETUP_IND, arg); 
+			mISDN_FsmEvent(&aplci->plci_m, EV_L3_SETUP_IND, arg);
+			if (qi) {
+				AppPlciInfoIndIE(aplci, IE_DISPLAY, CAPI_INFOMASK_DISPLAY, qi);
+				AppPlciInfoIndIE(aplci, IE_USER_USER, CAPI_INFOMASK_USERUSER, qi);
+				AppPlciInfoIndIE(aplci, IE_PROGRESS, CAPI_INFOMASK_PROGRESS, qi);
+				AppPlciInfoIndIE(aplci, IE_FACILITY, CAPI_INFOMASK_FACILITY, qi);
+				AppPlciInfoIndIE(aplci, IE_CHANNEL_ID, CAPI_INFOMASK_CHANNELID, qi);
+				AppPlciInfoIndIE(aplci, IE_CALLED_PN, CAPI_INFOMASK_CALLEDPN, qi);
+				AppPlciInfoIndIE(aplci, IE_COMPLETE, CAPI_INFOMASK_COMPLETE, qi);
+			}
 			break;
 		case CC_TIMEOUT | INDICATION:
 			mISDN_FsmEvent(&aplci->plci_m, EV_L3_SETUP_CONF_ERR, arg); 
@@ -2220,8 +2220,13 @@ AppPlciInfoIndIE(AppPlci_t *aplci, unsigned char ie, __u32 mask, Q931_info_t *qi
 		return;
 	ies = &qi->bearer_capability;
 	if (ie & 0x80) { /* single octett */
-		int_error();
-		return;
+		if (ie == IE_COMPLETE) {
+			if (!qi->sending_complete.off)
+				return;
+		 } else {
+		 	int_error();
+		 	return;
+		}
 	} else {
 		if (mISDN_l3_ie2pos(ie) < 0)
 			return;
