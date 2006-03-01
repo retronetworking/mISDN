@@ -1552,8 +1552,7 @@ release_card(hfcsusb_t * card)
 	spin_lock_irqsave(&hw_mISDNObj.lock, flags);
 	list_del(&card->list);
 	spin_unlock_irqrestore(&hw_mISDNObj.lock, flags);
-	// schedule_timeout((80 * HZ) / 1000);	/* Timeout 80ms */
-	mdelay(80);
+	schedule_timeout((80 * HZ) / 1000);	/* Timeout 80ms */
 
 	/* tell all fifos to terminate */
 	for (i = 0; i < HFCUSB_NUM_FIFOS; i++) {
