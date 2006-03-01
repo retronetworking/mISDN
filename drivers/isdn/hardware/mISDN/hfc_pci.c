@@ -1006,9 +1006,12 @@ tx_irq(channel_t *chan)
 				chan->next_skb = NULL;
 				test_and_clear_bit(FLG_TX_NEXT, &chan->Flags);
 				queue_ch_frame(chan, CONFIRM, hh->dinfo, NULL);
-				hfcpci_fill_fifo(chan);
+				if (test_bit(FLG_DCHANNEL, &chan->Flags))
+					hfcpci_fill_dfifo(chan->hw);
+				if (test_bit(FLG_BCHANNEL, &chan->Flags))
+					hfcpci_fill_fifo(chan);
 			} else {
-				printk(KERN_WARNING "hfcB tx irq TX_NEXT without skb\n");
+				printk(KERN_WARNING "hfc tx irq TX_NEXT without skb\n");
 				test_and_clear_bit(FLG_TX_NEXT, &chan->Flags);
 				test_and_clear_bit(FLG_TX_BUSY, &chan->Flags);
 			}
