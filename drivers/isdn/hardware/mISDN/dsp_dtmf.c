@@ -2,7 +2,7 @@
  *
  * DTMF decoder.
  *
- * Copyright 2003       by Andreas Eversberg (jolly@jolly.de)
+ * Copyright            by Andreas Eversberg (jolly@jolly.de)
  *			based on different decoders such as ISDN4Linux
  *
  * This software may be used and distributed according to the terms

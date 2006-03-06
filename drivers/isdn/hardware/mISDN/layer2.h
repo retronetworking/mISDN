@@ -47,7 +47,7 @@ typedef struct _layer2 {
 	int			T200, N200, T203;
 	int			debug;
 	mISDNinstance_t		inst;
-	mISDNif_t		*cloneif;
+//	mISDNif_t		*cloneif;
 	int			next_id;
 	u_int			down_id;
 	struct sk_buff		*windowar[MAX_WINDOW];
@@ -55,7 +55,6 @@ typedef struct _layer2 {
 	struct sk_buff_head	ui_queue;
 	struct sk_buff_head	down_queue;
 	struct sk_buff_head	tmp_queue;
-	spinlock_t		lock;
 } layer2_t;
 
 /* l2 status_info */

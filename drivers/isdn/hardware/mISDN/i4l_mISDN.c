@@ -1376,7 +1376,7 @@ I4Lcapi_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
-	    case MGR_SETSTACK | CONFIRM:
+	    case MGR_SETSTACK | INDICATION:
 	    	if (nr_ch >= 0) {
 			if (inst->pid.protocol[2] != ISDN_PID_L2_B_TRANS)
 				test_and_set_bit(I4L_FLG_LAYER1, &channel->Flags);

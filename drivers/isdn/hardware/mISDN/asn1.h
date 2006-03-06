@@ -15,6 +15,13 @@ typedef enum {
 	reject       = 4,
 } asn1Component;
 
+typedef enum {
+	GeneralP     = 0,
+	InvokeP      = 1,
+	ReturnResultP= 2,
+	ReturnErrorP = 3,
+} asn1Problem;
+
 struct PublicPartyNumber {
 	int publicTypeOfNumber;
 	char numberDigits[30];
@@ -88,20 +95,28 @@ struct asn1ReturnError {
 	__u16 errorValue;
 };
 
+struct asn1Reject {
+	int invokeId;
+	asn1Problem problem;
+	__u16 problemValue;
+};
+
 struct asn1_parm {
 	asn1Component comp;
 	union {
 		struct asn1Invoke       inv;
 		struct asn1ReturnResult retResult;
 		struct asn1ReturnError  retError;
+		struct asn1Reject	reject;
 	} u;
 };
 
 
 #undef ASN1_DEBUG
+// #define ASN1_DEBUG
 
 #ifdef ASN1_DEBUG
-#define print_asn1msg(dummy, fmt, args...) printk(fmt, ## args)
+#define print_asn1msg(dummy, fmt, args...) printk(KERN_DEBUG fmt, ## args)
 #else
 #define print_asn1msg(dummy, fmt, args...) 
 #endif
@@ -194,7 +209,7 @@ int ParseLen(u_char *p, u_char *end, int *len);
         } else { \
                 if (!(the_tag) & ASN1_TAG_OPT) { \
                         print_asn1msg(PRT_DEBUG_DECODE, " DEBUG> err 4 %s:%d\n", __FUNCTION__, __LINE__); \
-	    	        return -1; \
+			return -1; \
                 } \
         } \
 } while (0)

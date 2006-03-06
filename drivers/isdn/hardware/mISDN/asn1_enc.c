@@ -13,6 +13,14 @@ int encodeNull(__u8 *dest)
 	return 2;
 }
 
+int encodeBoolean(__u8 *dest, __u32 i)
+{
+	dest[0] = 0x01;  // BOOLEAN
+	dest[1] = 1;     // length 1
+	dest[3] = i ? 1:0;  // Value
+	return 3;
+}
+
 int encodeInt(__u8 *dest, __u32 i)
 {
 	__u8 *p;
@@ -171,6 +179,21 @@ int encodeInterrogationDiversion(__u8 *dest, struct FacReqCFInterrogateParameter
 #endif
 	p += encodeEnum(p, params->BasicService);
 	p += encodeServedUserNumber(p, params->ServedUserNumber);
+
+	dest[1] = p - &dest[2];
+	return p - dest;
+}
+
+int encodeInvokeDeflection(__u8 *dest, struct FacReqCDeflection *CD)
+{
+	__u8 *p;
+
+	dest[0] = 0x30;  // sequence
+	dest[1] = 0;     // length
+	p = &dest[2];
+
+	p += encodeAddress(p, CD->DeflectedToNumber, CD->DeflectedToSubaddress);
+	p += encodeBoolean(p, CD->PresentationAllowed);
 
 	dest[1] = p - &dest[2];
 	return p - dest;

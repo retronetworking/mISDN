@@ -12,6 +12,7 @@
 #include "memdbg.h"
 #endif
 
+#ifdef OBSOLETE
 #define D_RCVBUFREADY	0
 #define D_XMTBUFREADY	1
 #define D_L1STATECHANGE	2
@@ -32,6 +33,7 @@
 #define B_XMTBUFREADY	1
 #define B_BLOCKEDATOMIC	2
 #define B_DTMFREADY	3
+#endif
 
 #define FLG_L1_ACTIVATING	1
 #define FLG_L1_ACTIVATED	2

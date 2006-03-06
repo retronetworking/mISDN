@@ -311,11 +311,13 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	int		found=0;
 	PLInst_t	*plink = NULL;
 	Controller_t	*ctrl;
+	u_long		flags;
 
 	if (CAPI_DBG_INFO & debug)
 		printk(KERN_DEBUG "capi20_manager data:%p prim:%x arg:%p\n", data, prim, arg);
 	if (!data)
 		return(-EINVAL);
+	spin_lock_irqsave(&capi_obj.lock, flags);
 	list_for_each_entry(ctrl, &capi_obj.ilist, list) {
 		if (&ctrl->inst == inst) {
 			found++;
@@ -333,6 +335,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	}
 	if (&ctrl->list == &capi_obj.ilist)
 		ctrl = NULL;
+	spin_unlock_irqrestore(&capi_obj.lock, flags);
 	if (prim == (MGR_NEWLAYER | REQUEST)) {
 		int ret = ControllerConstr(&ctrl, data, arg, &capi_obj);
 		if (!ret)
@@ -346,8 +349,9 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	}
 	switch(prim) {
 	    case MGR_NEWENTITY | CONFIRM:
-		ctrl->entity = (int)arg;
+		ctrl->entity = (u_long)arg & 0xffffffff;
 		break;
+#ifdef FIXME
 	    case MGR_CONNECT | REQUEST:
 		return(mISDN_ConnectIF(inst, arg));
 	    case MGR_SETIF | INDICATION:
@@ -359,6 +363,11 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    case MGR_DISCONNECT | REQUEST:
 	    case MGR_DISCONNECT | INDICATION:
 		return(mISDN_DisConnectIF(inst, arg));
+#endif
+	    case MGR_SETSTACK | INDICATION:
+		if (!(&ctrl->inst == inst))
+			return(AppPlcimISDN_Active(inst->privat));
+		return(0);
 	    case MGR_RELEASE | INDICATION:
 		if (CAPI_DBG_INFO & debug)
 			printk(KERN_DEBUG "release_capi20 id %x\n", ctrl->inst.st->id);
@@ -366,8 +375,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    	break;
 	    case MGR_UNREGLAYER | REQUEST:
 		if (plink) {
-			capi_obj.ctrl(plink->inst.down.peer, MGR_DISCONNECT | REQUEST,
-				&plink->inst.down);
+			plink->inst.function = NULL;
 			capi_obj.ctrl(&plink->inst, MGR_UNREGLAYER | REQUEST, NULL);
 		}
 		break;
@@ -397,6 +405,7 @@ int Capi20Init(void)
 	capi_obj.BPROTO.protocol[4] = ISDN_PID_L4_B_CAPI20;
 	capi_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_TRANS;
 	capi_obj.own_ctrl = capi20_manager;
+	spin_lock_init(&capi_obj.lock);
 	INIT_LIST_HEAD(&capi_obj.ilist);
 	if ((err = CapiNew()))
 		return(err);
