@@ -49,8 +49,6 @@
 #define BRIDGE_PCI2PI	1 /* used at Cologne Chip AG's Evaluation Card */
 #define BRIDGE		BRIDGE_PCI2PI
 
-// #define NUM_XHFCS	1
-
 #define MAX_PORT	4
 #define CHAN_PER_PORT	4	/* D, B1, B2, PCM */
 #define MAX_CHAN	MAX_PORT * CHAN_PER_PORT
@@ -166,8 +164,8 @@ typedef struct _xhfc_t {
 	int max_fifo;		/* always 4 fifos per port */
 	__u8 max_z;		/* fifo depth -1 */
 
-	xhfc_port_t port[MAX_PORT]; /* one for each Line intercace */
-	xhfc_chan_t chan[MAX_CHAN]; /* one each D/B/PCM channel */
+	xhfc_port_t * port;	/* one for each Line intercace */
+	xhfc_chan_t * chan;	/* one each D/B/PCM channel */
 
 	__u32 irq_cnt;	/* count irqs */
 	__u32 f0_cnt;	/* last F0 counter value */
@@ -206,7 +204,6 @@ typedef struct _xhfc_pi {
 	pi_params	driver_data;
 #endif
 
-	// xhfc_t	xhfc[NUM_XHFCS];
 	xhfc_t		* xhfc;
 } xhfc_pi;
 
