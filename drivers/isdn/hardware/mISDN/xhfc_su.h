@@ -159,7 +159,6 @@ typedef struct _xhfc_t {
 	
 	__u8 testirq;
 
-	int chip_id;
 	int num_ports;		/* number of S and U interfaces */
 	int max_fifo;		/* always 4 fifos per port */
 	__u8 max_z;		/* fifo depth -1 */
