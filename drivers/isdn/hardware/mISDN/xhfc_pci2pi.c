@@ -74,7 +74,7 @@ init_pci_bridge(xhfc_pi * pi)
 	int err = -ENODEV;
 
 	printk(KERN_INFO "%s %s: using PCI2PI Bridge at 0x%p\n",
-	       pi->card_name, __FUNCTION__, pi->hw_membase);
+	       pi->name, __FUNCTION__, pi->hw_membase);
 
 	/* test if Bridge regsiter accessable */
 	WritePCI2PI_u32(pi, PCI2PI_DEL_CS, 0x0);
