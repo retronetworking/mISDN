@@ -1940,7 +1940,6 @@ hfcsusb_disconnect(struct usb_interface *intf)
 /* our driver information structure */
 /************************************/
 static struct usb_driver hfcsusb_drv = {
-	.owner = THIS_MODULE,
 	.name = DRIVER_NAME,
 	.id_table = hfcsusb_idtab,
 	.probe = hfcsusb_probe,
