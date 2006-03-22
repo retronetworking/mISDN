@@ -32,12 +32,12 @@ struct _x25_B3_cfg {
 #define DEFAULT_X25_B3_CFG	{0, 0, 1, 1, 0, 0, 8, 2}
 
 struct _x25_ncpi {
-	__u8	len		__attribute__((packed));
-	__u8	Flags		__attribute__((packed));
-	__u8	Group		__attribute__((packed));
-	__u8	Channel		__attribute__((packed));
-	__u8	Contens[4]	__attribute__((packed)); /* Note this can be less/more bytes in use */ 
-};
+	__u8	len;
+	__u8	Flags;
+	__u8	Group;
+	__u8	Channel;
+	__u8	Contens[4]; /* Note this can be less/more bytes in use */ 
+} __attribute__((packed));
 
 struct _x25_ConfQueue { 
 	__u32		PktId; 
