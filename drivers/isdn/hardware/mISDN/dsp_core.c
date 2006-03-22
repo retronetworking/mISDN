@@ -192,9 +192,9 @@ int dsp_poll, dsp_tics;
 
 #ifdef MODULE
 MODULE_AUTHOR("Andreas Eversberg");
-MODULE_PARM(debug, "1i");
-MODULE_PARM(options, "1i");
-MODULE_PARM(poll, "1i");
+module_param(debug, uint, S_IRUGO | S_IWUSR);
+module_param(options, uint, S_IRUGO | S_IWUSR);
+module_param(poll, uint, S_IRUGO | S_IWUSR);
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif

@@ -992,7 +992,6 @@ static int init_card(w6692pci *card)
 }
 
 #define MAX_CARDS	4
-#define MODULE_PARM_T	"1-4i"
 static int w6692_cnt;
 static u_int protocol[MAX_CARDS];
 static int layermask[MAX_CARDS];
@@ -1007,11 +1006,11 @@ MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
-MODULE_PARM(debug, "1i");
-MODULE_PARM(led, MODULE_PARM_T);
-MODULE_PARM(pots, MODULE_PARM_T);
-MODULE_PARM(protocol, MODULE_PARM_T);
-MODULE_PARM(layermask, MODULE_PARM_T);
+module_param(debug, uint, S_IRUGO | S_IWUSR);
+module_param_array(led, uint, NULL, S_IRUGO | S_IWUSR);
+module_param_array(pots, uint, NULL, S_IRUGO | S_IWUSR);
+module_param_array(protocol, uint, NULL, S_IRUGO | S_IWUSR);
+module_param_array(layermask, uint, NULL, S_IRUGO | S_IWUSR);
 #endif
 
 /******************************/

@@ -1920,8 +1920,8 @@ static char MName[] = "FAXL3";
 
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
-MODULE_PARM(debug, "1i");
-MODULE_PARM(ttt, "1i");
+module_param(debug, uint, S_IRUGO | S_IWUSR);
+module_param(ttt, uint, S_IRUGO | S_IWUSR);
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
