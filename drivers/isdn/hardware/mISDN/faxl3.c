@@ -17,6 +17,7 @@
 #include "m_capi.h"
 #include "helper.h"
 #include "debug.h"
+#include "ctrl.h"
 
 static int ttt=180;
 

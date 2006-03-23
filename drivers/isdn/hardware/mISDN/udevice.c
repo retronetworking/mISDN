@@ -12,6 +12,7 @@
 #include <linux/timer.h>
 #include <linux/devfs_fs_kernel.h>
 #include "core.h"
+#include "ctrl.h"
 
 #define MAX_HEADER_LEN	4
 

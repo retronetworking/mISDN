@@ -101,6 +101,8 @@
 #include "layer1.h"
 #include "dsp.h"
 #include "debug.h"
+#include "ctrl.h"
+
 #include <linux/isdn_compat.h>
 
 #warning

@@ -34,6 +34,8 @@
 #include "hfc_pci.h"
 #include "layer1.h"
 #include "debug.h"
+#include "ctrl.h"
+
 #include <linux/isdn_compat.h>
 
 #define HFC_INFO(txt)	printk(KERN_DEBUG txt)

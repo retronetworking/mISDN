@@ -31,6 +31,7 @@
 #include "helper.h"
 #include "debug.h"
 #include "w6692.h"
+#include "ctrl.h"
 
 #include <linux/isdn_compat.h>
 

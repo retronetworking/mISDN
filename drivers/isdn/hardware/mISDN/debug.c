@@ -11,6 +11,7 @@
 #include <linux/kernel.h>
 #include <linux/string.h>
 #include "debug.h"
+#include "ctrl.h"
 
 #define mISDN_STATUS_BUFSIZE 4096
 

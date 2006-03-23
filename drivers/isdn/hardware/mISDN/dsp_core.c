@@ -179,6 +179,7 @@ const char *dsp_revision = "$Revision$";
 #include "helper.h"
 #include "debug.h"
 #include "dsp.h"
+#include "ctrl.h"
 
 static char DSPName[] = "DSP";
 mISDNobject_t dsp_obj;

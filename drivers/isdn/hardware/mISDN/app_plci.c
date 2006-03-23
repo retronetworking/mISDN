@@ -6,6 +6,7 @@
 #include "helper.h"
 #include "debug.h"
 #include "dss1.h"
+#include "ctrl.h"
 
 #define AppPlciDebug(aplci, lev, fmt, args...) \
 	capidebug(lev, fmt, ## args)

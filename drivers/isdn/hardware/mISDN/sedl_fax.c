@@ -42,6 +42,7 @@
 #include "layer1.h"
 #include "helper.h"
 #include "debug.h"
+#include "ctrl.h"
 
 extern const char *CardType[];
 

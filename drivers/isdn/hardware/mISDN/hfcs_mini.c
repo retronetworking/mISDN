@@ -55,6 +55,7 @@
 #include <asm/timex.h>
 #include "layer1.h"
 #include "debug.h"
+#include "ctrl.h"
 #include "hfcs_mini.h"
 #include "hfcsmcc.h"
 

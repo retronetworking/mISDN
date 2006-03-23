@@ -6,6 +6,7 @@
 #include "m_capi.h"
 #include "helper.h"
 #include "debug.h"
+#include "ctrl.h"
 
 static char *capi_revision = "$Revision$";
 

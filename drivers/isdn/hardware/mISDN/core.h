@@ -84,3 +84,4 @@ extern mISDNobject_t	*get_object(int);
 extern mISDNinstance_t	*get_instance4id(u_int);
 extern int		mISDN_alloc_entity(int *);
 extern int		mISDN_delete_entity(int);
+

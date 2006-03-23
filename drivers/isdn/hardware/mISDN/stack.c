@@ -7,6 +7,7 @@
  */
 
 #include "core.h"
+#include "ctrl.h"
 
 static LIST_HEAD(mISDN_stacklist);
 static rwlock_t	stacklist_lock = RW_LOCK_UNLOCKED;

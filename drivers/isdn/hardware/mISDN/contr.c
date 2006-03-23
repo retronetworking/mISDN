@@ -7,6 +7,7 @@
 #include "m_capi.h"
 #include "helper.h"
 #include "debug.h"
+#include "ctrl.h"
 
 #define contrDebug(contr, lev, fmt, args...) \
 	if (contr->debug & lev) capidebug(lev, fmt, ## args)

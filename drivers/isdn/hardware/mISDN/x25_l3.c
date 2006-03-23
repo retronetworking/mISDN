@@ -17,6 +17,7 @@
 #include "x25_l3.h"
 #include "helper.h"
 #include "debug.h"
+#include "ctrl.h"
 
 /* LinkLayer (L2) maintained by L3 statemachine */
 
