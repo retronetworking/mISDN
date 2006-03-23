@@ -496,7 +496,7 @@ release_dtmf(dtmf_t *dtmf) {
 	spin_lock_irqsave(&dtmf_obj.lock, flags);
 	list_del(&dtmf->list);
 	spin_unlock_irqrestore(&dtmf_obj.lock, flags);
-	dtmf_obj.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
+	mISDN_ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	kfree(dtmf);
 }
 
@@ -524,7 +524,7 @@ new_dtmf(mISDNstack_t *st, mISDN_pid_t *pid) {
 	spin_lock_irqsave(&dtmf_obj.lock, flags);
 	list_add_tail(&n_dtmf->list, &dtmf_obj.ilist);
 	spin_unlock_irqrestore(&dtmf_obj.lock, flags);
-	err = dtmf_obj.ctrl(st, MGR_REGLAYER | INDICATION, &n_dtmf->inst);
+	err = mISDN_ctrl(st, MGR_REGLAYER | INDICATION, &n_dtmf->inst);
 	if (err) {
 		list_del(&n_dtmf->list);
 		kfree(n_dtmf);

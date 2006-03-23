@@ -47,7 +47,7 @@ mISDN_debugprint(mISDNinstance_t *inst, char *fmt, ...)
 	va_start(log.args, fmt);
 	log.head = inst->name;
 	log.fmt = fmt;
-	inst->obj->ctrl(inst, MGR_DEBUGDATA | REQUEST, &log);
+	mISDN_ctrl(inst, MGR_DEBUGDATA | REQUEST, &log);
 	va_end(log.args);
 }
 

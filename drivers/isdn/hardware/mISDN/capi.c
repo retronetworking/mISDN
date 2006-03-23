@@ -376,7 +376,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	    case MGR_UNREGLAYER | REQUEST:
 		if (plink) {
 			plink->inst.function = NULL;
-			capi_obj.ctrl(&plink->inst, MGR_UNREGLAYER | REQUEST, NULL);
+			mISDN_ctrl(&plink->inst, MGR_UNREGLAYER | REQUEST, NULL);
 		}
 		break;
 	    case MGR_CTRLREADY | INDICATION:

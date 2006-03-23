@@ -444,7 +444,7 @@ tei_debug(struct FsmInst *fi, char *fmt, ...)
 	sprintf(head,"tei %s", tm->l2->inst.name);
 	log.fmt = fmt;
 	log.head = head;
-	tm->l2->inst.obj->ctrl(&tm->l2->inst, MGR_DEBUGDATA | REQUEST, &log);
+	mISDN_ctrl(&tm->l2->inst, MGR_DEBUGDATA | REQUEST, &log);
 	va_end(log.args);
 }
 

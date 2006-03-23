@@ -349,10 +349,6 @@ mISDN_init_instance(mISDNinstance_t *inst, mISDNobject_t *obj, void *data, if_fu
 		int_error();
 		return;
 	}
-	if (!obj->ctrl) {
-		int_error();
-		return;
-	}
 	INIT_LIST_HEAD(&inst->list);
 	inst->obj = obj;
 	inst->privat = data;

@@ -2130,7 +2130,7 @@ l2m_debug(struct FsmInst *fi, char *fmt, ...)
 	va_start(log.args, fmt);
 	log.fmt = fmt;
 	log.head = l2->inst.name;
-	l2->inst.obj->ctrl(&l2->inst, MGR_DEBUGDATA | REQUEST, &log);
+	mISDN_ctrl(&l2->inst, MGR_DEBUGDATA | REQUEST, &log);
 	va_end(log.args);
 }
 
@@ -2174,9 +2174,9 @@ release_l2(layer2_t *l2)
 	spin_lock_irqsave(&isdnl2.lock, flags);
 	list_del(&l2->list);
 	spin_unlock_irqrestore(&isdnl2.lock, flags);
-	isdnl2.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
+	mISDN_ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l2->entity != MISDN_ENTITY_NONE)
-		isdnl2.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)((u_long)l2->entity));
+		mISDN_ctrl(inst, MGR_DELENTITY | REQUEST, (void *)((u_long)l2->entity));
 	kfree(l2);
 }
 
@@ -2298,12 +2298,12 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
 	spin_lock_irqsave(&isdnl2.lock, flags);
 	list_add_tail(&nl2->list, &isdnl2.ilist);
 	spin_unlock_irqrestore(&isdnl2.lock, flags);
-	err = isdnl2.ctrl(&nl2->inst, MGR_NEWENTITY | REQUEST, NULL);
+	err = mISDN_ctrl(&nl2->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
 		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
 			__FUNCTION__, err);
 	}
-	err = isdnl2.ctrl(st, MGR_REGLAYER | INDICATION, &nl2->inst);
+	err = mISDN_ctrl(st, MGR_REGLAYER | INDICATION, &nl2->inst);
 	if (err) {
 		mISDN_FsmDelTimer(&nl2->t200, 0);
 		mISDN_FsmDelTimer(&nl2->t203, 0);
@@ -2318,7 +2318,7 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
 		stp.maxdatalen = 0;
 		stp.up_headerlen = 0;
 		stp.down_headerlen = l2headersize(nl2, 0);
-		isdnl2.ctrl(st, MGR_ADDSTPARA | REQUEST, &stp);
+		mISDN_ctrl(st, MGR_ADDSTPARA | REQUEST, &stp);
 	}
 	return(err);
 }

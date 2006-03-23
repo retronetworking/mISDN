@@ -777,7 +777,6 @@ struct _mISDNobject {
 	mISDN_pid_t		DPROTO;
 	mISDN_pid_t		BPROTO;
 	ctrl_func_t		*own_ctrl;
-	ctrl_func_t		*ctrl;
 	struct list_head	ilist;
 	spinlock_t		lock;
 	struct module		*owner;
@@ -893,6 +892,7 @@ extern int	mISDN_queue_message(mISDNinstance_t *, u_int, struct sk_buff *);
 
 extern int	mISDN_register(mISDNobject_t *obj);
 extern int	mISDN_unregister(mISDNobject_t *obj);
+extern int	mISDN_ctrl(void *, u_int, void *);
 
 #endif /* __KERNEL__ */
 #endif /* mISDNIF_H */

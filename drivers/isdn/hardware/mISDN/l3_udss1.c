@@ -2817,9 +2817,9 @@ release_udss1(layer3_t *l3)
 	spin_lock_irqsave(&u_dss1.lock, flags);
 	list_del(&l3->list);
 	spin_unlock_irqrestore(&u_dss1.lock, flags);
-	u_dss1.ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
+	mISDN_ctrl(inst, MGR_UNREGLAYER | REQUEST, NULL);
 	if (l3->entity != MISDN_ENTITY_NONE)
-		u_dss1.ctrl(inst, MGR_DELENTITY | REQUEST, (void *)((u_long)l3->entity));
+		mISDN_ctrl(inst, MGR_DELENTITY | REQUEST, (void *)((u_long)l3->entity));
 	kfree(l3);
 }
 
@@ -2892,12 +2892,12 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 	spin_lock_irqsave(&u_dss1.lock, flags);
 	list_add_tail(&nl3->list, &u_dss1.ilist);
 	spin_unlock_irqrestore(&u_dss1.lock, flags);
-	err = u_dss1.ctrl(&nl3->inst, MGR_NEWENTITY | REQUEST, NULL);
+	err = mISDN_ctrl(&nl3->inst, MGR_NEWENTITY | REQUEST, NULL);
 	if (err) {
 		printk(KERN_WARNING "mISDN %s: MGR_NEWENTITY REQUEST failed err(%d)\n",
 			__FUNCTION__, err);
 	}
-	err = u_dss1.ctrl(st, MGR_REGLAYER | INDICATION, &nl3->inst);
+	err = mISDN_ctrl(st, MGR_REGLAYER | INDICATION, &nl3->inst);
 	if (err) {
 		release_l3(nl3);
 		list_del(&nl3->list);
@@ -2910,7 +2910,7 @@ new_udss1(mISDNstack_t *st, mISDN_pid_t *pid)
 		stp.maxdatalen = 0;
 		stp.up_headerlen = L3_EXTRA_SIZE;
 		stp.down_headerlen = 0;
-		u_dss1.ctrl(st, MGR_ADDSTPARA | REQUEST, &stp);
+		mISDN_ctrl(st, MGR_ADDSTPARA | REQUEST, &stp);
 	}
 	return(err);
 }
