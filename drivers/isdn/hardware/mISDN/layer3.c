@@ -12,7 +12,6 @@
  */
 #include "layer3.h"
 #include "helper.h"
-#include "ctrl.h"
 
 const char *l3_revision = "$Revision$";
 

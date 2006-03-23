@@ -19,7 +19,6 @@
 #include "helper.h"
 #include "debug.h"
 #include "dss1.h"
-#include "ctrl.h"
 
 static int debug = 0;
 static mISDNobject_t u_dss1;

@@ -10,7 +10,6 @@
 #include "layer2.h"
 #include "helper.h"
 #include "debug.h"
-#include "ctrl.h"
 #include <linux/random.h>
 
 const char *tei_revision = "$Revision$";

@@ -32,7 +32,6 @@
 #include "channel.h"
 #include "layer1.h"
 #include "debug.h"
-#include "ctrl.h"
 #include <linux/isdn_compat.h>
 
 #include "loop.h"

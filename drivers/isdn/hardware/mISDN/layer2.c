@@ -9,7 +9,6 @@
 #include "layer2.h"
 #include "helper.h"
 #include "debug.h"
-#include "ctrl.h"
 
 static char *l2_revision = "$Revision$";
 

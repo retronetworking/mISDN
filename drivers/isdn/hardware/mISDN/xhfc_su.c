@@ -58,8 +58,6 @@
 #include <asm/timex.h>
 #include "helper.h"
 #include "debug.h"
-#include "ctrl.h"
-
 #include "xhfc_su.h"
 #include "xhfc24succ.h"
 

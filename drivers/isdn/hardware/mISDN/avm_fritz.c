@@ -21,7 +21,6 @@
 #include "isac.h"
 #include "layer1.h"
 #include "debug.h"
-#include "ctrl.h"
 
 
 static const char *avm_fritz_rev = "$Revision$";

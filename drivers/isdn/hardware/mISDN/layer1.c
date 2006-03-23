@@ -15,7 +15,6 @@ static char *l1_revision = "$Revision$";
 #include "layer1.h"
 #include "helper.h"
 #include "debug.h"
-#include "ctrl.h"
 
 typedef struct _layer1 {
 	struct list_head	list;

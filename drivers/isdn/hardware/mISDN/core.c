@@ -12,7 +12,6 @@
 #include <linux/module.h>
 #include <linux/spinlock.h>
 #include "core.h"
-#include "ctrl.h"
 #ifdef CONFIG_KMOD
 #include <linux/kmod.h>
 #endif
@@ -713,7 +712,6 @@ void mISDN_cleanup(void) {
 module_init(mISDNInit);
 module_exit(mISDN_cleanup);
 
+EXPORT_SYMBOL(mISDN_ctrl);
 EXPORT_SYMBOL(mISDN_register);
 EXPORT_SYMBOL(mISDN_unregister);
-
-EXPORT_SYMBOL(mISDN_ctrl);

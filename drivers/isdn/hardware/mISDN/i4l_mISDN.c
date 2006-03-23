@@ -20,7 +20,6 @@
 #include "helper.h"
 #include "dss1.h"
 #include "debug.h"
-#include "ctrl.h"
 
 static char *i4lcapi_revision = "$Revision$";
 

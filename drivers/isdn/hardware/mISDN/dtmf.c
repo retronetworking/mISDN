@@ -20,7 +20,6 @@
 #include "layer1.h"
 #include "helper.h"
 #include "debug.h"
-#include "ctrl.h"
 
 #define DTMF_NPOINTS 205        /* Number of samples for DTMF recognition */
 
