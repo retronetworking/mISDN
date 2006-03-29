@@ -1095,7 +1095,7 @@ xhfc_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	for (xn=0; xn<pi->driver_data.num_xhfcs; xn++) {
 		xhfc = &pi->xhfc[xn];
 		if (xhfc->irq_ctrl.bit.v_glob_irq_en && (read_xhfc(xhfc, R_IRQ_OVIEW)))
-		    	xhfc_irqs |= (xn << i);
+		    	xhfc_irqs |= (1 << xn);
 	}
 	if (!xhfc_irqs) {
 		if (debug & DEBUG_HFC_IRQ)
