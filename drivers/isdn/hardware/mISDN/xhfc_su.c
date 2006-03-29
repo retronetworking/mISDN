@@ -1087,15 +1087,15 @@ xhfc_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 {
 	xhfc_pi *pi = dev_id;
 	xhfc_t * xhfc = NULL;
-	__u8 i;
+	__u8 i, xn;
 	__u32 f0_cnt;
 	__u32 xhfc_irqs;
 
 	xhfc_irqs = 0;
-	for (i=0; i<pi->driver_data.num_xhfcs; i++) {
-		xhfc = &pi->xhfc[i];
+	for (xn=0; xn<pi->driver_data.num_xhfcs; xn++) {
+		xhfc = &pi->xhfc[xn];
 		if (xhfc->irq_ctrl.bit.v_glob_irq_en && (read_xhfc(xhfc, R_IRQ_OVIEW)))
-		    	xhfc_irqs |= (1 << i);
+		    	xhfc_irqs |= (xn << i);
 	}
 	if (!xhfc_irqs) {
 		if (debug & DEBUG_HFC_IRQ)
@@ -1106,8 +1106,8 @@ xhfc_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 	}
 
 	xhfc_irqs = 0;
-	for (i=0; i<pi->driver_data.num_xhfcs; i++) {
-		xhfc = &pi->xhfc[i];
+	for (xn=0; xn<pi->driver_data.num_xhfcs; xn++) {
+		xhfc = &pi->xhfc[xn];
 
 		xhfc->misc_irq.reg |= read_xhfc(xhfc, R_MISC_IRQ);
 		xhfc->su_irq.reg |= read_xhfc(xhfc, R_SU_IRQ);
@@ -1128,7 +1128,7 @@ xhfc_interrupt(int intno, void *dev_id, struct pt_regs *regs)
 		      || (xhfc->fifo_irq & xhfc->fifo_irqmsk)) {
 		      	
 		      	
-			xhfc_irqs |= (1 << i);
+			xhfc_irqs |= (1 << xn);
 	
 			/* queue bottom half */
 			if (!(xhfc->testirq))
