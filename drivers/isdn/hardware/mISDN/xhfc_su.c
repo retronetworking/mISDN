@@ -75,13 +75,22 @@ static int layermask[MAX_CARDS * MAX_PORT];
 static mISDNobject_t hw_mISDNObj;
 static int debug = 0;
 
+
 #ifdef MODULE
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
 module_param(debug, uint, S_IRUGO | S_IWUSR);
+
+#ifdef OLD_MODULE_PARAM_ARRAY
+static int num_protocol=0, num_layermask=0;
+module_param_array(protocol, uint, num_protocol, S_IRUGO | S_IWUSR);
+module_param_array(layermask, uint, num_layermask, S_IRUGO | S_IWUSR);
+#else
 module_param_array(protocol, uint, NULL, S_IRUGO | S_IWUSR);
 module_param_array(layermask, uint, NULL, S_IRUGO | S_IWUSR);
+#endif
+
 #endif
 
 /* static function prototypes */

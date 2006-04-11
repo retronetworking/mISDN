@@ -936,6 +936,7 @@ static int fritz_cnt;
 static u_int protocol[MAX_CARDS];
 static int layermask[MAX_CARDS];
 
+
 static mISDNobject_t	fritz;
 static int debug;
 
@@ -945,8 +946,16 @@ MODULE_AUTHOR("Karsten Keil");
 MODULE_LICENSE("GPL");
 #endif
 module_param(debug, uint, S_IRUGO | S_IWUSR);
+
+#ifdef OLD_MODULE_PARAM_ARRAY
+static int num_protocol=0,num_layermask=0;
+module_param_array(protocol, uint, num_protocol, S_IRUGO | S_IWUSR);
+module_param_array(layermask, uint, num_layermask, S_IRUGO | S_IWUSR);
+#else
 module_param_array(protocol, uint, NULL, S_IRUGO | S_IWUSR);
 module_param_array(layermask, uint, NULL, S_IRUGO | S_IWUSR);
+#endif
+
 #endif
 
 int

@@ -1037,16 +1037,27 @@ static int debug;
 static int pots[MAX_CARDS];
 static int led[MAX_CARDS];
 
+
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
 module_param(debug, uint, S_IRUGO | S_IWUSR);
+
+#ifdef OLD_MODULE_PARAM_ARRAY
+static int num_led=0, num_pots=0, num_protocol=0, num_layermask=0; 
+module_param_array(led, uint, num_led, S_IRUGO | S_IWUSR);
+module_param_array(pots, uint, num_pots, S_IRUGO | S_IWUSR);
+module_param_array(protocol, uint, num_protocol, S_IRUGO | S_IWUSR);
+module_param_array(layermask, uint, num_layermask, S_IRUGO | S_IWUSR);
+#else 
 module_param_array(led, uint, NULL, S_IRUGO | S_IWUSR);
 module_param_array(pots, uint, NULL, S_IRUGO | S_IWUSR);
 module_param_array(protocol, uint, NULL, S_IRUGO | S_IWUSR);
 module_param_array(layermask, uint, NULL, S_IRUGO | S_IWUSR);
+#endif
+
 #endif
 
 /******************************/
