@@ -80,8 +80,11 @@ static void release_mISDN_obj(struct class_device *dev)
 	if (obj->owner->mkobj)
 #endif
 		sysfs_remove_link(&dev->kobj, "module");
+#if 0
 	sysfs_remove_group(&obj->class_dev.kobj, &BPROTO_group);
 	sysfs_remove_group(&obj->class_dev.kobj, &DPROTO_group);
+#endif
+
 }
 
 static struct class obj_dev_class = {

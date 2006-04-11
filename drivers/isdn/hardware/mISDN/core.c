@@ -639,6 +639,7 @@ int mISDN_unregister(mISDNobject_t *obj) {
 	write_lock_irqsave(&mISDN_objects_lock, flags);
 	list_del(&obj->list);
 	write_unlock_irqrestore(&mISDN_objects_lock, flags);
+
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "mISDN_unregister: mISDN_objectlist(%p<-%p->%p)\n",
 			mISDN_objectlist.prev, &mISDN_objectlist, mISDN_objectlist.next);

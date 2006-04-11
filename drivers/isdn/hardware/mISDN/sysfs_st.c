@@ -177,9 +177,10 @@ static void release_mISDN_stack(struct class_device *dev)
 {
 	mISDNstack_t	*st = to_mISDNstack(dev);
 	char		name[12];
-
+#if 0
 	sysfs_remove_group(&st->class_dev.kobj, &pid_group);
 	sysfs_remove_group(&st->class_dev.kobj, &new_pid_group);
+#endif
 	printk(KERN_INFO "release stack class dev %s\n", dev->class_id);
 	if (st->parent) {
 		sysfs_remove_link(&dev->kobj, "parent");
