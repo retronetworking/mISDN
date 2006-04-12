@@ -324,7 +324,7 @@ dsp_audio_generate_s2law_table(void)
 		}
 		j = 255;
 		while(i < 65536) {
-			if (i-0x32768 > dsp_audio_law_to_s32[j])
+			if (i-32768 > dsp_audio_law_to_s32[j])
 				j--;
 			dsp_audio_s16_to_law[(i-32768) & 0xffff] = j;
 			i++;
