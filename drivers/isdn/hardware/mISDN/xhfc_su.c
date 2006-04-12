@@ -38,9 +38,9 @@
  *        <bit 4>   0x0010  Net side stack (NT mode)
  *        <bit 5>   0x0020  Line Interface Mode (0=S0, 1=Up)
  *        <bit 6>   0x0040  st line polarity (1=exchanged)
- *        <bit 7>   0x0080  B1 channel loop
- *        <bit 8>   0x0100  B2 channel loop
- *        <bit 9>   0x0200  D channel loop
+ *        <bit 7>   0x0080  B1 channel loop ST-RX -> XHFC PCM -> ST-TX
+ *        <bit 8>   0x0100  B2 channel loop ST-RX -> XHFC PCM -> ST-TX
+ *        <bit 9>   0x0200  D channel loop  ST-RX -> XHFC PCM -> ST-TX
  *
  * - layermask=<l1>[,l2,l3...] (32bit):
  *        mask of layers to be used for D-channel stack
