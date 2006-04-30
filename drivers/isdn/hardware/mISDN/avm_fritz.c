@@ -934,7 +934,9 @@ static int init_card(fritzpnppci *fc)
 #define MAX_CARDS	4
 static int fritz_cnt;
 static u_int protocol[MAX_CARDS];
+static int num_protocol=0;
 static int layermask[MAX_CARDS];
+static int num_layermask=0;
 
 
 static mISDNobject_t	fritz;
