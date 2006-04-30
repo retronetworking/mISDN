@@ -748,6 +748,7 @@ typedef struct _mISDNstack	mISDNstack_t;
 typedef struct _mISDNport	mISDNport_t;
 typedef struct _mISDNdevice	mISDNdevice_t;
 typedef int	(ctrl_func_t)(void *, u_int, void *);
+typedef int	(inst_func_t)(mISDNstack_t *, mISDN_pid_t *);
 typedef int	(if_func_t)(mISDNinstance_t *, struct sk_buff *);
 
 #define mISDN_HEAD_P(s)		((mISDN_head_t *)&s->cb[0])
