@@ -745,6 +745,27 @@ MODULE_LICENSE("GPL");
 #endif
 
 static int
+l1_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	mISDNinstance_t	*inst = NULL;
+	layer1_t	*l1;
+	u_long		flags;
+
+	spin_lock_irqsave(&isdnl1.lock, flags);
+	list_for_each_entry(l1, &isdnl1.ilist, list) {
+		if (l1->inst.st == st) {
+			inst =&l1->inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&isdnl1.lock, flags);
+	if (inst)
+		return(-EBUSY);
+	return(new_l1(st, pid));
+}
+
+#ifdef OBSOLETE
+static int
 l1_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	layer1_t	*l1l;
@@ -803,6 +824,7 @@ l1_manager(void *data, u_int prim, void *arg) {
 	}
 	return(err);
 }
+#endif
 
 int Isdnl1Init(void)
 {
@@ -814,7 +836,7 @@ int Isdnl1Init(void)
 #endif
 	isdnl1.name = MName;
 	isdnl1.DPROTO.protocol[1] = ISDN_PID_L1_TE_S0;
-	isdnl1.own_ctrl = l1_manager;
+	isdnl1.getinst = l1_instance;
 	spin_lock_init(&isdnl1.lock);
 	INIT_LIST_HEAD(&isdnl1.ilist);
 #ifdef mISDN_UINTERFACE

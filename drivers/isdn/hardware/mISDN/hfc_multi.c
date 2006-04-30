@@ -3088,6 +3088,34 @@ release_port(hfc_multi_t *hc, int port)
 }
 
 static int
+HFC_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	hfc_multi_t	*hc;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&HFCM_obj.lock, flags);
+	list_for_each_entry(hc, &HFCM_obj.ilist, list) {
+		int	i = 0;
+		while(i < 32) {
+			if ((hc->chan[i].ch) &&
+				(hc->chan[i].ch->inst.st == st)) {
+				inst = &hc->chan[i].ch->inst;
+				break;
+			}
+			i++;
+		}
+		if (inst)
+			break;
+	}
+	spin_unlock_irqrestore(&HFCM_obj.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+  
+#ifdef OBSOLETE
+static int
 HFC_manager(void *data, u_int prim, void *arg)
 {
 	hfc_multi_t	*hc;
@@ -3222,6 +3250,7 @@ bugtest
 	}
 	return(0);
 }
+#endif 
 
 static void find_type_entry(int hfc_type, int *card, int *port)
 {
@@ -3680,8 +3709,8 @@ free_delstack:
 	spin_unlock_irqrestore(&hc->lock, flags);
 	return(0);
 
-	/* if an error ocurred */
-	free_channels:
+/* if an error ocurred */
+free_channels:
 	i = 0;
 	while(i < 32) {
 		if (hc->chan[i].ch) {
@@ -3867,7 +3896,7 @@ HFCmulti_init(void)
 	spin_lock_init(&HFCM_obj.lock);
 	INIT_LIST_HEAD(&HFCM_obj.ilist);
 	HFCM_obj.name = HFCName;
-	HFCM_obj.own_ctrl = HFC_manager;
+	HFCM_obj.getinst = HFC_instance;
 	HFCM_obj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 | ISDN_PID_L0_NT_S0
 				| ISDN_PID_L0_TE_E1 | ISDN_PID_L0_NT_E1;
 	HFCM_obj.DPROTO.protocol[1] = ISDN_PID_L1_NT_S0

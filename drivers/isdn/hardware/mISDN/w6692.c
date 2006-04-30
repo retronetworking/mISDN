@@ -1310,6 +1310,35 @@ release_card(w6692pci *card)
 }
 
 static int
+w6692_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	w6692pci	*card;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&w6692.lock, flags);
+	list_for_each_entry(card, &w6692.ilist, list) {
+		if (card->dch.inst.st == st) {
+			inst = &card->dch.inst;
+			break;
+		}
+		if (card->bch[0].inst.st == st) {
+			inst = &card->bch[0].inst;
+			break;
+		}
+		if (card->bch[1].inst.st == st) {
+			inst = &card->bch[1].inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&w6692.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+#ifdef OBSOLETE
+static int
 w6692_manager(void *data, u_int prim, void *arg) {
 	w6692pci	*card;
 	mISDNinstance_t	*inst = data;
@@ -1415,6 +1444,7 @@ w6692_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 static int setup_instance(w6692pci *card)
 {
@@ -1563,7 +1593,7 @@ static int __init w6692_init(void)
 	spin_lock_init(&w6692.lock);
 	INIT_LIST_HEAD(&w6692.ilist);
 	w6692.name = W6692Name;
-	w6692.own_ctrl = w6692_manager;
+	w6692.getinst = w6692_instance;
 	w6692.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;
 	w6692.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS |
 				    ISDN_PID_L1_B_64HDLC;

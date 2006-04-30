@@ -56,6 +56,7 @@ typedef struct _mISDN_thread {
 #define mISDN_TFLAGS_TEST	3
 
 static mISDN_thread_t	mISDN_thread;
+DECLARE_COMPLETION(mISDN_thread_exit);
 
 static moditem_t modlist[] = {
 	{"mISDN_l1", ISDN_PID_L1_TE_S0},
@@ -150,6 +151,7 @@ mISDNd(void *data)
 	hkt->thread = NULL;
 	if (hkt->notify != NULL)
 		up(hkt->notify);
+	complete(&mISDN_thread_exit);
 	return(0);
 }
 
@@ -170,17 +172,11 @@ get_object(int id) {
 static mISDNobject_t *
 find_object(int protocol) {
 	mISDNobject_t	*obj;
-	int		err;
 
 	read_lock(&mISDN_objects_lock);
 	list_for_each_entry(obj, &mISDN_objectlist, list) {
-		err = obj->own_ctrl(NULL, MGR_HASPROTOCOL | REQUEST, &protocol);
-		if (!err)
+		if (0 == mISDN_HasProtocol(obj, protocol))
 			goto unlock;
-		if (err != -ENOPROTOOPT) {
-			if (0 == mISDN_HasProtocol(obj, protocol))
-				goto unlock;
-		}	
 	}
 	obj = NULL;
 unlock:
@@ -263,7 +259,7 @@ get_next_instance(mISDNstack_t *st, mISDN_pid_t *pid)
 					__FUNCTION__);
 			return(NULL);
 		}
-		err = obj->own_ctrl(st, MGR_NEWLAYER | REQUEST, pid);
+		err = obj->getinst(st, pid);
 		if (err) {
 			printk(KERN_WARNING "%s: newlayer err(%d)\n",
 				__FUNCTION__, err);
@@ -275,31 +271,23 @@ get_next_instance(mISDNstack_t *st, mISDN_pid_t *pid)
 }
 
 static int
-sel_channel(mISDNstack_t *st, channel_info_t *ci)
+sel_channel(mISDNstack_t *st, struct sk_buff *skb)
 {
-	int	err = -EINVAL;
+	mISDN_head_t	*hh = mISDN_HEAD_P(skb);
+	mISDNstack_t	*cst;
+	u_int		nr = 0;
+	u_int		*ch = (u_int *)skb->data;
+	int		err = -EINVAL;
 
-	if (!ci)
-		return(err);
-	if (debug)
-		printk(KERN_DEBUG "%s: st(%p) st->mgr(%p)\n",
-			__FUNCTION__, st, st->mgr);
 	if (st->mgr) {
-		if (st->mgr->obj && st->mgr->obj->own_ctrl) {
-			err = st->mgr->obj->own_ctrl(st->mgr, MGR_SELCHANNEL | REQUEST, ci);
-			if (debug)
-				printk(KERN_DEBUG "%s: MGR_SELCHANNEL(%d)\n", __FUNCTION__, err);
-		} else
-			int_error();
+		err = st->mgr->function(st->mgr, skb);
+		if (debug)
+			printk(KERN_DEBUG "%s: MGR_SELCHANNEL(%d)\n", __FUNCTION__, err);
 	} else {
 		printk(KERN_WARNING "%s: no mgr st(%p)\n", __FUNCTION__, st);
 	}
 	if (err) {
-		mISDNstack_t	*cst;
-		u_int		nr = 0;
-
-		ci->st.p = NULL;
-		if (!(ci->channel & (~CHANNEL_NUMBER))) {
+		if (!(*ch & (~CHANNEL_NUMBER))) {
 			/* only number is set */
 			struct list_head	*head;
 			if (list_empty(&st->childlist)) {
@@ -315,9 +303,12 @@ sel_channel(mISDNstack_t *st, channel_info_t *ci)
 				head = &st->childlist;
 			list_for_each_entry(cst, head, list) {
 				nr++;
-				if (nr == (ci->channel & 3)) {
-					ci->st.p = cst;
-					return(0);
+				if (nr == (*ch & 0x1f)) {
+					*ch = cst->id;
+					hh->prim |= CONFIRM;
+					skb_queue_tail(&st->msgq, skb);
+					err = 0;
+					break;
 				}
 			}
 		}
@@ -325,7 +316,7 @@ sel_channel(mISDNstack_t *st, channel_info_t *ci)
 	return(err);
 }
 
-#ifdef FIXME
+#ifdef OBSOLETE
 static int
 disconnect_if(mISDNinstance_t *inst, u_int prim, mISDNif_t *hif) {
 	int	err = 0;
@@ -494,17 +485,22 @@ mISDN_delete_entity(int entity)
 static int
 new_entity(mISDNinstance_t *inst)
 {
-	int	entity;
-	int	ret;
+	int		entity;
+	int		ret;
+	struct sk_buff	*skb;
 
 	if (!inst)
 		return(-EINVAL);
+	if (!(skb = alloc_skb(4, GFP_ATOMIC)))
+		return(-ENOMEM);
 	ret = mISDN_alloc_entity(&entity);
 	if (ret) {
+		dev_kfree_skb(skb);
 		printk(KERN_WARNING "mISDN: no more entity available(max %d)\n", MISDN_MAX_ENTITY);
 		return(ret);
 	}
-	ret = inst->obj->own_ctrl(inst, MGR_NEWENTITY | CONFIRM, (void *)((u_long)entity));
+	mISDN_sethead(MGR_NEWENTITY | CONFIRM, entity, skb);
+	ret = mISDN_queue_message(inst, inst->id | FLG_MSG_TARGET, skb);
 	if (ret)
 		mISDN_delete_entity(entity);
 	return(ret);
@@ -527,11 +523,7 @@ mISDN_ctrl(void *data, u_int prim, void *arg) {
 	    case MGR_REGLAYER | INDICATION:
 		return(register_layer(st, arg));
 	    case MGR_REGLAYER | REQUEST:
-		if (!register_layer(st, arg)) {
-			mISDNinstance_t *inst = arg;
-			return(inst->obj->own_ctrl(arg, MGR_REGLAYER | CONFIRM, NULL));
-		}
-		return(-EINVAL);
+		return(register_layer(st, arg));
 	    case MGR_UNREGLAYER | REQUEST:
 		return(unregister_instance(data));
 #ifdef FIXME
@@ -585,8 +577,8 @@ mISDN_ctrl(void *data, u_int prim, void *arg) {
 	    	return(evaluate_stack_pids(data, arg));
 	    case MGR_GLOBALOPT | REQUEST:
 	    case MGR_LOADFIRM | REQUEST:
-	    	if (st->mgr && st->mgr->obj && st->mgr->obj->own_ctrl)
-	    		return(st->mgr->obj->own_ctrl(st->mgr, prim, arg));
+#warning	    	if (st->mgr && st->mgr->obj && st->mgr->obj->own_ctrl)
+#warning	    		return(st->mgr->obj->own_ctrl(st->mgr, prim, arg));
 		break;
 	    case MGR_DEBUGDATA | REQUEST:
 		return(debugout(data, arg));
@@ -608,7 +600,6 @@ int mISDN_register(mISDNobject_t *obj) {
 	obj->id = obj_id++;
 	list_add_tail(&obj->list, &mISDN_objectlist);
 	write_unlock_irqrestore(&mISDN_objects_lock, flags);
-	// register_prop
 	if (debug)
 		printk(KERN_DEBUG "mISDN_register %s id %x\n", obj->name,
 			obj->id);
@@ -671,9 +662,11 @@ mISDNInit(void)
 	init_waitqueue_head(&mISDN_thread.waitq);
 	skb_queue_head_init(&mISDN_thread.workq);
 	mISDN_thread.notify = &sem;
-	kernel_thread(mISDNd, (void *)&mISDN_thread, 0);
+//	preempt_disable();
+	kernel_thread(mISDNd, (void *)&mISDN_thread, CLONE_KERNEL);
 	down(&sem);
 	mISDN_thread.notify = NULL;
+//	preempt_enable();
 	test_and_set_bit(mISDN_TFLAGS_TEST, &mISDN_thread.Flags);
 	wake_up_interruptible(&mISDN_thread.waitq);
 	return(err);
@@ -688,8 +681,6 @@ sysfs_fail:
 }
 
 void mISDN_cleanup(void) {
-	DECLARE_MUTEX_LOCKED(sem);
-
 	free_mISDNdev();
 	if (!list_empty(&mISDN_objectlist)) {
 		printk(KERN_WARNING "mISDNcore mISDN_objects not empty\n");
@@ -697,11 +688,14 @@ void mISDN_cleanup(void) {
 	check_stacklist();
 	if (mISDN_thread.thread) {
 		/* abort mISDNd kernel thread */
-		mISDN_thread.notify = &sem;
 		test_and_set_bit(mISDN_TFLAGS_RMMOD, &mISDN_thread.Flags);
+//		preempt_disable();
+		printk(KERN_WARNING "xxx1\n");
 		wake_up_interruptible(&mISDN_thread.waitq);
-		down(&sem);
-		mISDN_thread.notify = NULL;
+		printk(KERN_WARNING "xxx2\n");
+		wait_for_completion(&mISDN_thread_exit);
+		printk(KERN_WARNING "xxx4\n");
+//		preempt_enable();
 	}
 #ifdef MISDN_MEMDEBUG
 	__mid_cleanup();
@@ -712,7 +706,6 @@ void mISDN_cleanup(void) {
 
 module_init(mISDNInit);
 module_exit(mISDN_cleanup);
-
 EXPORT_SYMBOL(mISDN_ctrl);
 EXPORT_SYMBOL(mISDN_register);
 EXPORT_SYMBOL(mISDN_unregister);

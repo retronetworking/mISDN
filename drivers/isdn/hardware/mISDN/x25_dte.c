@@ -1263,6 +1263,27 @@ MODULE_LICENSE("GPL");
 #endif
 
 static int
+dte_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	mISDNinstance_t	*inst = NULL;
+	x25_l3_t	*l3;
+	u_long		flags;
+
+	spin_lock_irqsave(&x25dte_obj.lock, flags);
+	list_for_each_entry(l3, &x25dte_obj.ilist, list) {
+		if (l3->inst.st == st) {
+			inst =&l3->inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&x25dte_obj.lock, flags);
+	if (inst)
+		return(-EBUSY);
+	return(new_l3(st, pid));
+}
+
+#ifdef OBSOLETE
+static int
 dte_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	x25_l3_t	*l3_l;
@@ -1331,6 +1352,7 @@ dte_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 static int
 x25_dte_init(void)
@@ -1343,7 +1365,7 @@ x25_dte_init(void)
 #endif
 	x25dte_obj.name = MName;
 	x25dte_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_X25DTE;
-	x25dte_obj.own_ctrl = dte_manager;
+	x25dte_obj.getinst = dte_instance;
 	spin_lock_init(&x25dte_obj.lock);
 	INIT_LIST_HEAD(&x25dte_obj.ilist);
 	if ((err = mISDN_register(&x25dte_obj))) {

@@ -1559,86 +1559,166 @@ PL_l3l4mux(mISDNinstance_t *inst, struct sk_buff *skb)
 static int
 AppPlciLinkUp(AppPlci_t *aplci)
 {
-	mISDN_pid_t	pid;
-	mISDN_stPara_t	stpara;
-	int		retval;
+	struct sk_buff	*skb;
+	mISDN_pid_t	*pid;
+	int		len, *ch;
 
 	if (aplci->channel == -1) {/* no valid channel set */
 		int_error();
 		return(-EINVAL);
 	}
-	memset(&pid, 0, sizeof(mISDN_pid_t));
-	pid.layermask = ISDN_LAYER(1) | ISDN_LAYER(2) | ISDN_LAYER(3) |
-		ISDN_LAYER(4);
-	if (test_bit(PLCI_STATE_OUTGOING, &aplci->plci->state))
-		pid.global = 1; // DTE, orginate
-	else
-		pid.global = 2; // DCE, answer
+	if (aplci->link) {
+		capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp link already up");
+		return(0);
+	}
+	if (aplci->linkid) {
+		capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp link already requested id(%x)");
+		return(0);
+	}
 	if (aplci->Bprotocol.B1 > 23) {
 		int_errtxt("wrong B1 prot %x", aplci->Bprotocol.B1);
 		return(0x3001);
-	}
-	pid.protocol[1] = (1 << aplci->Bprotocol.B1) |
-		ISDN_PID_LAYER(1) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B1cfg[0]) {
-		pid.param[1] = &aplci->Bprotocol.B1cfg[0];
-		pid.maxplen += aplci->Bprotocol.B1cfg[0];
 	}
 	if (aplci->Bprotocol.B2 > 23) {
 		int_errtxt("wrong B2 prot %x", aplci->Bprotocol.B2);
 		return(0x3002);
 	}
-	pid.protocol[2] = (1 << aplci->Bprotocol.B2) |
-		ISDN_PID_LAYER(2) | ISDN_PID_BCHANNEL_BIT;
-	if (aplci->Bprotocol.B2cfg[0]) {
-		pid.param[2] = &aplci->Bprotocol.B2cfg[0];
-		pid.maxplen += aplci->Bprotocol.B2cfg[0];
-	}
-	/* handle DTMF TODO */
-	if ((pid.protocol[2] == ISDN_PID_L2_B_TRANS) &&
-		(pid.protocol[1] == ISDN_PID_L1_B_64TRANS))
-		pid.protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
 	if (aplci->Bprotocol.B3 > 23) {
 		int_errtxt("wrong B3 prot %x", aplci->Bprotocol.B3);
 		return(0x3003);
 	}
-	pid.protocol[3] = (1 << aplci->Bprotocol.B3) |
+	len = aplci->Bprotocol.B1cfg[0];
+	len += aplci->Bprotocol.B2cfg[0];
+	len += aplci->Bprotocol.B3cfg[0];
+
+	if (!(skb = alloc_skb(len + sizeof(int) + sizeof(mISDN_pid_t), GFP_ATOMIC))) {
+		int_errtxt("no skb size(%d+%d+%d)", len, sizeof(int), sizeof(mISDN_pid_t));
+		return(-ENOMEM);
+	}
+	ch = (int *)skb_put(skb, sizeof(int));
+	*ch = aplci->channel;
+	pid = (mISDN_pid_t *)skb_put(skb, sizeof(mISDN_pid_t));
+	memset(pid, 0, sizeof(mISDN_pid_t));
+	pid->maxplen = len;
+	pid->layermask = ISDN_LAYER(1) | ISDN_LAYER(2) | ISDN_LAYER(3) |
+		ISDN_LAYER(4);
+	if (test_bit(PLCI_STATE_OUTGOING, &aplci->plci->state))
+		pid->global = 1; // DTE, orginate
+	else
+		pid->global = 2; // DCE, answer
+	pid->protocol[1] = (1 << aplci->Bprotocol.B1) |
+		ISDN_PID_LAYER(1) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B1cfg[0]) {
+		pid->param[1] = skb_put(skb, aplci->Bprotocol.B1cfg[0]);
+		memcpy(pid->param[1], &aplci->Bprotocol.B1cfg[0], aplci->Bprotocol.B1cfg[0]);
+	}
+	pid->protocol[2] = (1 << aplci->Bprotocol.B2) |
+		ISDN_PID_LAYER(2) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B2cfg[0]) {
+		pid->param[2] = skb_put(skb, aplci->Bprotocol.B2cfg[0]);
+		memcpy(pid->param[2], &aplci->Bprotocol.B2cfg[0], aplci->Bprotocol.B2cfg[0]);
+	}
+	/* handle DTMF TODO */
+	if ((pid->protocol[2] == ISDN_PID_L2_B_TRANS) &&
+		(pid->protocol[1] == ISDN_PID_L1_B_64TRANS))
+		pid->protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
+	pid->protocol[3] = (1 << aplci->Bprotocol.B3) |
 		ISDN_PID_LAYER(3) | ISDN_PID_BCHANNEL_BIT;
 	if (aplci->Bprotocol.B3cfg[0]) {
-		pid.param[3] = &aplci->Bprotocol.B3cfg[0];
-		pid.maxplen += aplci->Bprotocol.B3cfg[0];
+		pid->param[3] = skb_put(skb, aplci->Bprotocol.B3cfg[0]);
+		memcpy(pid->param[3], &aplci->Bprotocol.B3cfg[0], aplci->Bprotocol.B3cfg[0]);
 	}
 	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp B1(%x) B2(%x) B3(%x) global(%d) ch(%x)",
-   		pid.protocol[1], pid.protocol[2], pid.protocol[3], pid.global, 
-		aplci->channel);
+   		pid->protocol[1], pid->protocol[2], pid->protocol[3], pid->global, *ch);
 	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp ch(%d) aplci->contr->linklist(%p)",
 		aplci->channel & 3, aplci->contr->linklist);
-	pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
-	aplci->link = ControllerSelChannel(aplci->contr, aplci->channel);
-	if (!aplci->link) {
+	pid->protocol[4] = ISDN_PID_L4_B_CAPI20;
+	aplci->linkid = ControllerNextId(aplci->contr);
+	capidebug(CAPI_DBG_PLCI, "AppPlciLinkUp request channel id(%x)", aplci->linkid);
+	mISDN_sethead(MGR_SELCHANNEL | REQUEST, aplci->linkid, skb);
+	len = mISDN_queue_message(&aplci->contr->inst, FLG_MSG_TARGET | aplci->contr->inst.id, skb);
+	if (len) {
 		int_error();
-		return(-EBUSY);
+		dev_kfree_skb(skb);
 	}
-	capidebug(CAPI_DBG_NCCI, "AppPlciLinkUp aplci->link(%p)", aplci->link);
+	return(len);
+}	
+
+static void
+AppPlciSetLink(AppPlci_t *aplci, PLInst_t *link)
+{
+	int		retval;
+	struct sk_buff	*skb;
+	mISDN_pid_t	*pid;
+	mISDN_stPara_t	stpara;
+	int		len;
+
+	aplci->link = link;
+	aplci->linkid = 0;
+	if (!link) {
+		int_error();
+		#warning TODO no link handling
+		return;
+	}
+	capidebug(CAPI_DBG_NCCI, "AppPlciSetLink aplci->link(%p)", aplci->link);
+
+	len = aplci->Bprotocol.B1cfg[0];
+	len += aplci->Bprotocol.B2cfg[0];
+	len += aplci->Bprotocol.B3cfg[0];
+
+	if (!(skb = alloc_skb(len + sizeof(mISDN_pid_t), GFP_ATOMIC))) {
+		int_errtxt("no skb size(%d+%d)", len, sizeof(mISDN_pid_t));
+		return;
+	}
+	pid = (mISDN_pid_t *)skb_put(skb, sizeof(mISDN_pid_t));
+	memset(pid, 0, sizeof(mISDN_pid_t));
+	pid->maxplen = len;
+	pid->layermask = ISDN_LAYER(1) | ISDN_LAYER(2) | ISDN_LAYER(3) |
+		ISDN_LAYER(4);
+	if (test_bit(PLCI_STATE_OUTGOING, &aplci->plci->state))
+		pid->global = 1; // DTE, orginate
+	else
+		pid->global = 2; // DCE, answer
+	pid->protocol[1] = (1 << aplci->Bprotocol.B1) |
+		ISDN_PID_LAYER(1) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B1cfg[0]) {
+		pid->param[1] = skb_put(skb, aplci->Bprotocol.B1cfg[0]);
+		memcpy(pid->param[1], &aplci->Bprotocol.B1cfg[0], aplci->Bprotocol.B1cfg[0]);
+	}
+	pid->protocol[2] = (1 << aplci->Bprotocol.B2) |
+		ISDN_PID_LAYER(2) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B2cfg[0]) {
+		pid->param[2] = skb_put(skb, aplci->Bprotocol.B2cfg[0]);
+		memcpy(pid->param[2], &aplci->Bprotocol.B2cfg[0], aplci->Bprotocol.B2cfg[0]);
+	}
+	/* handle DTMF TODO */
+	if ((pid->protocol[2] == ISDN_PID_L2_B_TRANS) &&
+		(pid->protocol[1] == ISDN_PID_L1_B_64TRANS))
+		pid->protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
+	pid->protocol[3] = (1 << aplci->Bprotocol.B3) |
+		ISDN_PID_LAYER(3) | ISDN_PID_BCHANNEL_BIT;
+	if (aplci->Bprotocol.B3cfg[0]) {
+		pid->param[3] = skb_put(skb, aplci->Bprotocol.B3cfg[0]);
+		memcpy(pid->param[3], &aplci->Bprotocol.B3cfg[0], aplci->Bprotocol.B3cfg[0]);
+	}
+	pid->protocol[4] = ISDN_PID_L4_B_CAPI20;
 	memset(&aplci->link->inst.pid, 0, sizeof(mISDN_pid_t));
 	aplci->link->inst.privat = aplci;
 	aplci->link->inst.pid.layermask = ISDN_LAYER(4);
 	aplci->link->inst.pid.protocol[4] = ISDN_PID_L4_B_CAPI20;
-	if (pid.protocol[3] == ISDN_PID_L3_B_TRANS) {
-		aplci->link->inst.pid.protocol[3] = ISDN_PID_L3_B_TRANS;
-		aplci->link->inst.pid.layermask |= ISDN_LAYER(3);
-	}
 	if (aplci->link->inst.function)
 		int_errtxt("id(%08x) overwrite function (%p)", aplci->link->inst.id, aplci->link->inst.function);
-	if (aplci->Bprotocol.B3 == 0) // transparent
+	if (aplci->Bprotocol.B3 == 0) { // transparent
+		aplci->link->inst.pid.protocol[3] = ISDN_PID_L3_B_TRANS;
+		aplci->link->inst.pid.layermask |= ISDN_LAYER(3);
 		aplci->link->inst.function = PL_l3l4;
-	else
+	} else
 		aplci->link->inst.function = PL_l3l4mux;
 	retval = mISDN_ctrl(aplci->link->st, MGR_ADDLAYER | REQUEST, &aplci->link->inst); 
 	if (retval) {
 		printk(KERN_WARNING "%s MGR_ADDLAYER | REQUEST ret(%d)\n",
 			__FUNCTION__, retval);
-		return(retval);
+		return;
 	}
 	stpara.maxdatalen = aplci->appl->reg_params.datablklen;
 	stpara.up_headerlen = CAPI_B3_DATA_IND_HEADER_SIZE;
@@ -1649,13 +1729,12 @@ AppPlciLinkUp(AppPlci_t *aplci)
 		printk(KERN_WARNING "%s MGR_SETSTACK | REQUEST ret(%d)\n",
 			__FUNCTION__, retval);
 	}
-	retval = mISDN_ctrl(aplci->link->st, MGR_SETSTACK | REQUEST, &pid);
+	mISDN_sethead(MGR_SETSTACK | REQUEST, 0, skb);
+	retval = mISDN_queue_message(&aplci->link->inst, FLG_MSG_TARGET | aplci->link->inst.id, skb);
 	if (retval) {
-		printk(KERN_WARNING "%s MGR_SETSTACK | REQUEST ret(%d)\n",
-			__FUNCTION__, retval);
-		return(retval);
+		int_error();
+		dev_kfree_skb(skb);
 	}
-	return(0);
 }
 
 static int
@@ -1933,6 +2012,9 @@ AppPlci_l3l4(AppPlci_t *aplci, int pr, void *arg)
 		case PH_CONTROL | INDICATION:
 			/* TOUCH TONE */
 			mISDN_FsmEvent(&aplci->plci_m, EV_PH_CONTROL_IND, arg);
+			break;
+		case MGR_SELCHANNEL | CONFIRM:
+			AppPlciSetLink(aplci, arg);
 			break;
 		default:
 			AppPlciDebug(aplci, CAPI_DBG_WARN, 

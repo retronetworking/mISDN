@@ -358,6 +358,7 @@ mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 	mISDNstack_t	*st = inst->st;
 	u_int		id;
 
+	preempt_disable();
 	if (core_debug & DEBUG_QUEUE_FUNC)
 		printk(KERN_DEBUG "%s(%08x, %x, prim(%x))\n", __FUNCTION__,
 			inst->id, aflag, hh->prim);
@@ -373,24 +374,31 @@ mISDN_queue_message(mISDNinstance_t *inst, u_int aflag, struct sk_buff *skb)
 			id = (inst->id & INST_ID_MASK) | FLG_MSG_TARGET | FLG_MSG_CLONED | FLG_MSG_DOWN;
 		}
 	}
-	if (!st)
+	if (unlikely(!st)) {
+		preempt_enable();
 		return(-EINVAL);
-	if (st->id == 0 || test_bit(mISDN_STACK_ABORT, &st->status))
+	}
+	if (unlikely(st->id == 0 || test_bit(mISDN_STACK_ABORT, &st->status))) {
+		preempt_enable();
 		return(-EBUSY);
+	}
 	if (inst->id == 0) { /* instance is not initialised */
 		if (!(aflag & FLG_MSG_TARGET)) {
 			id &= INST_ID_MASK;
 			id |= (st->id & INST_ID_MASK) | aflag | FLG_INSTANCE;
 		}
 	}
-	if (test_bit(mISDN_STACK_KILLED, &st->status))
+	if (unlikely(test_bit(mISDN_STACK_KILLED, &st->status))) {
+		preempt_enable();
 		return(-EBUSY);
+	}
 	if ((st->id & STACK_ID_MASK) != (id & STACK_ID_MASK)) {
 		int_errtxt("stack id not match st(%08x) id(%08x) inst(%08x) aflag(%08x) prim(%x)",
 			st->id, id, inst->id, aflag, hh->prim);
 	}
 	hh->addr = id;
 	_queue_message(st, skb);
+	preempt_enable();
 	return(0);
 }
 
@@ -447,7 +455,7 @@ release_layers(mISDNstack_t *st, u_int prim)
 				printk(KERN_DEBUG  "%s: st(%p) inst%d(%p):%x %s lm(%x)\n",
 					__FUNCTION__, st, i, st->i_array[i], st->i_array[i]->id,
 					st->i_array[i]->name, st->i_array[i]->pid.layermask);
-			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, NULL);
+#warning			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, NULL);
 		}
 	}
 }
@@ -478,6 +486,8 @@ mISDNStackd(void *data)
 #ifdef CONFIG_SMP
 	unlock_kernel();
 #endif
+	allow_signal(SIGTERM);
+	preempt_disable();
 	printk(KERN_DEBUG "mISDNStackd started for id(%08x)\n", st->id);
 	for (;;) {
 		struct sk_buff	*skb, *c_skb;
@@ -517,6 +527,16 @@ mISDNStackd(void *data)
 					st->notify = hhe->data[0];
 				}
 				dev_kfree_skb(skb);
+				printk(KERN_DEBUG "%s: st(%08x) clearing setup\n", __FUNCTION__, st->id);
+				continue;
+			}
+			if (hh->prim == (MGR_SELCHANNEL  | REQUEST)) {
+				err = mISDN_ctrl(st, MGR_SELCHANNEL | REQUEST, skb);
+				if (err) {
+					skb_trim(skb, 0);
+					hh->prim |= CONFIRM;
+					skb_queue_tail(&st->msgq, skb);
+				}
 				continue;
 			}
 			if ((hh->addr & MSG_DIR_MASK) == MSG_BROADCAST) {
@@ -600,8 +620,16 @@ mISDNStackd(void *data)
 #ifdef MISDN_MSG_STATS
 		st->sleep_cnt++;
 #endif
+		preempt_enable();
 		test_and_clear_bit(mISDN_STACK_ACTIVE, &st->status);
-		wait_event_interruptible(st->workq, (st->status & mISDN_STACK_ACTION_MASK));
+
+		err = wait_event_interruptible(st->workq, (st->status & mISDN_STACK_ACTION_MASK));
+		preempt_disable();
+		if (err) {
+			printk(KERN_INFO "%s: st(%08x) got signal err=%d status=%08lx\n",
+				__FUNCTION__, st->id, err, st->status);
+			break;
+		}
 		if (core_debug & DEBUG_MSG_THREAD_INFO)
 			printk(KERN_DEBUG "%s: %08x wake status %08lx\n", __FUNCTION__, st->id, st->status);
 		test_and_set_bit(mISDN_STACK_ACTIVE, &st->status);
@@ -632,6 +660,8 @@ mISDNStackd(void *data)
 		up(st->notify);
 		st->notify = NULL;
 	}
+	printk(KERN_DEBUG "mISDNStackd id(%08x) xxx7\n", st->id);
+	preempt_enable();
 	return(0);
 }
 
@@ -642,7 +672,12 @@ mISDN_start_stack_thread(mISDNstack_t *st)
 
 	if (st->thread == NULL && test_bit(mISDN_STACK_KILLED, &st->status)) {
 		test_and_clear_bit(mISDN_STACK_KILLED, &st->status);
-		kernel_thread(mISDNStackd, (void *)st, 0);
+		st->thread_id = kernel_thread(mISDNStackd, (void *)st, 0);
+		if (!st->thread_id) {
+			err = -EBUSY;
+			test_and_set_bit(mISDN_STACK_KILLED, &st->status);
+			printk(KERN_ERR "cannot start thread for stack id %08x\n", st->id);
+		}
 	} else
 		err = -EBUSY;
 	return(err);
@@ -651,7 +686,7 @@ mISDN_start_stack_thread(mISDNstack_t *st)
 mISDNstack_t *
 new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 {
-	mISDNstack_t	*newst;
+	mISDNstack_t	*newst, *clone = NULL;
 	int		err;
 	u_long		flags;
 
@@ -670,13 +705,12 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 	skb_queue_head_init(&newst->msgq);
 	if (!master) {
 		if (inst && inst->st) {
-			master = inst->st;
-			while(master->clone)
-				master = master->clone;
+			clone = inst->st;
+			while(clone->clone)
+				clone = clone->clone;
 			newst->id = get_free_stackid(inst->st, FLG_CLONE_STACK);
-			newst->master = master;
-			master->clone = newst;
-			master = NULL;
+			newst->master = clone;
+			clone->clone = newst;
 		} else {
 			newst->id = get_free_stackid(NULL, 0);
 		}
@@ -697,13 +731,30 @@ new_stack(mISDNstack_t *master, mISDNinstance_t *inst)
 	}
 	err = mISDN_register_sysfs_stack(newst);
 	if (err) {
-		// FIXME error handling
-		printk(KERN_ERR "Stack id %x not registered in sysfs\n", newst->id);
+		printk(KERN_ERR "Stack id %08x not registered in sysfs\n", newst->id);
+		goto err_sysfs;
 	}
 	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "Stack id %x added\n", newst->id);
-	kernel_thread(mISDNStackd, (void *)newst, 0);
-	return(newst);
+		printk(KERN_DEBUG "Stack id %08x added\n", newst->id);
+
+	newst->thread_id = kernel_thread(mISDNStackd, (void *)newst, CLONE_KERNEL);
+	if (newst->thread_id) {
+		printk(KERN_INFO "mISDN stack %08x thread %d started\n", newst->id, newst->thread_id);
+		return(newst);
+	}
+
+	printk(KERN_ERR "cannot start thread for stack id %08x\n", newst->id);
+	mISDN_unregister_sysfs_st(newst);
+err_sysfs:
+	if (inst)
+		inst->st = NULL;
+	if (clone)
+		clone->clone = NULL;
+	write_lock_irqsave(&stacklist_lock, flags);
+	list_del(&newst->list);
+	write_unlock_irqrestore(&stacklist_lock, flags);
+	kfree(newst);
+	return(NULL);
 }
 
 int
@@ -738,7 +789,7 @@ do_for_all_layers(void *data, u_int prim, void *arg)
 				printk(KERN_DEBUG  "%s: st(%p) inst%d(%p):%x %s prim(%x) arg(%p)\n",
 					__FUNCTION__, st, i, st->i_array[i], st->i_array[i]->id,
 					st->i_array[i]->name, prim, arg);
-			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, arg);
+#warning			st->i_array[i]->obj->own_ctrl(st->i_array[i], prim, arg);
 		}
 	}
 	return(0);
@@ -785,11 +836,13 @@ static int
 delete_stack(mISDNstack_t *st)
 {
 	DECLARE_MUTEX_LOCKED(sem);
-	u_long	flags;
+	u_long	flags = 0;
 
 	if (core_debug & DEBUG_CORE_FUNC)
 		printk(KERN_DEBUG "%s: st(%p:%08x)\n", __FUNCTION__, st, st->id);
+	printk(KERN_DEBUG "mISDNStackd id(%08x) xxx1\n", st->id);
 	mISDN_unregister_sysfs_st(st);
+	printk(KERN_DEBUG "mISDNStackd id(%08x) xxx2\n", st->id);
 	if (st->parent)
 		st->parent = NULL;
 	if (!list_empty(&st->prereg)) {
@@ -828,7 +881,7 @@ release_stack(mISDNstack_t *st) {
 	mISDNstack_t *cst, *nst;
 
 	if (core_debug & DEBUG_CORE_FUNC)
-		printk(KERN_DEBUG "%s: st(%p)\n", __FUNCTION__, st);
+		printk(KERN_DEBUG "%s: st(%08x) %p\n", __FUNCTION__, st->id, st);
 
 	list_for_each_entry_safe(cst, nst, &st->childlist, list) {
 		if ((err = delete_stack(cst))) {
@@ -866,7 +919,7 @@ cleanup_object(mISDNobject_t *obj)
 			inst = st->i_array[i];
 			if (inst && inst->obj == obj) {
 				read_unlock(&stacklist_lock);
-				inst->obj->own_ctrl(st, MGR_RELEASE | INDICATION, inst);
+#warning				inst->obj->own_ctrl(st, MGR_RELEASE | INDICATION, inst);
 				read_lock(&stacklist_lock);
 			}
 		}
@@ -915,6 +968,7 @@ release_stacks(mISDNobject_t *obj)
 				rel++;
 		}
 		if (rel) {
+			printk(KERN_WARNING "release_stacks obj %s do it\n", obj->name);
 			read_unlock(&stacklist_lock);
 			release_stack(st);
 			read_lock(&stacklist_lock);
@@ -1198,11 +1252,11 @@ set_stack(mISDNstack_t *st, mISDN_pid_t *pid)
 			int_error();
 			continue;
 		}
-		if (!inst->obj->own_ctrl) {
-			int_error();
-			continue;
-		}
-		inst->obj->own_ctrl(inst, MGR_SETSTACK | INDICATION, NULL);
+#warning		if (!inst->obj->own_ctrl) {
+#warning			int_error();
+#warning			continue;
+#warning		}
+#warning		inst->obj->own_ctrl(inst, MGR_SETSTACK | INDICATION, NULL);
 	}
 	return(0);
 }

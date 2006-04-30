@@ -546,6 +546,43 @@ SSProcess_t
 }
 
 static int
+ControllerSelChannel(Controller_t *contr, int dinfo, struct sk_buff *skb)
+{ 
+	PLInst_t		*plink = NULL;
+	int			*id;
+	Plci_t			*plci = contr->plcis;
+	AppPlci_t		*aplci;
+	struct list_head	*item, *next;
+	int			i;
+
+	for (i = 0; i < contr->maxplci; i++) {
+		if (test_bit(PLCI_STATE_ACTIV, &plci->state)) {
+			list_for_each_safe(item, next, &plci->AppPlcis) {
+				aplci = (AppPlci_t *)item;
+				if (aplci->linkid == dinfo)
+					goto found;
+			}
+		}
+		plci++;
+	}
+	int_errtxt("no linkid(%x) match", dinfo);
+	return(-EINVAL);
+found:	
+	if (skb->len && !list_empty(&contr->linklist)) {
+		id = (int *)skb->data;
+		list_for_each_entry(plink, &contr->linklist, list) {
+			if (plink->st && plink->st->id == *id) {
+				AppPlci_l3l4(aplci, MGR_SELCHANNEL | CONFIRM, plink);
+				return(0);
+			}
+		}
+	}
+	int_errtxt("link not found");
+	AppPlci_l3l4(aplci, MGR_SELCHANNEL | CONFIRM, NULL);
+	return(-EBUSY);
+}
+
+static int
 Controller_function(mISDNinstance_t *inst, struct sk_buff *skb)
 {
 	Controller_t	*contr;
@@ -567,6 +604,10 @@ Controller_function(mISDNinstance_t *inst, struct sk_buff *skb)
 		return(0);
 	} else if (hh->prim == (CC_NEW_CR | INDICATION)) {
 		ret = ControllerNewPlci(contr, &plci, hh->dinfo);
+		if(!ret)
+			dev_kfree_skb(skb);
+	} else if (hh->prim == (MGR_SELCHANNEL | CONFIRM)) {
+		ret = ControllerSelChannel(contr, hh->dinfo, skb);
 		if(!ret)
 			dev_kfree_skb(skb);
 	} else if (hh->dinfo == MISDN_ID_DUMMY) {
@@ -730,33 +771,6 @@ ControllerConstr(Controller_t **contr_p, mISDNstack_t *st, mISDN_pid_t *pid, mIS
 		ControllerDestr(contr);
 	}
 	return retval;
-}
-
-PLInst_t *
-ControllerSelChannel(Controller_t *contr, u_int channel)
-{ 
-	mISDNstack_t	*cst;
-	PLInst_t	*plink;
-	channel_info_t	ci;
-	int		ret;
-
-	if (list_empty(&contr->linklist)) {
-		int_errtxt("no linklist for controller(%x)", contr->addr);
-		return(NULL);
-	}
-	ci.channel = channel;
-	ci.st.p = NULL;
-	ret = mISDN_ctrl(contr->inst.st, MGR_SELCHANNEL | REQUEST, &ci);
-	if (ret) {
-		int_errtxt("MGR_SELCHANNEL ret(%d)", ret);
-		return(NULL);
-	}
-	cst = ci.st.p;
-	list_for_each_entry(plink, &contr->linklist, list) {
-		if (cst == plink->st)
-			return(plink);
-	}
-	return(NULL);
 }
 
 int

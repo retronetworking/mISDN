@@ -2412,6 +2412,27 @@ module_param(debug, uint, S_IRUGO | S_IWUSR);
 #endif
 
 static int
+l2_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	mISDNinstance_t	*inst = NULL;
+	layer2_t	*l2;
+	u_long		flags;
+
+	spin_lock_irqsave(&isdnl2.lock, flags);
+	list_for_each_entry(l2, &isdnl2.ilist, list) {
+		if (l2->inst.st == st) {
+			inst =&l2->inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&isdnl2.lock, flags);
+	if (inst)
+		return(-EBUSY);
+	return(new_l2(st, pid));
+}
+
+#ifdef OBSOLETE
+static int
 l2_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	layer2_t	*l2l;
@@ -2481,6 +2502,7 @@ l2_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 int Isdnl2_Init(void)
 {
@@ -2495,7 +2517,7 @@ int Isdnl2_Init(void)
 		ISDN_PID_L2_LAPD_NET |
 		ISDN_PID_L2_DF_PTP;
 	isdnl2.BPROTO.protocol[2] = ISDN_PID_L2_B_X75SLP;
-	isdnl2.own_ctrl = l2_manager;
+	isdnl2.getinst = l2_instance;
 	spin_lock_init(&isdnl2.lock);
 	INIT_LIST_HEAD(&isdnl2.ilist);
 	l2fsm.state_count = L2_STATE_COUNT;

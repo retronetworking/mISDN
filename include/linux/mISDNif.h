@@ -95,7 +95,7 @@
 #define MGR_TIMER	0x0f8800
 #define MGR_CONTROL	0x0fe100
 #define MGR_STATUS	0x0fe200
-#define MGR_HASPROTOCOL	0x0fe300
+//#define MGR_HASPROTOCOL	0x0fe300
 #define MGR_EVALSTACK	0x0fe400
 #define MGR_GLOBALOPT	0x0fe500
 #define MGR_SHORTSTATUS	0x0fe600
@@ -338,9 +338,9 @@
 #define ISDN_PID_L0_NT_UP2		0x00000400
 #define ISDN_PID_L0_TE_E1		0x00000008
 #define ISDN_PID_L0_NT_E1		0x00000800
-#define ISDN_PID_L0_IP_S0		0x00000010
-#define ISDN_PID_L0_IP_E1		0x00000020
-#define ISDN_PID_L0_LOOP		0x00000030
+#define ISDN_PID_L0_IP_S0		0x00100000
+#define ISDN_PID_L0_IP_E1		0x00200000
+#define ISDN_PID_L0_LOOP		0x00400000
 #define ISDN_PID_L1_TE_S0		0x01000001
 #define ISDN_PID_L1_NT_S0		0x01000100
 #define ISDN_PID_L1_TE_U		0x01000002
@@ -776,7 +776,7 @@ struct _mISDNobject {
 	int			refcnt;
 	mISDN_pid_t		DPROTO;
 	mISDN_pid_t		BPROTO;
-	ctrl_func_t		*own_ctrl;
+	inst_func_t		*getinst;
 	struct list_head	ilist;
 	spinlock_t		lock;
 	struct module		*owner;
@@ -835,6 +835,7 @@ struct _mISDNstack {
 	mISDN_stPara_t		para;
 	u_long			status;
 	struct task_struct	*thread;
+	int			thread_id;
 	struct semaphore	*notify;
 	wait_queue_head_t	workq;
 	struct sk_buff_head	msgq;
@@ -851,6 +852,7 @@ struct _mISDNstack {
 	mISDNstack_t		*clone;
 	mISDNstack_t		*parent;
 	struct list_head	childlist;
+	spinlock_t		lock;
 	struct class_device	class_dev;
 	/* temporary use */
 	mISDN_pid_t		new_pid;

@@ -537,6 +537,34 @@ hfcsmini_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 
 
 static int
+hfcsmini_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	hfcsmini_hw	*hc;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&hw_mISDNObj.lock, flags);
+	list_for_each_entry(hc, &hw_mISDNObj.ilist, list) {
+		int	i = 0;
+		while(i < 32) {
+			if (hc->chan[i].inst.st == st) {
+				inst = &hc->chan[i].inst;
+				break;
+			}
+			i++;
+		}
+		if (i < 32)
+			break;
+	}
+	spin_unlock_irqrestore(&hw_mISDNObj.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+
+#ifdef OBSOLETE
+static int
 hfcsmini_manager(void *data, u_int prim, void *arg)
 {
 	hfcsmini_hw *hw = NULL;
@@ -641,7 +669,7 @@ hfcsmini_manager(void *data, u_int prim, void *arg)
 	}
 	return (0);
 }
-
+#endif
 
 /***********************************/
 /* check if new buffer for channel */
@@ -1297,8 +1325,8 @@ init_mISDN_channels(hfcsmini_hw * hw)
 		err = mISDN_ctrl(hw->chan[ch].inst.st, MGR_NEWSTACK | REQUEST, &hw->chan[b].inst);
 		if (err) {
 			printk(KERN_ERR
-			       "%s %s: MGR_ADDSTACK bchan error %d\n",
-			       hw->card_name, __FUNCTION__, err);
+				"%s %s: MGR_ADDSTACK bchan error %d\n",
+				hw->card_name, __FUNCTION__, err);
 			goto free_stack;
 		}
 	}
@@ -1306,9 +1334,8 @@ init_mISDN_channels(hfcsmini_hw * hw)
 	err = mISDN_ctrl(hw->chan[ch].inst.st, MGR_SETSTACK | REQUEST, &pid);
 
 	if (err) {
-		printk(KERN_ERR
-		       "%s %s: MGR_SETSTACK REQUEST dch err(%d)\n",
-		       hw->card_name, __FUNCTION__, err);
+		printk(KERN_ERR "%s %s: MGR_SETSTACK REQUEST dch err(%d)\n",
+			hw->card_name, __FUNCTION__, err);
 		mISDN_ctrl(hw->chan[ch].inst.st, MGR_DELSTACK | REQUEST, NULL);
 		goto free_stack;
 	}
@@ -1809,7 +1836,7 @@ hfcsmini_init(void)
 	INIT_LIST_HEAD(&hw_mISDNObj.ilist);
 	spin_lock_init(&hw_mISDNObj.lock);
 	hw_mISDNObj.name = DRIVER_NAME;
-	hw_mISDNObj.own_ctrl = hfcsmini_manager;
+	hw_mISDNObj.getinst = hfcsmini_instance;
 
 	hw_mISDNObj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 |
 	    ISDN_PID_L0_NT_S0;

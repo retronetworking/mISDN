@@ -803,6 +803,33 @@ hfcsusb_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 
 
 static int
+hfcsusb_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	hfcsusb_t	*card;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&hw_mISDNObj.lock, flags);
+	list_for_each_entry(card, &hw_mISDNObj.ilist, list) {
+		int	i = 0;
+		while(i < 4) {
+			if (card->chan[i].inst.st == st) {
+				inst = &card->chan[i].inst;
+				break;
+			}
+			i++;
+		}
+		if (i < 4)
+			break;
+	}
+	spin_unlock_irqrestore(&hw_mISDNObj.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+#ifdef OBSOLETE
+static int
 hfcsusb_manager(void *data, u_int prim, void *arg)
 {
 	hfcsusb_t *hw = NULL;
@@ -907,6 +934,7 @@ hfcsusb_manager(void *data, u_int prim, void *arg)
 	}
 	return (0);
 }
+#endif
 
 
 /***********************************************/
@@ -1969,7 +1997,7 @@ hfcsusb_init(void)
 	spin_lock_init(&hw_mISDNObj.lock);
 	INIT_LIST_HEAD(&hw_mISDNObj.ilist);
 	hw_mISDNObj.name = DRIVER_NAME;
-	hw_mISDNObj.own_ctrl = hfcsusb_manager;
+	hw_mISDNObj.getinst = hfcsusb_instance;
 	
 	hw_mISDNObj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 |
 					 ISDN_PID_L0_NT_S0;

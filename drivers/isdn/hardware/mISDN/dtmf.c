@@ -567,6 +567,27 @@ MODULE_LICENSE("GPL");
 #endif
 
 static int
+dtmf_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	mISDNinstance_t	*inst = NULL;
+	dtmf_t		*dtmf;
+	u_long		flags;
+
+	spin_lock_irqsave(&dtmf_obj.lock, flags);
+	list_for_each_entry(dtmf, &dtmf_obj.ilist, list) {
+		if (dtmf->inst.st == st) {
+			inst =&dtmf->inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&dtmf_obj.lock, flags);
+	if (inst)
+		return(-EBUSY);
+	return(new_dtmf(st, pid));
+}
+
+#ifdef OBSOLETE
+static int
 dtmf_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	dtmf_t		*dtmf_l;
@@ -621,6 +642,7 @@ dtmf_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 static int dtmf_init(void)
 {
@@ -632,7 +654,7 @@ static int dtmf_init(void)
 #endif
 	dtmf_obj.name = MName;
 	dtmf_obj.BPROTO.protocol[2] = ISDN_PID_L2_B_TRANSDTMF;
-	dtmf_obj.own_ctrl = dtmf_manager;
+	dtmf_obj.getinst = dtmf_instance;
 	spin_lock_init(&dtmf_obj.lock);
 	INIT_LIST_HEAD(&dtmf_obj.ilist);
 	if ((err = mISDN_register(&dtmf_obj))) {

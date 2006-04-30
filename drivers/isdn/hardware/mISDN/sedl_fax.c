@@ -519,6 +519,35 @@ release_card(sedl_fax *card) {
 }
 
 static int
+speedfax_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	sedl_fax	*card;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&speedfax.lock, flags);
+	list_for_each_entry(card, &speedfax.ilist, list) {
+		if (card->dch.inst.st == st) {
+			inst = &card->dch.inst;
+			break;
+		}
+		if (card->bch[0].inst.st == st) {
+			inst = &card->bch[0].inst;
+			break;
+		}
+		if (card->bch[1].inst.st == st) {
+			inst = &card->bch[1].inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&speedfax.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+#ifdef OBSOLETE
+static int
 speedfax_manager(void *data, u_int prim, void *arg) {
 	sedl_fax	*card;
 	mISDNinstance_t	*inst=data;
@@ -646,6 +675,7 @@ speedfax_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 static int __devinit setup_instance(sedl_fax *card)
 {
@@ -892,7 +922,7 @@ static int __init Speedfax_init(void)
 	spin_lock_init(&speedfax.lock);
 	INIT_LIST_HEAD(&speedfax.ilist);
 	speedfax.name = SpeedfaxName;
-	speedfax.own_ctrl = speedfax_manager;
+	speedfax.getinst = speedfax_instance;
 	speedfax.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;
 	speedfax.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS |
 				      ISDN_PID_L1_B_64HDLC |

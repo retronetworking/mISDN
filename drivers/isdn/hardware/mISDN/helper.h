@@ -285,13 +285,4 @@ extern	void		mISDN_LogL3Msg(struct sk_buff *);
 
 #define PRIM_NOT_HANDLED(p)	case p: break
 
-#define MGR_HASPROTOCOL_HANDLER(p,a,o)	\
-	if ((MGR_HASPROTOCOL | REQUEST) == p) {\
-		if (a) {\
-			int prot = *((int *)a);\
-			return(mISDN_HasProtocol(o, prot));\
-		} else \
-			return(-EINVAL);\
-	}
-
 #endif /* _mISDN_HELPER_H */

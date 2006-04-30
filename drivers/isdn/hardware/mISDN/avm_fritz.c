@@ -1061,6 +1061,35 @@ release_card(fritzpnppci *card)
 }
 
 static int
+fritz_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	fritzpnppci	*card;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&fritz.lock, flags);
+	list_for_each_entry(card, &fritz.ilist, list) {
+		if (card->dch.inst.st == st) {
+			inst = &card->dch.inst;
+			break;
+		}
+		if (card->bch[0].inst.st == st) {
+			inst = &card->bch[0].inst;
+			break;
+		}
+		if (card->bch[1].inst.st == st) {
+			inst = &card->bch[1].inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&fritz.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+#ifdef OBSOLETE
+static int
 fritz_manager(void *data, u_int prim, void *arg) {
 	fritzpnppci	*card;
 	mISDNinstance_t	*inst = data;
@@ -1159,7 +1188,7 @@ fritz_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
-
+#endif
 static int __devinit setup_instance(fritzpnppci *card)
 {
 	int		i, err;
@@ -1404,7 +1433,7 @@ static int __init Fritz_init(void)
 	spin_lock_init(&fritz.lock);
 	INIT_LIST_HEAD(&fritz.ilist);
 	fritz.name = FritzName;
-	fritz.own_ctrl = fritz_manager;
+	fritz.getinst = fritz_instance;
 	fritz.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0;
 	fritz.BPROTO.protocol[1] = ISDN_PID_L1_B_64TRANS |
 				    ISDN_PID_L1_B_64HDLC;

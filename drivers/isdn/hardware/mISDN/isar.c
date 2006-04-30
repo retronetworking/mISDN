@@ -392,7 +392,7 @@ isar_load_firmware(channel_t *bch, u_char *buf, int size)
 	spin_lock_irqsave(bch->inst.hwlock, flags);
 	isar_setup(bch);
 	spin_unlock_irqrestore(bch->inst.hwlock, flags);
-	bch->inst.obj->own_ctrl(&bch->inst, MGR_LOADFIRM | CONFIRM, NULL);
+#warning	bch->inst.obj->own_ctrl(&bch->inst, MGR_LOADFIRM | CONFIRM, NULL);
 	ret = 0;
 reterrflg:
 	spin_lock_irqsave(bch->inst.hwlock, flags);

@@ -345,8 +345,8 @@ sel_channel(u_int addr, u_int channel)
 		return(NULL);
 	ci.channel = channel;
 	ci.st.p = NULL;
-	if (mISDN_ctrl(st, MGR_SELCHANNEL | REQUEST, &ci))
-		return(NULL);
+#warning	if (mISDN_ctrl(st, MGR_SELCHANNEL | REQUEST, &ci))
+#warning		return(NULL);
 	return(ci.st.p);
 }
 
@@ -393,7 +393,7 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 				__FUNCTION__, linfo->object_id);
 			return(-ENODEV);
 		}
-		ret = obj->own_ctrl(st, MGR_NEWLAYER | REQUEST, &linfo->pid);
+		ret = obj->getinst(st, &linfo->pid);
 		if (ret) {
 			printk(KERN_WARNING "%s: error nl req %d\n",
 				__FUNCTION__, ret);
@@ -441,7 +441,7 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 			memset(pid->pbuf, 0, inst->pid.maxplen);
 		}
 		copy_pid(pid, &inst->pid, pid->pbuf);
-		ret = inst->obj->own_ctrl(st, MGR_NEWLAYER | REQUEST, pid);
+		ret = inst->obj->getinst(st, pid);
 		kfree(pid->pbuf);
 		kfree(pid);
 		if (ret) {
@@ -508,8 +508,8 @@ create_layer(mISDNdevice_t *dev, struct sk_buff *skb)
 			st->mgr = &nl->inst;
 			test_and_set_bit(FLG_MGR_OWNSTACK, &nl->Flags);
 		}
-		if (st)
-			mISDN_ctrl(st, MGR_ADDLAYER | REQUEST, &nl->inst);
+#warning		if (st)
+#warning			nl->inst.obj->ctrl(st, MGR_ADDLAYER | REQUEST, &nl->inst);
 	} else {
 		nl->slave = inst;
 		nl->inst.extentions |= EXT_INST_UNUSED;
@@ -563,10 +563,9 @@ del_layer(devicelayer_t *dl)
 			__FUNCTION__, dl->id, inst->id, inst->name, dl->slave);
 	}
 	if (dl->slave) {
-		if (dl->slave->obj)
-			dl->slave->obj->own_ctrl(dl->slave,
-				MGR_UNREGLAYER | REQUEST, NULL);
-		else
+#warning		if (dl->slave->obj)
+#warning			dl->slave->obj->own_ctrl(dl->slave, MGR_UNREGLAYER | REQUEST, NULL);
+#warning		else
 			dl->slave = NULL; 
 	}
 	if (dl->lm_st && inst->st) {
@@ -982,9 +981,8 @@ dev_init_timer(mISDNdevice_t *dev, u_int id)
 	} else if (device_debug & DEBUG_DEV_TIMER)
 		printk(KERN_DEBUG "%s: old(%x)\n", __FUNCTION__, ht->id);
 	if (timer_pending(&ht->tl)) {
-		if (device_debug & DEBUG_DEV_TIMER)	
-			printk(KERN_WARNING "%s: timer(%x) pending\n", 
-					__FUNCTION__, ht->id);
+		printk(KERN_WARNING "%s: timer(%x) pending\n", __FUNCTION__,
+			ht->id);
 		del_timer(&ht->tl);
 	}
 	init_timer(&ht->tl);
@@ -1038,11 +1036,9 @@ dev_del_timer(mISDNdevice_t *dev, u_int id)
 		printk(KERN_DEBUG "%s: timer(%x)\n",
 			__FUNCTION__, ht->id);
 	del_timer(&ht->tl);
-	if (!test_and_clear_bit(FLG_MGR_TIMER_RUNING, &ht->Flags)) {
-		if (device_debug & DEBUG_DEV_TIMER)
-			printk(KERN_WARNING "%s: timer(%x) not running\n",
-				__FUNCTION__, ht->id);
-	}
+	if (!test_and_clear_bit(FLG_MGR_TIMER_RUNING, &ht->Flags))
+		printk(KERN_WARNING "%s: timer(%x) not running\n",
+			__FUNCTION__, ht->id);
 	return(0);
 }
 
@@ -1083,7 +1079,7 @@ get_status(struct sk_buff *skb)
 		printk(KERN_WARNING "%s: no instance\n", __FUNCTION__);
 		err = -ENODEV;
 	} else {
-		err = inst->obj->own_ctrl(inst, MGR_STATUS | REQUEST, si);
+#warning		err = inst->obj->own_ctrl(inst, MGR_STATUS | REQUEST, si);
 	}
 	if (err)
 		hp->len = err;
@@ -1891,6 +1887,31 @@ static void setstack_conf(devicelayer_t *dl)
 }
 
 static int
+udev_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	mISDNinstance_t *inst = NULL;
+	mISDNdevice_t	*dev;
+	devicelayer_t	*dl;
+
+	read_lock(&mISDN_device_lock);
+	list_for_each_entry(dev, &mISDN_devicelist, list) {
+		list_for_each_entry(dl, &dev->layerlist, list) {
+			if (dl->inst.st == st) {
+				inst = &dl->inst;
+				break;
+			}
+		}
+		if (inst)
+			break;
+	}
+	read_unlock(&mISDN_device_lock);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+#ifdef OBSOLETE
+static int
 udev_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t *inst = data;
 	mISDNdevice_t	*dev;
@@ -1954,6 +1975,7 @@ out:
 	read_unlock(&mISDN_device_lock);
 	return(err);
 }
+#endif
 
 int init_mISDNdev (int debug) {
 	int err,i;
@@ -1966,7 +1988,7 @@ int init_mISDNdev (int debug) {
 	}
 	spin_lock_init(&udev_obj.lock);
 	INIT_LIST_HEAD(&udev_obj.ilist);
-	udev_obj.own_ctrl = udev_manager;
+	udev_obj.getinst = udev_instance;
 	device_debug = debug;
 	
 	if (register_chrdev(mISDN_MAJOR, "mISDN", &mISDN_fops)) {

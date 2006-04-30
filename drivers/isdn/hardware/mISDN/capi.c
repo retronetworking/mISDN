@@ -306,6 +306,42 @@ static int CapiNew(void)
 }
 
 static int
+capi20_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	Controller_t	*ctrl;
+	PLInst_t	*plink = NULL;
+	mISDNinstance_t	*inst = NULL;
+	u_long		flags;
+	int		ret;
+
+	spin_lock_irqsave(&capi_obj.lock, flags);
+	list_for_each_entry(ctrl, &capi_obj.ilist, list) {
+		if (ctrl->inst.st == st) {
+			inst = &ctrl->inst;
+			break;
+		}
+		list_for_each_entry(plink, &ctrl->linklist, list) {
+			if (plink->inst.st == st) {
+				inst = &plink->inst;
+				break;
+			}
+		}
+		if (inst)
+			break;
+	}
+	spin_unlock_irqrestore(&capi_obj.lock, flags);
+	if (!inst) {
+		ctrl = NULL;
+		ret = ControllerConstr(&ctrl, st, pid, &capi_obj);
+		if (ret == 0)
+			ctrl->debug = debug;
+	} else
+		ret = mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst);
+	return(ret); 
+}
+
+#ifdef OBSOLETE
+static int
 capi20_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t	*inst = data;
 	int		found=0;
@@ -391,6 +427,7 @@ capi20_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 int Capi20Init(void)
 {
@@ -404,7 +441,7 @@ int Capi20Init(void)
 	capi_obj.DPROTO.protocol[4] = ISDN_PID_L4_CAPI20;
 	capi_obj.BPROTO.protocol[4] = ISDN_PID_L4_B_CAPI20;
 	capi_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_TRANS;
-	capi_obj.own_ctrl = capi20_manager;
+	capi_obj.getinst = capi20_instance;
 	spin_lock_init(&capi_obj.lock);
 	INIT_LIST_HEAD(&capi_obj.ilist);
 	if ((err = CapiNew()))

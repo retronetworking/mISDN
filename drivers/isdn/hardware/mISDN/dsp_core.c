@@ -803,7 +803,27 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	return(err);
 }
 
+static int
+dsp_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	mISDNinstance_t	*inst = NULL;
+	dsp_t		*dspl;
+	u_long		flags;
 
+	spin_lock_irqsave(&dsp_obj.lock, flags);
+	list_for_each_entry(dspl, &dsp_obj.ilist, list) {
+		if (dspl->inst.st == st) {
+			inst =&dspl->inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&dsp_obj.lock, flags);
+	if (inst)
+		return(-EBUSY);
+	return(new_dsp(st, pid));
+}
+
+#ifdef OBSOLETE
 /*
  * manager for DSP instances
  */
@@ -864,7 +884,7 @@ dsp_manager(void *data, u_int prim, void *arg) {
 	}
 	return(ret);
 }
-
+#endif
 
 /*
  * initialize DSP object
@@ -914,7 +934,7 @@ static int dsp_init(void)
 	spin_lock_init(&dsp_obj.lock);
 	dsp_obj.name = DSPName;
 	dsp_obj.BPROTO.protocol[3] = ISDN_PID_L3_B_DSP;
-	dsp_obj.own_ctrl = dsp_manager;
+	dsp_obj.getinst = dsp_instance;
 	INIT_LIST_HEAD(&dsp_obj.ilist);
 
 	/* initialize audio tables */

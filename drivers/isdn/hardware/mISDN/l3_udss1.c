@@ -2926,6 +2926,26 @@ module_param(debug, uint, S_IRUGO | S_IWUSR);
 #endif
 
 static int
+udss1_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	layer3_t	*l3l;
+	u_long		flags;
+
+	spin_lock_irqsave(&u_dss1.lock, flags);
+	list_for_each_entry(l3l, &u_dss1.ilist, list) {
+		if (l3l->inst.st == st) {
+			spin_unlock_irqrestore(&u_dss1.lock, flags);
+			return(-EBUSY);
+		}
+	}
+	if (&l3l->list == &u_dss1.ilist)
+		l3l = NULL;
+	spin_unlock_irqrestore(&u_dss1.lock, flags);
+	return(new_udss1(st, pid));
+}
+
+#ifdef OBSOLETE
+static int
 udss1_manager(void *data, u_int prim, void *arg) {
 	mISDNinstance_t *inst = data;
 	layer3_t	*l3l;
@@ -2982,6 +3002,7 @@ udss1_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 int UDSS1Init(void)
 {
@@ -3000,7 +3021,7 @@ int UDSS1Init(void)
 		ISDN_PID_L3_DF_PTP |
 		ISDN_PID_L3_DF_EXTCID |
 		ISDN_PID_L3_DF_CRLEN2;
-	u_dss1.own_ctrl = udss1_manager;
+	u_dss1.getinst = udss1_instance;
 	mISDNl3New();
 	if ((err = mISDN_register(&u_dss1))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);

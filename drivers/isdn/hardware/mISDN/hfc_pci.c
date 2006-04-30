@@ -1959,6 +1959,35 @@ release_card(hfc_pci_t *hc) {
 }
 
 static int
+HFC_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	hfc_pci_t	*card;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&HFC_obj.lock, flags);
+	list_for_each_entry(card, &HFC_obj.ilist, list) {
+		if (card->dch.inst.st == st) {
+			inst = &card->dch.inst;
+			break;
+		}
+		if (card->bch[0].inst.st == st) {
+			inst = &card->bch[0].inst;
+			break;
+		}
+		if (card->bch[1].inst.st == st) {
+			inst = &card->bch[1].inst;
+			break;
+		}
+	}
+	spin_unlock_irqrestore(&HFC_obj.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+#ifdef OBSOLETE
+static int
 HFC_manager(void *data, u_int prim, void *arg) {
 	hfc_pci_t	*card;
 	mISDNinstance_t	*inst = data;
@@ -2070,6 +2099,7 @@ HFC_manager(void *data, u_int prim, void *arg) {
 	}
 	return(0);
 }
+#endif
 
 static int __init HFC_init(void)
 {
@@ -2085,7 +2115,7 @@ static int __init HFC_init(void)
 	spin_lock_init(&HFC_obj.lock);
 	INIT_LIST_HEAD(&HFC_obj.ilist);
 	HFC_obj.name = HFCName;
-	HFC_obj.own_ctrl = HFC_manager;
+	HFC_obj.getinst = HFC_instance;
 	HFC_obj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 |
 				     ISDN_PID_L0_NT_S0;
 	HFC_obj.DPROTO.protocol[1] = ISDN_PID_L1_NT_S0;

@@ -561,6 +561,33 @@ xhfc_l2l1(mISDNinstance_t *inst, struct sk_buff *skb)
 }
 
 static int
+xhfc_instance(mISDNstack_t *st, mISDN_pid_t *pid)
+{
+	xhfc_hw		*hw;
+	mISDNinstance_t *inst = NULL;
+	u_long		flags;
+
+	spin_lock_irqsave(&hw_mISDNObj.lock, flags);
+	list_for_each_entry(hw, &hw_mISDNObj.ilist, list) {
+		int	i = 0;
+		while(i < MAX_CHAN) {
+			if (hw->chan[i].ch.inst.st == st) {
+				inst = &hw->chan[i].ch.inst;
+				break;
+			}
+			i++;
+		}
+		if (inst)
+			break;
+	}
+	spin_unlock_irqrestore(&hw_mISDNObj.lock, flags);
+	if (!inst)
+		return(-EINVAL);
+	return(mISDN_ctrl(st, MGR_REGLAYER | REQUEST, inst));
+}
+
+#ifdef OBSOLETE
+static int
 xhfc_manager(void *data, u_int prim, void *arg)
 {
 	xhfc_t *xhfc = NULL;
@@ -2104,7 +2131,7 @@ xhfc_init(void)
 	INIT_LIST_HEAD(&hw_mISDNObj.ilist);
 	spin_lock_init(&hw_mISDNObj.lock);
 	hw_mISDNObj.name = DRIVER_NAME;
-	hw_mISDNObj.own_ctrl = xhfc_manager;
+	hw_mISDNObj.getinst = xhfc_instance;
 
 	hw_mISDNObj.DPROTO.protocol[0] = ISDN_PID_L0_TE_S0 | ISDN_PID_L0_NT_S0;
 	hw_mISDNObj.DPROTO.protocol[1] = ISDN_PID_L1_TE_S0 | ISDN_PID_L1_NT_S0;

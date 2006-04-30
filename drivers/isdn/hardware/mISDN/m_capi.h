@@ -249,6 +249,7 @@ struct _AppPlci {
 	Application_t		*appl;
 	Controller_t		*contr;
 	PLInst_t		*link;
+	int			linkid;
 	struct sk_buff_head	delayedq;
 	struct list_head	Nccis;
 	struct FsmInst		plci_m;
@@ -314,7 +315,6 @@ Application_t	*getApplication4Id(Controller_t *, __u16);
 Plci_t		*getPlci4Addr(Controller_t *, __u32);
 int		ControllerL4L3(Controller_t *, u_int, int, struct sk_buff *);
 int		ControllerL3L4(mISDNinstance_t *, struct sk_buff *);
-PLInst_t	*ControllerSelChannel(Controller_t *, u_int);
 void		ControllerAddSSProcess(Controller_t *, SSProcess_t *);
 SSProcess_t	*getSSProcess4Id(Controller_t *, __u16);
 int		ControllerNextId(Controller_t *);
@@ -406,20 +406,17 @@ void		SendSSNotificationEvent(AppPlci_t *, u16);
 // INFOMASK defines (LISTEN commands)
 // ---------------------------------------------------------------------------
 
-#define CAPI_INFOMASK_CAUSE 	0x0001
-#define CAPI_INFOMASK_DATETIME	0x0002
-#define CAPI_INFOMASK_DISPLAY	0x0004
-#define CAPI_INFOMASK_USERUSER	0x0008
-#define CAPI_INFOMASK_PROGRESS	0x0010
-#define CAPI_INFOMASK_FACILITY	0x0020
-#define CAPI_INFOMASK_CHARGE	0x0040
-#define CAPI_INFOMASK_CALLEDPN	0x0080
-#define CAPI_INFOMASK_CHANNELID	0x0100
-#define CAPI_INFOMASK_EARLYB3	0x0200
-#define CAPI_INFOMASK_REDIRECT	0x0400
-/* bit 11 reserved */
-#define CAPI_INFOMASK_COMPLETE	0x1000
-/* bit 13-31 reserved */
+#define CAPI_INFOMASK_CAUSE     (0x0001)
+#define CAPI_INFOMASK_DATETIME  (0x0002)
+#define CAPI_INFOMASK_DISPLAY   (0x0004)
+#define CAPI_INFOMASK_USERUSER  (0x0008)
+#define CAPI_INFOMASK_PROGRESS  (0x0010)
+#define CAPI_INFOMASK_FACILITY  (0x0020)
+//#define CAPI_INFOMASK_CHARGE    (0x0040)
+//#define CAPI_INFOMASK_CALLEDPN  (0x0080)
+#define CAPI_INFOMASK_CHANNELID (0x0100)
+#define CAPI_INFOMASK_EARLYB3   (0x0200)
+//#define CAPI_INFOMASK_REDIRECT  (0x0400)
 
 // ---------------------------------------------------------------------------
 // Supplementary Services
