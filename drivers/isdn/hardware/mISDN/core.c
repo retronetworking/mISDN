@@ -716,7 +716,6 @@ void mISDN_cleanup(void) {
 
 
 #ifdef CONFIG_MISDN_NETDEV
-#warning Config Netdev is enabled ?
 	misdn_netdev_exit();
 #endif
 	
