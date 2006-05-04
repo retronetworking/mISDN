@@ -19,6 +19,10 @@
 #include <linux/smp_lock.h>
 #endif
 
+#ifdef CONFIG_MISDN_NETDEV
+#include "netdev_main.h"
+#endif
+
 static char		*mISDN_core_revision = "$Revision$";
 
 LIST_HEAD(mISDN_objectlist);
@@ -555,6 +559,9 @@ mISDN_ctrl(void *data, u_int prim, void *arg) {
 		return(preregister_layer(st, arg));
 	    case MGR_SETSTACK | REQUEST:
 		/* can sleep in case of module reload */
+#ifdef CONFIG_MISDN_NETDEV
+		misdn_netdev_addstack(st);
+#endif
 		return(set_stack_req(st, arg));
 	    case MGR_SETSTACK_NW | REQUEST:
 		return(set_stack(st, arg));
@@ -668,6 +675,10 @@ mISDNInit(void)
 	if (err)
 		goto dev_fail;
 
+#ifdef CONFIG_MISDN_NETDEV
+	misdn_netdev_init();
+#endif
+
 	init_waitqueue_head(&mISDN_thread.waitq);
 	skb_queue_head_init(&mISDN_thread.workq);
 	mISDN_thread.notify = &sem;
@@ -706,6 +717,13 @@ void mISDN_cleanup(void) {
 #ifdef MISDN_MEMDEBUG
 	__mid_cleanup();
 #endif
+
+
+#ifdef CONFIG_MISDN_NETDEV
+#warning Config Netdev is enabled ?
+	misdn_netdev_exit();
+#endif
+	
 	mISDN_sysfs_cleanup();
 	printk(KERN_DEBUG "mISDNcore unloaded\n");
 }
