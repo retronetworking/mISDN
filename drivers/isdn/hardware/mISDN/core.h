@@ -85,6 +85,7 @@ extern int		mISDN_alloc_entity(int *);
 extern int		mISDN_delete_entity(int);
 
 
+#ifdef CONFIG_MISDN_NETDEV
 /* from netdev_main.c */
 void misdn_log_frame(mISDNstack_t *, 		/* Stack for which to log */
 		char *,				/* frame to log */
@@ -96,5 +97,5 @@ int misdn_netdev_addstack(mISDNstack_t *); 	/* create new netdevice by
 
 int              misdn_netdev_init(void); 	/* initialize netdevices */
 void             misdn_netdev_exit(void);	/* exit netdeivces */
-
+#endif
 

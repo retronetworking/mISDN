@@ -19,10 +19,6 @@
 #include <linux/smp_lock.h>
 #endif
 
-#ifdef CONFIG_MISDN_NETDEV
-#include "netdev_main.h"
-#endif
-
 static char		*mISDN_core_revision = "$Revision$";
 
 LIST_HEAD(mISDN_objectlist);
