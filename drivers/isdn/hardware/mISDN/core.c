@@ -729,3 +729,6 @@ module_exit(mISDN_cleanup);
 EXPORT_SYMBOL(mISDN_ctrl);
 EXPORT_SYMBOL(mISDN_register);
 EXPORT_SYMBOL(mISDN_unregister);
+#ifdef CONFIG_MISDN_NETDEV
+EXPORT_SYMBOL(misdn_log_frame);
+#endif

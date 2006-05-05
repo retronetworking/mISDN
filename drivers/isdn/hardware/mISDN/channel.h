@@ -17,6 +17,9 @@
 #ifdef MISDN_MEMDEBUG
 #include "memdbg.h"
 #endif
+#ifdef CONFIG_MISDN_NETDEV
+#include "core.h"
+#endif
 
 #define MAX_DFRAME_LEN_L1	300
 #define MAX_MON_FRAME		32
@@ -101,10 +104,14 @@ queue_ch_frame(channel_t *ch, u_int pr, int dinfo, struct sk_buff *skb)
 	int	err;
 
 	pr |= test_bit(FLG_L2DATA, &ch->Flags) ? DL_DATA : PH_DATA;
-	if (!skb)
+	if (!skb) {
 		err = mISDN_queue_data(&ch->inst, FLG_MSG_UP, pr, dinfo, 0, NULL, ch->up_headerlen);
-	else
+	} else {
+#ifdef CONFIG_MISDN_NETDEV
+		misdn_log_frame(ch->inst.st, skb->data, skb->len, FLG_MSG_UP);
+#endif
 		err = mISDN_queueup_newhead(&ch->inst, 0, pr, dinfo, skb);
+	}
 	if (unlikely(err)) {
 		int_errtxt("err=%d", err);
 		if (skb)
@@ -134,12 +141,18 @@ channel_senddata(channel_t *ch, int di, struct sk_buff *skb)
 	}
 	if (test_and_set_bit(FLG_TX_BUSY, &ch->Flags)) {
 		test_and_set_bit(FLG_TX_NEXT, &ch->Flags);
+#ifdef CONFIG_MISDN_NETDEV
+		misdn_log_frame(ch->inst.st, skb->data, skb->len, FLG_MSG_DOWN);
+#endif
 		ch->next_skb = skb;
 		return(0);
 	} else {
 		/* write to fifo */
 		ch->tx_skb = skb;
 		ch->tx_idx = 0;
+#ifdef CONFIG_MISDN_NETDEV
+		misdn_log_frame(ch->inst.st, skb->data, skb->len, FLG_MSG_DOWN);
+#endif
 		queue_ch_frame(ch, CONFIRM, di, NULL);
 		return(skb->len);
 	}
