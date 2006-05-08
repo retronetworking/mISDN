@@ -2434,7 +2434,6 @@ hfcmulti_initmode(hfc_multi_t *hc)
 	BYTE		r_sci_msk, a_st_wr_state, r_e1_wr_sta;
 	int		i, port;
 	channel_t	*dch;
-	u_long		flags;
 
 	if (debug & DEBUG_HFCMULTI_INIT)
 		printk("%s: entered\n", __FUNCTION__);
@@ -2890,7 +2889,7 @@ static void
 release_port(hfc_multi_t *hc, int port)
 {
 	int	i = 0;
-	int	all = 1, any = 0;
+	int	all = 1;
 	u_long	flags;
 
 	if (debug & DEBUG_HFCMULTI_INIT)
