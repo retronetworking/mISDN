@@ -1279,7 +1279,8 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 			return(error_answer(dev, skb, -ENODEV));
 		hp->prim = MGR_REGLAYER | CONFIRM;
 		hp->len = mISDN_ctrl(st, MGR_REGLAYER | REQUEST, &dl->inst);
-		printk(KERN_DEBUG "MGR_REGLAYER | REQUEST: ret(%d)\n", hp->len);
+		if (core_debug & DEBUG_MGR_FUNC)
+			printk(KERN_DEBUG "MGR_REGLAYER | REQUEST: ret(%d)\n", hp->len);
 		break;	
 	    case (MGR_UNREGLAYER | REQUEST):
 		lay = hp->dinfo;

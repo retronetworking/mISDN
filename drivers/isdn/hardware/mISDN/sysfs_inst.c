@@ -51,8 +51,8 @@ static void release_mISDN_inst(struct class_device *dev)
 #if 0
 	sysfs_remove_group(&inst->class_dev.kobj, &pid_group);
 #endif
-
-	printk(KERN_INFO "release instance class dev %s\n", dev->class_id);
+	if (core_debug & DEBUG_SYSFS)
+		printk(KERN_INFO "release instance class dev %s\n", dev->class_id);
 }
 
 static struct class inst_dev_class = {

@@ -181,7 +181,8 @@ static void release_mISDN_stack(struct class_device *dev)
 	sysfs_remove_group(&st->class_dev.kobj, &pid_group);
 	sysfs_remove_group(&st->class_dev.kobj, &new_pid_group);
 #endif
-	printk(KERN_INFO "release stack class dev %s\n", dev->class_id);
+	if (core_debug & DEBUG_SYSFS)
+		printk(KERN_INFO "release stack class dev %s\n", dev->class_id);
 	if (st->parent) {
 		sysfs_remove_link(&dev->kobj, "parent");
 		snprintf(name, 12, "child%d", (CHILD_ID_MASK & st->id) >> 16);

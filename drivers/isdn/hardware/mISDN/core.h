@@ -28,6 +28,8 @@
 #define DEBUG_DEV_TIMER		0x0400
 #define DEBUG_RDATA		0x1000
 #define DEBUG_WDATA		0x2000
+#define DEBUG_SYSFS		0x4000
+#define DEBUG_THREADS		0x8000
 
 
 /* from udevice.c */
