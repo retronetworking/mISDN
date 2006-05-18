@@ -77,7 +77,7 @@ static void release_mISDN_obj(struct class_device *dev)
 	if ( core_debug & DEBUG_SYSFS) 
 		printk(KERN_INFO "release object class dev %s\n", dev->class_id);
 
-#if SYSFS_REMOVE_WORKS
+#ifdef SYSFS_REMOVE_WORKS
 	if (obj->owner)
 #ifdef MODULE_MKOBJ_POINTER
 	if (obj->owner->mkobj)

@@ -178,7 +178,7 @@ static void release_mISDN_stack(struct class_device *dev)
 	mISDNstack_t	*st = to_mISDNstack(dev);
 	char		name[12];
 
-#if SYSFS_REMOVE_WORKS
+#ifdef SYSFS_REMOVE_WORKS
 	sysfs_remove_group(&st->class_dev.kobj, &pid_group);
 	sysfs_remove_group(&st->class_dev.kobj, &new_pid_group);
 	if (core_debug & DEBUG_SYSFS)
