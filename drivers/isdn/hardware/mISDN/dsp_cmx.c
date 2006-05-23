@@ -472,6 +472,7 @@ dsp_cmx_hardware(conference_t *conf, dsp_t *dsp)
 			if (dsp_debug & DEBUG_DSP_CMX)
 				printk(KERN_DEBUG "%s dsp %s cannot form a conf, because tx_mix is turned on\n", __FUNCTION__, member->dsp->inst.name);
 			conf_software:
+//			printk(KERN_NOTICE "****** SOFTWARE CONFERENCE\n");
 			list_for_each_entry(member, &conf->mlist, list) {
 				dsp = member->dsp;
 				/* remove HFC conference if enabled */
@@ -862,6 +863,14 @@ dsp_cmx_conf(dsp_t *dsp, u32 conf_id)
 	/* if conference doesn't change */
 	if (dsp->conf_id == conf_id)
 		return(0);
+
+	spin_lock(&dsp->feature_lock);
+	if (dsp->feature_state != FEAT_STATE_RECEIVED) {
+		dsp->queue_conf_id=conf_id;	
+		spin_unlock(&dsp->feature_lock);
+		return 0;
+	}
+	spin_unlock(&dsp->feature_lock);
 
 	/* first remove us from current conf */
 	if (dsp->conf_id) {
