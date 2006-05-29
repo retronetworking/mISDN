@@ -42,6 +42,7 @@ typedef struct _l3_process {
 	int			state;
 	L3Timer_t		timer;
 	int			n303;
+	int cause;
 	struct sk_buff		*t303skb;
 	u_int			id;
 	int			bc;

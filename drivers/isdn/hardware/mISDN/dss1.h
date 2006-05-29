@@ -117,6 +117,7 @@
 #define IE_MORE_DATA	0xa0
 #define IE_COMPLETE	0xa1
 #define IE_CONGESTION	0xb0
+#define IE_COMPR_REQ	0x01
 #define IE_REPEAT	0xd0
 
 #define IE_MANDATORY	0x0100

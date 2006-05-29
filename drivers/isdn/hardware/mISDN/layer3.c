@@ -12,6 +12,7 @@
  */
 #include "layer3.h"
 #include "helper.h"
+#include "dss1.h"
 
 const char *l3_revision = "$Revision$";
 
@@ -309,6 +310,9 @@ l3_process_t
 		return (NULL);
 	}
 	memset(p, 0, sizeof(l3_process_t));
+
+	p->cause=NO_CAUSE;
+	
 	p->l3 = l3;
 	p->id = id;
 	p->callref = cr;
