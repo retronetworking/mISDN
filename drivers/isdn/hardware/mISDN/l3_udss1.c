@@ -204,7 +204,7 @@ calc_msg_len(Q931_info_t *qi)
 	if (qi->congestion_level.off)
 		cnt++;
 	ie = &qi->bearer_capability;
-	while (ie <= &qi->fill1) {
+	while (ie <= &qi->comprehension_required) {
 		if (ie->off)
 			cnt += buf[ie->off + 1] + 2;
 		ie++;
