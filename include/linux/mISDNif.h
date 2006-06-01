@@ -19,7 +19,7 @@
  *              - changed if any interface is extended but backwards compatible
  *
  */
-#define	MISDN_MAJOR_VERSION	3
+#define	MISDN_MAJOR_VERSION	4
 #define	MISDN_MINOR_VERSION	0
 #define	MISDN_VERSION		((MISDN_MAJOR_VERSION<<16) | MISDN_MINOR_VERSION)
 
@@ -401,7 +401,6 @@
 
 #define ISDN_PID_L2_DF_PTP		0x00100000
 #define ISDN_PID_L2_DF_MULT_TEI		0x00200000
-#define ISDN_PID_L2_DF_WINSIZE7		0x00400000
 #define	ISDN_PID_L3_DF_PTP		0x00100000
 #define ISDN_PID_L3_DF_EXTCID		0x00200000
 #define ISDN_PID_L3_DF_CRLEN2		0x00400000
