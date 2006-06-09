@@ -49,6 +49,13 @@
 //#include "dsp_kb1ec.h"
 #include "dsp_mg2ec.h"
 
+
+
+/*
+*  uncomment this one to cancel echo more aggressive
+*/
+//#define AGGRESSIVE_SUPPRESSOR
+
 extern int dsp_options;
 extern int dsp_debug;
 extern int dsp_poll;

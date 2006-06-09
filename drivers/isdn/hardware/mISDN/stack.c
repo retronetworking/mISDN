@@ -478,8 +478,8 @@ mISDNStackd(void *data)
 #ifdef CONFIG_SMP
 	unlock_kernel();
 #endif
-	if ( core_debug & DEBUG_THREADS)
-		printk(KERN_DEBUG "mISDNStackd started for id(%08x)\n", st->id);
+//	if ( core_debug & DEBUG_THREADS)
+	printk(KERN_DEBUG "mISDNStackd started for id(%08x)\n", st->id);
 
 	for (;;) {
 		struct sk_buff	*skb, *c_skb;
