@@ -436,6 +436,12 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 				return(-EINVAL);
 			
 			if (!dsp->conf_id) {
+				/* PROCESS TONES/TX-DATA ONLY */
+				if (dsp->tone.tone) {
+					/* -> copy tone */
+					dsp_tone_copy(dsp, skb->data, skb->len);
+				}
+
 				if (dsp->tx_volume)
 			                dsp_change_volume(skb, dsp->tx_volume);
 				/* cancel echo */
@@ -444,7 +450,6 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 				/* crypt */
 				if (dsp->bf_enable)
 					dsp_bf_encrypt(dsp, skb->data, skb->len);
-			
 				/* send packet */
 				if (mISDN_queue_down(&dsp->inst, 0, skb)) {
 					dev_kfree_skb(skb);
