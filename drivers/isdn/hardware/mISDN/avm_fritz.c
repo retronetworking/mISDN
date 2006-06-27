@@ -804,7 +804,8 @@ hdlc_down(mISDNinstance_t *inst, struct sk_buff *skb)
 		spin_unlock_irqrestore(inst->hwlock, flags);
 		skb_trim(skb, 0);
 		if (hh->prim != (PH_CONTROL | REQUEST))
-			ret = mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, 0, skb);
+			if (!mISDN_queueup_newhead(inst, 0, hh->prim | CONFIRM, 0, skb))
+				return(0);
 	} else {
 		printk(KERN_WARNING "hdlc_down unknown prim(%x)\n", hh->prim);
 		ret = -EINVAL;
