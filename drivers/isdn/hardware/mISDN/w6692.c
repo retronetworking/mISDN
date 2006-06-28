@@ -1043,6 +1043,12 @@ MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
+#ifdef OLD_MODULE_PARAM
+MODULE_PARM(debug, "1i");
+#define MODULE_PARM_T   "1-4i"
+MODULE_PARM(protocol, MODULE_PARM_T);
+MODULE_PARM(layermask, MODULE_PARM_T);
+#else
 module_param(debug, uint, S_IRUGO | S_IWUSR);
 
 #ifdef OLD_MODULE_PARAM_ARRAY
@@ -1057,7 +1063,7 @@ module_param_array(pots, uint, NULL, S_IRUGO | S_IWUSR);
 module_param_array(protocol, uint, NULL, S_IRUGO | S_IWUSR);
 module_param_array(layermask, uint, NULL, S_IRUGO | S_IWUSR);
 #endif
-
+#endif
 #endif
 
 /******************************/

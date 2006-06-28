@@ -19,7 +19,11 @@ MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
+#ifdef OLD_MODULE_PARAM
+MODULE_PARM(debug, "1i");
+#else
 module_param(debug, uint, S_IRUGO | S_IWUSR);
+#endif
 #endif
 
 static char deb_buf[256];

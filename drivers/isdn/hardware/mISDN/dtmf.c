@@ -559,7 +559,11 @@ static char MName[] = "DTMF";
 
 #ifdef MODULE
 MODULE_AUTHOR("Karsten Keil");
+#ifdef OLD_MODULE_PARAM
+MODULE_PARM(debug, "1i");
+#else
 module_param (debug, uint, S_IRUGO | S_IWUSR);
+#endif
 MODULE_PARM_DESC (debug, "dtmf debug mask");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");

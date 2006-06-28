@@ -405,6 +405,12 @@ MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
+#ifdef OLD_MODULE_PARAM
+MODULE_PARM(debug, "1i");
+#define MODULE_PARM_T   "1-4i"
+MODULE_PARM(protocol, MODULE_PARM_T);
+MODULE_PARM(layermask, MODULE_PARM_T);
+#else
 module_param (debug, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC (debug, "sedlfax debug mask");
 #ifdef OLD_MODULE_PARAM_ARRAY
@@ -417,7 +423,7 @@ module_param_array(layermask, uint, &layermask_num, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC (protocol, "sedlfax protcol (DSS1 := 2)");
 MODULE_PARM_DESC(layermask, "sedlfax layer mask");
 #endif
-
+#endif
 static char SpeedfaxName[] = "Speedfax";
 
 int

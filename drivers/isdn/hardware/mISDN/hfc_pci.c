@@ -1813,6 +1813,12 @@ MODULE_AUTHOR("Karsten Keil");
 #ifdef MODULE_LICENSE
 MODULE_LICENSE("GPL");
 #endif
+#ifdef OLD_MODULE_PARAM
+MODULE_PARM(debug, "1i");
+#define MODULE_PARM_T   "1-4i"
+MODULE_PARM(protocol, MODULE_PARM_T);
+MODULE_PARM(layermask, MODULE_PARM_T);
+#else
 module_param (debug, uint, 0);
 MODULE_PARM_DESC (debug, "hfcpci debug mask");
 #ifdef OLD_MODULE_PARAM_ARRAY
@@ -1853,6 +1859,7 @@ module_param_array(layermask, uint, layermask_cnt, 0);
 module_param_array(layermask, uint, NULL, 0);
 #endif
 MODULE_PARM_DESC(layermask, "hfcpci layer mask");
+#endif
 #endif
 
 static char HFCName[] = "HFC_PCI";
