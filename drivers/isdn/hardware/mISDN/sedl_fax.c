@@ -391,12 +391,9 @@ static int init_card(sedl_fax *sf)
 
 
 #define MAX_CARDS	4
-#define MODULE_PARM_T	"1-4i"
 static int sedl_cnt;
 static mISDNobject_t	speedfax;
 static uint debug;
-static uint protocol_num;
-static uint layermask_num;
 static uint protocol[MAX_CARDS];
 static uint layermask[MAX_CARDS];
 
@@ -413,6 +410,8 @@ MODULE_PARM(layermask, MODULE_PARM_T);
 #else
 module_param (debug, uint, S_IRUGO | S_IWUSR);
 MODULE_PARM_DESC (debug, "sedlfax debug mask");
+static uint protocol_num;
+static uint layermask_num;
 #ifdef OLD_MODULE_PARAM_ARRAY
 module_param_array(protocol, uint, protocol_num, S_IRUGO | S_IWUSR);
 module_param_array(layermask, uint, layermask_num, S_IRUGO | S_IWUSR);
