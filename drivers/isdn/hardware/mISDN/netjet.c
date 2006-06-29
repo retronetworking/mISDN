@@ -1727,7 +1727,7 @@ static int __init nj_init (void)
 {
 	int err;
 
-	printk(KERN_INFO "Traverse Tech. NETjet-S driver.\n");
+	printk(KERN_INFO "Traverse Tech. NETjet-S driver, revision %s\n", mISDN_getrev(netjet_rev));
 
 #ifdef MODULE
 	netjet_mISDN.owner = THIS_MODULE;
