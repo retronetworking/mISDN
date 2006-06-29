@@ -28,6 +28,7 @@
 static const char *netjet_rev = "$Revision$";
 
 #define MAX_CARDS	4
+static int debug;
 static int netjet_cnt;
 static u_int protocol[MAX_CARDS];
 static int layermask[MAX_CARDS];
@@ -95,7 +96,6 @@ static __u16 fcstab[256] =
 #endif
 
 static mISDNobject_t netjet_mISDN;
-static int debug;
 
 enum {
 	NETJET_S_TJ300,
