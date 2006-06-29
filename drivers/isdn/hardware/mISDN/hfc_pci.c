@@ -1800,7 +1800,6 @@ SelFreeBChannel(hfc_pci_t *hc, channel_info_t *ci)
 }
 
 #define MAX_CARDS	8
-#define MODULE_PARM_T	"1-8i"
 static int HFC_cnt;
 static uint protocol[MAX_CARDS];
 static uint layermask[MAX_CARDS];
