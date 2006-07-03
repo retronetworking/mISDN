@@ -98,7 +98,6 @@
 #define ISOC_PACKETS_D	8
 #define ISOC_PACKETS_B	8
 #define ISO_BUFFER_SIZE	128
-#define TRANSP_PACKET_SIZE 0
 
 /* defines how much ISO packets are handled in one URB */
 static int iso_packets[8] =
