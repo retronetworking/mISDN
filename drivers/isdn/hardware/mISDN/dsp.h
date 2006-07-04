@@ -134,6 +134,7 @@ extern mISDNobject_t dsp_obj;
 #define ECHOCAN_BUFLEN 4*128
 
 typedef struct _dtmf_t {
+	int 		treshold; /* above this is dtmf (square of) */
 	int		software; /* dtmf uses software decoding */
 	int 		hardware; /* dtmf uses hardware decoding */
 	int 		size; /* number of bytes in buffer */
