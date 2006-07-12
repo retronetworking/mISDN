@@ -190,7 +190,7 @@ int dsp_options;
 static int poll = 0;
 int dsp_poll, dsp_tics;
 
-int dtmftreshold=200L;
+int dtmftreshold=100L;
 
 #ifdef MODULE
 MODULE_AUTHOR("Andreas Eversberg");
