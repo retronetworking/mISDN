@@ -3206,7 +3206,7 @@ bugtest
 		case MGR_RELEASE | INDICATION:
 		if (debug & DEBUG_HFCMULTI_MGR)
 			printk(KERN_DEBUG "%s: MGR_RELEASE = remove port from mISDN\n", __FUNCTION__);
-#if 0
+#if LINUX_VERSION_CODE > KERNEL_VERSION(2,6,10) 
 		if (test_bit(FLG_DCHANNEL, &chan->Flags))
 			release_port(hc, hc->chan[ch].port); /* hc is free */
 #endif
