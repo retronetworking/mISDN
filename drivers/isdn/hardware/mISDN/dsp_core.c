@@ -240,7 +240,6 @@ dsp_control_req(dsp_t *dsp, mISDN_head_t *hh, struct sk_buff *skb)
 				dsp->dtmf.treshold=(*(int*)data)*10000;
 			}
 #endif
-			printk(KERN_NOTICE " --> dtmftreshold=%d\n",dsp->dtmf.treshold);
 
 			dsp_dtmf_goertzel_init(dsp);
 			/* checking for hardware capability */
@@ -848,8 +847,6 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 		dtmftreshold=200;
 	}
 	ndsp->dtmf.treshold=dtmftreshold*10000;
-	printk(KERN_NOTICE " Setting DTMF_TRESH to %d\n",ndsp->dtmf.treshold);
-	
 
 	spin_lock_init(&ndsp->feature_lock);
 	init_timer(&ndsp->feature_tl);
