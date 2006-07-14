@@ -78,12 +78,12 @@ mISDN_register_sysfs_inst(mISDNinstance_t *inst) {
 	if (err)
 		return(err);
 
-#ifdef SYSFS_SUPPORT
 	class_device_create_file(&inst->class_dev, &class_device_attr_id);
 	class_device_create_file(&inst->class_dev, &class_device_attr_name);
 	class_device_create_file(&inst->class_dev, &class_device_attr_extentions);
 	class_device_create_file(&inst->class_dev, &class_device_attr_regcnt);
 
+#ifdef SYSFS_SUPPORT
 	err = sysfs_create_group(&inst->class_dev.kobj, &pid_group);
 	if (err)
 		goto out_unreg;
