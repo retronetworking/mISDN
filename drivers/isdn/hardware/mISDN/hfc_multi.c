@@ -2935,7 +2935,6 @@ setup_pci(hfc_multi_t *hc, struct pci_dev *pdev, int id_idx)
 static void release_ports_hw(hfc_multi_t *hc)
 {
 	u_long flags;
-	int i;
 
 	printk(KERN_INFO "release_ports_hw called type=%d\n",hc->type);
 
