@@ -213,6 +213,8 @@ static struct usb_device_id hfcsusb_idtab[] = {
 	{ }
 };
 
+MODULE_DEVICE_TABLE(usb, hfcsusb_idtab);
+
 /* some function prototypes */
 static int	hfcsusb_l2l1(mISDNinstance_t *inst, struct sk_buff *skb);
 static int	setup_bchannel(channel_t * bch, int protocol);
