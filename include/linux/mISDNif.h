@@ -19,7 +19,7 @@
  *              - changed if any interface is extended but backwards compatible
  *
  */
-#define	MISDN_MAJOR_VERSION	4
+#define	MISDN_MAJOR_VERSION	5
 #define	MISDN_MINOR_VERSION	0
 #define	MISDN_VERSION		((MISDN_MAJOR_VERSION<<16) | MISDN_MINOR_VERSION)
 
@@ -606,10 +606,13 @@ typedef struct _moditem {
 
 typedef struct _mISDN_pid {
 	int	protocol[MAX_LAYER_NR +1];
-	u_char	*param[MAX_LAYER_NR +1];
-	__u16	global;
 	int	layermask;
 	int	maxplen;
+	/* 0 is defined as no prameter, all other values are offsets into pbuf
+	 * so pbuf[0] is always unused */
+	u16	param[MAX_LAYER_NR +1];
+	u16	global;
+	u16	pidx;
 	u_char	*pbuf;
 } mISDN_pid_t;
 
