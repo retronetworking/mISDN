@@ -943,6 +943,25 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, unsigned int len, int finish)
 			return;
 		}
 	}
+
+	if (fifon == HFCUSB_D_RX) { 
+		/* D-Channel SKK range check */
+		if ((ch->rx_skb->len + len) >= MAX_DFRAME_LEN_L1) {
+			printk(KERN_DEBUG "%s: sbk mem exceeded for fifo(%d) HFCUSB_D_RX\n",
+			       __FUNCTION__, fifon);
+			skb_trim(ch->rx_skb, 0);
+			return;
+		}
+	} else {
+		/* B-Channel SKB range check */
+		if ((ch->rx_skb->len + len) >= MAX_DATA_MEM) {
+			printk(KERN_DEBUG "%s: sbk mem exceeded for fifo(%d) HFCUSB_B_RX\n",
+			       __FUNCTION__, fifon);
+			skb_trim(ch->rx_skb, 0);
+			return;
+		}
+	}
+	
 	memcpy(skb_put(ch->rx_skb, len), data, len);
 
 	if (test_bit(FLG_HDLC, &ch->Flags)) {
