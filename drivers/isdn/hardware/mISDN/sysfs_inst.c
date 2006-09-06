@@ -112,7 +112,7 @@ mISDN_unregister_sysfs_inst(mISDNinstance_t *inst)
 {
 	char	name[8];
 
-	if (inst->id) {
+	if (inst && inst->id) {
 		if (inst->st) {
 			sprintf(name,"layer.%d", inst->id & LAYER_ID_MASK);
 
