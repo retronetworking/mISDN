@@ -1400,6 +1400,12 @@ init_su(xhfc_t * xhfc, __u8 pt)
 		port->su_ctrl0.bit.v_st_sq_en = 1;
 	}
 
+	/* configure end of pulse control for ST mode (TE & NT) */
+	if (port->mode & PORT_MODE_S0) {
+		port->su_ctrl0.bit.v_st_pu_ctrl = 1;
+		port->st_ctrl3.reg = 0xf8;
+	}
+
 	if (debug & DEBUG_HFC_MODE)
 		printk(KERN_INFO "%s %s su_ctrl0(0x%02x) "
 		       "su_ctrl1(0x%02x) "
