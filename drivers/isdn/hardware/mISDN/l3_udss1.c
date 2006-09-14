@@ -1082,6 +1082,8 @@ l3dss1_disconnect(l3_process_t *pc, u_char pr, void *arg)
 		else
 			cause = CAUSE_INVALID_CONTENTS;
 	}
+	else
+		cause = pc->err;
 	ret = check_infoelements(pc, skb, ie_DISCONNECT);
 	if (ERR_IE_COMPREHENSION == ret)
 		cause = CAUSE_MANDATORY_IE_MISS;
