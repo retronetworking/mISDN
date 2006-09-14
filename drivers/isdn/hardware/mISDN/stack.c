@@ -1005,7 +1005,7 @@ register_layer(mISDNstack_t *st, mISDNinstance_t *inst)
 
 	if (!list_empty(&inst->list)) {
 		if (core_debug & DEBUG_CORE_FUNC)
-			printk(KERN_DEBUG "%s: register preregistered instance st(%p/%p)",
+			printk(KERN_DEBUG "%s: register preregistered instance st(%p/%p)\n",
 				__FUNCTION__, st, inst->st);
 		list_del_init(&inst->list);
 	}

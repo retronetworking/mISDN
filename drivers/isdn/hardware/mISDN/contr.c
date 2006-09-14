@@ -137,7 +137,7 @@ ControllerRun(Controller_t *contr)
 	}
 	contrDebug(contr, CAPI_DBG_INFO, "%s: GLOBAL(%08X) B1(%08X) B2(%08X) B3(%08X)",
 		__FUNCTION__, contr->ctrl->profile.goptions, contr->ctrl->profile.support1,
-		contr->ctrl->profile.support2, contr->ctrl->profile.support2);
+		contr->ctrl->profile.support2, contr->ctrl->profile.support3);
 #ifdef OLDCAPI_DRIVER_INTERFACE
 	contr->ctrl->ready(contr->ctrl);
 #else
