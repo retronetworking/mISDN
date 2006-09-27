@@ -157,7 +157,7 @@ static int nt_t1_count[] = { 480, 240, 120, 60, 30, 15, 8, 4 };
 static u_char silence =	0xff;	/* silence by LAW */
 
 /* enable 32 bit fifo access (PC usage) */
-//#define FIFO_32BIT_ACCESS
+#define FIFO_32BIT_ACCESS
 
 #define VENDOR_CCD "Cologne Chip AG"
 #define CCAG_VID 0x1397      // Cologne Chip Vendor ID
@@ -555,18 +555,20 @@ void vpm_echocan_on(hfc_multi_t *hc, int ch, int taps)
 	unsigned int unit;
 	channel_t *bch = hc->chan[ch].ch;
 	struct sk_buff *skb;
+#ifdef TXADJ
 	int txadj = -4;
-
+#endif
 	if (hc->chan[ch].protocol != ISDN_PID_L1_B_64TRANS)
 		return;
 
 	if (!bch)
 		return;
-
+#ifdef TXADJ
 	skb = create_link_skb(PH_CONTROL | INDICATION, VOL_CHANGE_TX, sizeof(int), &txadj, 0);
 
 	if (mISDN_queue_up(&bch->inst, 0, skb))
 		dev_kfree_skb(skb);
+#endif
 
 	timeslot = ((ch/4)*8) + ((ch%4)*4) + 1;
 	unit = ch % 4;
