@@ -2791,9 +2791,19 @@ dss1_fromup(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 		}
 		return(ret);
 	}
+
+	if (!proc && (hh->prim == (CC_RELEASE_COMPLETE | REQUEST)) ) {
+		/* crich: */
+		l3_debug(l3, "mISDN dss1 sending RELEASE_COMPLETE without proc pr=%04x dinof(%x)\n", hh->prim, hh->dinfo);
+		SendMsg(l3->dummy, skb, -1);
+
+		return 0;
+	}
+
 	if (!proc) {
-		printk(KERN_ERR "mISDN dss1 fromup without proc pr=%04x dinfo(%x)\n",
-			hh->prim, hh->dinfo);
+		if(debug)
+			printk(KERN_ERR "mISDN dss1 fromup without proc pr=%04x dinfo(%x)\n",
+				hh->prim, hh->dinfo);
 				return(-EINVAL);
 	}
 	for (i = 0; i < DOWNSLLEN; i++)
@@ -2892,7 +2902,8 @@ release_udss1(layer3_t *l3)
 	mISDNinstance_t  *inst = &l3->inst;
 	u_long		flags;
 
-	printk(KERN_DEBUG "release_udss1 refcnt %d l3(%p) inst(%p)\n",
+	if (debug)	
+		printk(KERN_DEBUG "release_udss1 refcnt %d l3(%p) inst(%p)\n",
 		u_dss1.refcnt, l3, inst);
 	release_l3(l3);
 #ifdef FIXME

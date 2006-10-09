@@ -27,7 +27,7 @@
 #define MISDN_DATE		"$Date$"
 
 /* collect some statistics about the message queues */
-#define MISDN_MSG_STATS
+//#define MISDN_MSG_STATS
 
 /* primitives for information exchange
  * generell format

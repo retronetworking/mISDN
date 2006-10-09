@@ -2245,10 +2245,12 @@ new_l2(mISDNstack_t *st, mISDN_pid_t *pid) {
 		nl2->maxlen = MAX_DFRAME_LEN;
 
 		if (pid->protocol[3] & ISDN_PID_L3_DF_CRLEN2) {
-			printk("layer2: Windowsize 7\n");
+			if (debug) 
+				printk("layer2: Windowsize 7\n");
 			nl2->window = 7;
 		} else {
-			printk("layer2: Windowsize 1\n");
+			if (debug) 
+				printk("layer2: Windowsize 1\n");
 			nl2->window = 1;
 		}
 		

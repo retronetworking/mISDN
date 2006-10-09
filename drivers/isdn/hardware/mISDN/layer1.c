@@ -769,7 +769,8 @@ l1_manager(void *data, u_int prim, void *arg) {
 	}
 	spin_unlock_irqrestore(&isdnl1.lock, flags);
 	if (err && (prim != (MGR_NEWLAYER | REQUEST))) {
-		printk(KERN_WARNING "l1_manager connect no instance\n");
+		if (debug)
+			printk(KERN_WARNING "l1_manager connect no instance\n");
 		return(err);
 	}
 
@@ -800,6 +801,7 @@ l1_manager(void *data, u_int prim, void *arg) {
 		break;
 	    PRIM_NOT_HANDLED(MGR_CTRLREADY|INDICATION);
 	    PRIM_NOT_HANDLED(MGR_ADDSTPARA|INDICATION);
+	    PRIM_NOT_HANDLED(MGR_SETSTACK|INDICATION);
 	    default:
 		printk(KERN_WARNING "l1_manager prim %x not handled\n", prim);
 		err = -EINVAL;
