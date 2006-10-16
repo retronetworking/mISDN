@@ -1082,7 +1082,7 @@ l3dss1_disconnect(l3_process_t *pc, u_char pr, void *arg)
 		else
 			cause = CAUSE_INVALID_CONTENTS;
 	}
-	else
+	else if (pc->state == 7) /* Call Received*/
 		cause = pc->err;
 	ret = check_infoelements(pc, skb, ie_DISCONNECT);
 	if (ERR_IE_COMPREHENSION == ret)
