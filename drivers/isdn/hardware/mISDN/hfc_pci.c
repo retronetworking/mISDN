@@ -25,7 +25,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/delay.h>
@@ -1919,7 +1918,7 @@ setup_hfcpci(hfc_pci_t *hc)
 		return 1;
 	}
 	hc->hw.fifos = buffer;
-	pci_write_config_dword(hc->hw.dev, 0x80, (u_int) cpu_to_le32((unsigned int)virt_to_bus(hc->hw.fifos)));
+	pci_write_config_dword(hc->hw.dev, 0x80, hc->hw.dmahandle);
 	hc->hw.pci_io = ioremap((ulong) hc->hw.pci_io, 256);
 	printk(KERN_INFO
 		"HFC-PCI: defined at mem %#lx fifo %#lx(%#lx) IRQ %d HZ %d\n",
