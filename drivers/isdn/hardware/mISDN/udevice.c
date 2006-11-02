@@ -1410,8 +1410,9 @@ mISDN_wdata_if(mISDNdevice_t *dev, struct sk_buff *skb)
 				err = error_answer(dev, skb, err);
 			}
 		} else {
-			printk(KERN_WARNING "mISDN: prim %x addr %x not implemented\n",
-				hp->prim, hp->addr);
+			if (device_debug)
+				printk(KERN_WARNING "mISDN: prim %x addr %x not implemented\n",
+					hp->prim, hp->addr);
 			err = error_answer(dev, skb, -EINVAL);
 		}
 		return(err);
