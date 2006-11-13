@@ -10,7 +10,15 @@
 #define DRIVER_AUTHOR   "Martin Bachem / Peter Sprenger"
 #define DRIVER_DESC     "HFC-S USB based HiSAX ISDN driver"
 
-#define VERBOSE_USB_DEBUG
+/* DEBUG flags, use combined value for module parameter debug=x */
+#define DEBUG_HFC_INIT		0x0001
+#define DEBUG_HFC_MODE		0x0002
+#define DEBUG_HFC_S0_STATES	0x0004
+#define DEBUG_HFC_IRQ		0x0008
+#define DEBUG_HFC_FIFO_ERR	0x0010
+#define DEBUG_HFC_DTRACE	0x2000
+#define DEBUG_HFC_BTRACE	0x4000	/* very(!) heavy messageslog load */
+#define DEBUG_HFC_FIFO		0x8000	/* very(!) heavy messageslog load */
 
 
 /***********/
