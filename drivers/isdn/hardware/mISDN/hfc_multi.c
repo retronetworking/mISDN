@@ -3835,7 +3835,7 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 	hc->type  = card_type;
 	hc->ports = hfc_ports;
 	
-	printk( KERN_NOTICE "type:%d ports:%d HFC_idx:%d port_idx:%d\n",card_type, hfc_ports, HFC_idx, port_idx);
+//	printk( KERN_NOTICE "type:%d ports:%d HFC_idx:%d port_idx:%d\n",card_type, hfc_ports, HFC_idx, port_idx);
 
 	if (type[HFC_idx] & 0x100) {
 		test_and_set_bit(HFC_CHIP_ULAW, &hc->chip);
