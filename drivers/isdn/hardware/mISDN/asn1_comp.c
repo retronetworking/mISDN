@@ -192,7 +192,7 @@ ParseRejectComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 int
 ParseUnknownComponent(struct asn1_parm *pc, u_char *p, u_char *end, int dummy)
 {
-	int invokeId;
+	//int invokeId;
 	INIT;
 	
 	pc->comp = tag;
