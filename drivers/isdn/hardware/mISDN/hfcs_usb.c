@@ -445,7 +445,7 @@ S0_new_state(channel_t * dch)
 				test_and_set_bit(FLG_ACTIVE, &dch->Flags);
 				card->nt_timer = 0;
 				card->portmode &= ~NT_ACTIVATION_TIMER;
-				prim = PH_ACTIVATE | INDICATION;
+				prim = PH_ACTIVATE | CONFIRM;
 				para = 0;
 				handle_led(card, LED_S0_ON);
 				break;
@@ -613,10 +613,14 @@ hfcsusb_ph_command(hfcsusb_t * card, u_char command)
 			break;
 
 		case HFC_L1_ACTIVATE_NT:
-			queued_Write_hfc(card, HFCUSB_STATES,
-					       HFCUSB_ACTIVATE 
-					       | HFCUSB_DO_ACTION 
-					       | HFCUSB_NT_G2_G3);
+			if (card->chan[D].state == 3) {
+				mISDN_queue_data(&card->chan[D].inst, FLG_MSG_UP, PH_ACTIVATE | INDICATION, 0, 0, NULL, 0);
+			} else {
+				queued_Write_hfc(card, HFCUSB_STATES,
+				                       HFCUSB_ACTIVATE
+				                       | HFCUSB_DO_ACTION
+				                       | HFCUSB_NT_G2_G3);
+			}
 			break;
 
 		case HFC_L1_DEACTIVATE_NT:
@@ -995,7 +999,7 @@ collect_rx_frame(usb_fifo * fifo, __u8 * data, unsigned int len, int finish)
 		}
 	} else {
 		/* B-Channel SKB range check */
-		if ((ch->rx_skb->len + len) >= 2000) {
+		if ((ch->rx_skb->len + len) >= (MAX_BCH_SIZE + 3)) {
 			printk(KERN_DEBUG "%s: sbk mem exceeded for fifo(%d) HFCUSB_B_RX\n",
 			       __FUNCTION__, fifon);
 			skb_trim(ch->rx_skb, 0);
