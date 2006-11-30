@@ -1355,10 +1355,8 @@ tx_iso_complete(struct urb *urb, struct pt_regs *regs)
 		for (k = 0; k < num_isoc_packets; ++k) {
 			if (ch->tx_skb) {
 				remain = ch->tx_skb->len - ch->tx_idx;
-				printk ("k(%d) remain %d\n", k, remain);
 			} else {
 				remain = 0; 
-				printk ("k(%d) remain %d NULL\n", k, remain);
 			}
 			if (remain > 0) {
 				
