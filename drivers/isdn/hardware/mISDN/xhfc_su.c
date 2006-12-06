@@ -51,7 +51,7 @@
  */
  
 #include <linux/mISDNif.h>
-#include <linux/config.h>
+// #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/pci.h>
@@ -430,7 +430,13 @@ handle_dmsg(channel_t *dch, struct sk_buff *skb)
 					l1_timer_start_t3(port);
 				}
 			} else {
-				xhfc_ph_command(port, HFC_L1_ACTIVATE_NT);
+				if (dch->state == 3) {
+					mISDN_queue_data(&dch->inst, FLG_MSG_UP,
+					                 PH_ACTIVATE | INDICATION,
+					                 0, 0, NULL, 0);
+				} else {
+					xhfc_ph_command(port, HFC_L1_ACTIVATE_NT);
+				}
 			}
 			break;
 			
