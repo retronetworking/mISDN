@@ -2188,7 +2188,7 @@ AppPlciClearOtherApps(AppPlci_t *aplci)
 	_cmsg			*cm;
 	struct list_head	*item, *next;
 
-	if (aplci->plci)
+	if (!aplci->plci)
 		return;
 	if (aplci->plci->nAppl <= 1)
 		return;
