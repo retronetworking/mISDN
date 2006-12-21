@@ -8,6 +8,7 @@
  */
 
 #include <linux/module.h>
+#include "core.h"
 #include "channel.h"
 #include "isac.h"
 #include "arcofi.h"
@@ -823,11 +824,13 @@ mISDN_clear_isac(channel_t *dch)
 static int isac_mod_init(void)
 {
 	printk(KERN_INFO "ISAC module %s\n", isac_revision);
+	mISDN_module_register(THIS_MODULE);
 	return(0);
 }
 
 static void isac_mod_cleanup(void)
 {
+	mISDN_module_unregister(THIS_MODULE);
 	printk(KERN_INFO "ISAC module unloaded\n");
 }
 module_init(isac_mod_init);

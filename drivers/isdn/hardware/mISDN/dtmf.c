@@ -17,6 +17,7 @@
 
 #include <linux/config.h>
 #include <linux/module.h>
+#include "core.h"
 #include "layer1.h"
 #include "helper.h"
 #include "debug.h"
@@ -641,7 +642,8 @@ static int dtmf_init(void)
 	INIT_LIST_HEAD(&dtmf_obj.ilist);
 	if ((err = mISDN_register(&dtmf_obj))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
-	}
+	} else
+		mISDN_module_register(THIS_MODULE);
 	return(err);
 }
 
@@ -649,6 +651,8 @@ static void dtmf_cleanup(void)
 {
 	int	err;
 	dtmf_t	*dtmf, *nd;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if ((err = mISDN_unregister(&dtmf_obj))) {
 		printk(KERN_ERR "Can't unregister DTMF error(%d)\n", err);

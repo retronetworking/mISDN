@@ -15,6 +15,7 @@
 
 #include <linux/module.h>
 
+#include "core.h"
 #include "layer3.h"
 #include "helper.h"
 #include "debug.h"
@@ -3111,7 +3112,8 @@ int UDSS1Init(void)
 	if ((err = mISDN_register(&u_dss1))) {
 		printk(KERN_ERR "Can't register %s error(%d)\n", MName, err);
 		mISDNl3Free();
-	}
+	} else
+		mISDN_module_register(THIS_MODULE);
 	return(err);
 }
 
@@ -3120,6 +3122,8 @@ void UDSS1_cleanup(void)
 {
 	int err;
 	layer3_t	*l3, *next;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if ((err = mISDN_unregister(&u_dss1))) {
 		printk(KERN_ERR "Can't unregister User DSS1 error(%d)\n", err);

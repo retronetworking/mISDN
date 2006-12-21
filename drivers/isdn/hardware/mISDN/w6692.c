@@ -26,6 +26,7 @@
 #include <linux/pci.h>
 #include <linux/delay.h>
 
+#include "core.h"
 #include "channel.h"
 #include "layer1.h"
 #include "helper.h"
@@ -1589,6 +1590,9 @@ static int __init w6692_init(void)
 		goto out;
 	}
 #endif
+
+	mISDN_module_register(THIS_MODULE);
+
 	return 0;
 
  out:
@@ -1600,6 +1604,8 @@ static void __exit w6692_cleanup(void)
 {
 	int		err;
 	w6692pci	*card, *next;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if ((err = mISDN_unregister(&w6692))) {
 		printk(KERN_ERR "Can't unregister Winbond W6692 PCI error(%d)\n", err);

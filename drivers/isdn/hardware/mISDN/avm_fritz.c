@@ -17,6 +17,7 @@
 #include <linux/isapnp.h>
 #endif
 #include <linux/delay.h>
+#include "core.h"
 #include "channel.h"
 #include "isac.h"
 #include "layer1.h"
@@ -1440,6 +1441,9 @@ static int __init Fritz_init(void)
 	}
 #endif
 #endif
+	
+	mISDN_module_register(THIS_MODULE);
+
 	return 0;
 
 #if !defined(CONFIG_HOTPLUG) || defined(MODULE)
@@ -1463,6 +1467,8 @@ static void __exit Fritz_cleanup(void)
 	fritzpnppci *card, *next;
 	int err;
 
+	mISDN_module_unregister(THIS_MODULE);
+	
 	if ((err = mISDN_unregister(&fritz))) {
 		printk(KERN_ERR "Can't unregister Fritz PCI error(%d)\n", err);
 	}

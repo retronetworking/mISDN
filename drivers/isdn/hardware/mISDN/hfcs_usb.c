@@ -29,6 +29,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/usb.h>
+#include "core.h"
 #include "channel.h"
 #include "layer1.h"
 #include "debug.h"
@@ -2163,6 +2164,9 @@ hfcsusb_init(void)
 		       "hfcsusb: Unable to register hfcsusb module at usb stack\n");
 		goto out;
 	}
+
+	mISDN_module_register(THIS_MODULE);
+
 	return 0;
 
       out:
@@ -2175,6 +2179,8 @@ hfcsusb_cleanup(void)
 {
 	int err;
 	hfcsusb_t *card, *next;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if (debug & 0x10000)
 		printk(KERN_DEBUG "%s\n", __FUNCTION__);

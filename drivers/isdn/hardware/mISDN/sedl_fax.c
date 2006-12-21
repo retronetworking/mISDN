@@ -36,6 +36,7 @@
 #else
 #include <linux/isapnp.h>
 #endif
+#include "core.h"
 #include "channel.h"
 #include "isac.h"
 #include "isar.h"
@@ -929,6 +930,9 @@ static int __init Speedfax_init(void)
 	}
 #endif
 #endif
+
+	mISDN_module_register(THIS_MODULE);
+
 	return 0;
 
 #ifdef OLD_PCI_REGISTER_DRIVER
@@ -951,6 +955,8 @@ static void __exit Speedfax_cleanup(void)
 {
 	int		err;
 	sedl_fax	*card, *next;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if ((err = mISDN_unregister(&speedfax))) {
 		printk(KERN_ERR "Can't unregister Speedfax PCI error(%d)\n", err);

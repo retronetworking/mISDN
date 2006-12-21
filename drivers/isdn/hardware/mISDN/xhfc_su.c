@@ -56,6 +56,7 @@
 #include <linux/delay.h>
 #include <linux/pci.h>
 #include <asm/timex.h>
+#include "core.h"
 #include "helper.h"
 #include "debug.h"
 #include "xhfc_su.h"
@@ -2153,6 +2154,8 @@ xhfc_init(void)
 	}
 #endif
 
+	mISDN_module_register(THIS_MODULE);
+
 	return 0;
 
       out:
@@ -2163,6 +2166,8 @@ static void __exit
 xhfc_cleanup(void)
 {
 	int err;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 #if BRIDGE == BRIDGE_PCI2PI
 	pci_unregister_driver(&xhfc_driver);

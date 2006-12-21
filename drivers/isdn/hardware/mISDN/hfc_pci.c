@@ -29,6 +29,7 @@
 #include <linux/pci.h>
 #include <linux/delay.h>
 
+#include "core.h"
 #include "channel.h"
 #include "hfc_pci.h"
 #include "layer1.h"
@@ -2267,6 +2268,7 @@ static int __init HFC_init(void)
 		mISDN_ctrl(dst, MGR_STARTSTACK | REQUEST, NULL);
 		mISDN_ctrl(dst, MGR_CTRLREADY | INDICATION, NULL);
 	}
+	mISDN_module_register(THIS_MODULE);
 	printk(KERN_INFO "HFC %d cards installed\n", HFC_cnt);
 	return(0);
 }
@@ -2276,6 +2278,8 @@ static void __exit HFC_cleanup(void)
 {
 	hfc_pci_t	*card, *next;
 	int		err;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if ((err = mISDN_unregister(&HFC_obj))) {
 		printk(KERN_ERR "Can't unregister HFC PCI error(%d)\n", err);

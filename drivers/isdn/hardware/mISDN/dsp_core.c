@@ -175,6 +175,7 @@ const char *dsp_revision = "$Revision$";
 #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
+#include "core.h"
 #include "layer1.h"
 #include "helper.h"
 #include "debug.h"
@@ -1031,6 +1032,8 @@ static int dsp_init(void)
 	dsp_spl_jiffies = dsp_spl_tl.expires;
 	add_timer(&dsp_spl_tl);
 	
+	mISDN_module_register(THIS_MODULE);
+	
 	return(0);
 }
 
@@ -1042,6 +1045,8 @@ static void dsp_cleanup(void)
 {
 	dsp_t	*dspl, *nd;	
 	int	err;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if (timer_pending(&dsp_spl_tl))
 		del_timer(&dsp_spl_tl);

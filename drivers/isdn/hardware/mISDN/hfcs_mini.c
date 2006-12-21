@@ -53,6 +53,7 @@
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <asm/timex.h>
+#include "core.h"
 #include "layer1.h"
 #include "debug.h"
 #include "hfcs_mini.h"
@@ -1847,6 +1848,7 @@ hfcsmini_init(void)
 #endif
 #endif
 
+	mISDN_module_register(THIS_MODULE);
 	printk(KERN_INFO "HFC-S mini: %d cards installed\n", card_cnt);
 	return 0;
 
@@ -1859,6 +1861,8 @@ static void __exit
 hfcsmini_cleanup(void)
 {
 	int err;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 #if HFCBRIDGE == BRIDGE_HFCPCI
 	pci_unregister_driver(&hfcsmini_driver);

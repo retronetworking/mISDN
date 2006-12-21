@@ -14,6 +14,7 @@
 
 #include <linux/config.h>
 #include <linux/module.h>
+#include "core.h"
 #include "x25_l3.h"
 #include "helper.h"
 #include "debug.h"
@@ -1369,6 +1370,7 @@ x25_dte_init(void)
 		dte_dfsm.strEvent = X25strDEvent;
 		dte_dfsm.strState = X25strDState;
 		mISDN_FsmNew(&dte_dfsm, DFnList, D_FN_COUNT);
+		mISDN_module_register(THIS_MODULE);
 	}
 	return(err);
 }
@@ -1378,6 +1380,8 @@ x25_dte_cleanup(void)
 {
 	x25_l3_t	*l3, *nl3;
 	int		err;
+
+	mISDN_module_unregister(THIS_MODULE);
 
 	if ((err = mISDN_unregister(&x25dte_obj))) {
 		printk(KERN_ERR "Can't unregister l3x25 error(%d)\n", err);
