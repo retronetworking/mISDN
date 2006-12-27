@@ -728,6 +728,7 @@ typedef struct _Q931_info {
 	ie_info_t	called_nr;
 	ie_info_t	called_sub;
 	ie_info_t	redirect_nr;
+	ie_info_t	redirect_dn;
 	ie_info_t	transit_net_sel;
 	ie_info_t	restart_ind;
 	ie_info_t	llc;

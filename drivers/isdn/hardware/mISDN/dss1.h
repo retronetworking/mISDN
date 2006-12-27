@@ -109,6 +109,7 @@
 #define IE_CALLED_PN	0x70
 #define IE_CALLED_SUB	0x71
 #define IE_REDIR_NR	0x74
+#define IE_REDIR_DN	0x76
 #define IE_TRANS_SEL	0x78
 #define IE_RESTART_IND	0x79
 #define IE_LLC		0x7c
