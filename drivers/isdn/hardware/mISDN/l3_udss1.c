@@ -2796,7 +2796,7 @@ dss1_fromup(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 
 	if (!proc && (hh->prim == (CC_RELEASE_COMPLETE | REQUEST)) ) {
 		/* crich: */
-		l3_debug(l3, "mISDN dss1 sending RELEASE_COMPLETE without proc pr=%04x dinof(%x)\n", hh->prim, hh->dinfo);
+		if (l3->debug) l3_debug(l3, "mISDN dss1 sending RELEASE_COMPLETE without proc pr=%04x dinof(%x)", hh->prim, hh->dinfo);
 		SendMsg(l3->dummy, skb, -1);
 
 		return 0;
