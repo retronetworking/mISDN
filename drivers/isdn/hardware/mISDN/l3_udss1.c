@@ -940,6 +940,14 @@ l3dss1_facility_req(l3_process_t *pc, u_char pr, void *arg)
 }
 
 static void
+l3dss1_restart_req(l3_process_t *pc, u_char pr, void *arg)
+{
+	if (arg) {
+		SendMsg(pc, arg, -1);
+	}
+}
+
+static void
 l3dss1_release_cmpl(l3_process_t *pc, u_char pr, void *arg)
 {
 	struct sk_buff	*skb = arg;
@@ -2789,6 +2797,14 @@ dss1_fromup(layer3_t *l3, struct sk_buff *skb, mISDN_head_t *hh)
 	if (!proc && hh->dinfo == MISDN_ID_DUMMY) {
 		if (hh->prim == (CC_FACILITY | REQUEST)) {
 			l3dss1_facility_req(l3->dummy, hh->prim, skb->len ? skb : NULL);
+			ret = 0;
+		}
+		return(ret);
+	}
+
+	if (!proc && hh->dinfo == MISDN_ID_DUMMY) {
+		if (hh->prim == (CC_RESTART | REQUEST)) {
+			l3dss1_restart_req(l3->dummy, hh->prim, skb->len ? skb : NULL);
 			ret = 0;
 		}
 		return(ret);
