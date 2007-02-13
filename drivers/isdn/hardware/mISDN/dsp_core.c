@@ -172,7 +172,6 @@ There are three things that need to transmit data to card:
 const char *dsp_revision = "$Revision$";
 
 #include <linux/delay.h>
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/vmalloc.h>
 #include "core.h"

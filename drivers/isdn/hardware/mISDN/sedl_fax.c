@@ -26,7 +26,6 @@
  * the firmware onto the card.
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #include <linux/delay.h>

@@ -10,7 +10,6 @@
 
 static char *l1_revision = "$Revision$";
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include "core.h"
 #include "layer1.h"

@@ -11,7 +11,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include "layer1.h"
 #include "m_capi.h"

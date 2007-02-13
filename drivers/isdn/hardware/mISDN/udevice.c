@@ -8,7 +8,6 @@
 #include <linux/stddef.h>
 #include <linux/poll.h>
 #include <linux/vmalloc.h>
-#include <linux/config.h>
 #include <linux/timer.h>
 #ifdef CONFIG_DEVFS_FS
 #include <linux/devfs_fs_kernel.h>

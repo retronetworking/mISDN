@@ -51,7 +51,6 @@
  */
  
 #include <linux/mISDNif.h>
-// #include <linux/config.h>
 #include <linux/module.h>
 #include <linux/delay.h>
 #include <linux/pci.h>

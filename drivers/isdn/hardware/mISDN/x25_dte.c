@@ -12,7 +12,6 @@
  *
  */
 
-#include <linux/config.h>
 #include <linux/module.h>
 #include "core.h"
 #include "x25_l3.h"

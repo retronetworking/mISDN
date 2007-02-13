@@ -8,7 +8,6 @@
  * This file is (c) under GNU PUBLIC LICENSE
  *
  */
-#include <linux/config.h>
 #include <linux/module.h>
 #include <linux/pci.h>
 #ifdef NEW_ISAPNP
