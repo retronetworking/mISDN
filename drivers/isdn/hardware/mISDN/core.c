@@ -20,6 +20,7 @@
 #endif
 
 static char		*mISDN_core_revision = "$Revision$";
+static char		*mISDN_core_version = MISDNVERSION ;
 
 LIST_HEAD(mISDN_objectlist);
 static rwlock_t		mISDN_objects_lock = RW_LOCK_UNLOCKED;
@@ -723,7 +724,7 @@ mISDNInit(void)
 	DECLARE_MUTEX_LOCKED(sem);
 	int err;
 
-	printk(KERN_INFO "Modular ISDN Stack core %s\n", mISDN_core_revision);
+	printk(KERN_INFO "Modular ISDN Stack core version (%s) revision (%s)\n", mISDN_core_version, mISDN_core_revision);
 	core_debug = debug;
 #ifdef MISDN_MEMDEBUG
 	err = __mid_init();
