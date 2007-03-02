@@ -4126,7 +4126,7 @@ static int __devinit hfcpci_probe(struct pci_dev *pdev, const struct pci_device_
 			/* set optical line type */
 			if (protocol[port_idx] & 0x10000) {
 				if (!id_list[id_idx].opticalsupport)  {
-					print(KERN_INFO "This board has no optical support\n");
+					printk(KERN_INFO "This board has no optical support\n");
 				} else {
 
 					if (debug & DEBUG_HFCMULTI_INIT)
