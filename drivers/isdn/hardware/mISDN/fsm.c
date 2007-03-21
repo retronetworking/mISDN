@@ -127,8 +127,10 @@ mISDN_FsmAddTimer(struct FsmTimer *ft,
 #endif
 
 	if (timer_pending(&ft->tl)) {
-		printk(KERN_WARNING "mISDN_FsmAddTimer: timer already active!\n");
-		ft->fi->printdebug(ft->fi, "mISDN_FsmAddTimer already active!");
+		if (ft->fi->debug) {
+			printk(KERN_WARNING "mISDN_FsmAddTimer: timer already active!\n");
+			ft->fi->printdebug(ft->fi, "mISDN_FsmAddTimer already active!");
+		}
 		return -1;
 	}
 	init_timer(&ft->tl);
