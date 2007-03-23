@@ -153,9 +153,11 @@ s32 dsp_audio_alaw_to_s32[256] =
 };
 
 s32 *dsp_audio_law_to_s32;
+EXPORT_SYMBOL(dsp_audio_law_to_s32);
 
 /* signed 16-bit -> law */
 u8 dsp_audio_s16_to_law[65536];
+EXPORT_SYMBOL(dsp_audio_s16_to_law);
 
 /* table is used to generate s16_to_alaw */
 static short dsp_audio_alaw_relations[512] =
