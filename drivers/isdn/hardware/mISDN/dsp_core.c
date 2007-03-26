@@ -461,6 +461,11 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 				}
 
 			} else {
+				if (dsp->features.pcm_id>=0) {
+					printk("Not sending Data to CMX -- > returning because of HW bridge\n");
+					dev_kfree_skb(skb);
+					break;
+				}
 				/* send data to tx-buffer (if no tone is played) */
 				spin_lock_irqsave(&dsp_obj.lock, flags);
 				if (!dsp->tone.tone) {
@@ -476,12 +481,6 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 			spin_lock_irqsave(&dsp_obj.lock, flags);
 			ret = dsp_control_req(dsp, hh, skb);
 			spin_unlock_irqrestore(&dsp_obj.lock, flags);
-				printk("%x Having Conference, still receiving Data !!!\n", dsp->inst.id);
-				if (dsp->features.pcm_id>=0) {
-					printk(" -- > returning cause HW bridge\n");
-					dev_kfree_skb(skb);
-					break;
-				}
 			
 			break;
 		case DL_ESTABLISH | REQUEST:
