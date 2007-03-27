@@ -2,7 +2,7 @@
  *
  * Audio support data for mISDN_dsp.
  *
- * Copyright 2002/2003 by Andreas Eversberg (jolly@jolly.de)
+ * Copyright 2002/2003 by Andreas Eversberg (jolly@eversberg.eu)
  *
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.

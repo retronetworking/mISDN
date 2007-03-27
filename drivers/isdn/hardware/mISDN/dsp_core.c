@@ -1,6 +1,6 @@
 /* $Id$
  *
- * Author       Andreas Eversberg (jolly@jolly.de)
+ * Author       Andreas Eversberg (jolly@eversberg.eu)
  * Based on source code structure by
  *		Karsten Keil (keil@isdn4linux.de)
  *

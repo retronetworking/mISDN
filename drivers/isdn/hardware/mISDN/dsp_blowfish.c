@@ -2,7 +2,7 @@
  *
  * Blowfish encryption/decryption for mISDN_dsp.
  *
- * Copyright Andreas Eversberg (jolly@jolly.de)
+ * Copyright Andreas Eversberg (jolly@eversberg.eu)
  *
  * This software may be used and distributed according to the terms
  * of the GNU General Public License, incorporated herein by reference.

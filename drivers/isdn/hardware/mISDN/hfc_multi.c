@@ -1,7 +1,7 @@
 /*
  * hfc_multi.c  low level driver for hfc-4s/hfc-8s/hfc-e1 based cards
  *
- * Author	Andreas Eversberg (jolly@jolly.de)
+ * Author	Andreas Eversberg (jolly@eversberg.eu)
  * ported to mqueue mechanism:
  * 		Peter Sprenger (sprengermoving-bytes.de)
  *
