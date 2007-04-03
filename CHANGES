@@ -5,3 +5,4 @@ mISDN-1-1-2:
 	- minor tweaks to misdn-init and to the Kernel-Patch script
 	- fix in CMX: sending is required even during PCM bridge, because sending data overrides bridging temporarily (for sending info tones during bridge)
 	- enabled CMX audio processing for RX data in all cases, because it is essential
+	- now it is save to free skb during interrupt, if memdebug is on
