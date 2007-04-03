@@ -868,6 +868,9 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	if (!(dsp_options & DSP_OPT_NOHARDWARE)) {
 		ndsp->feature_tl.expires = jiffies + (HZ / 100);
 		add_timer(&ndsp->feature_tl);
+		// we don't need features, because we disabled them, so we must
+		// set the state to *_RECEIVED
+		ndsp->feature_state = FEAT_STATE_RECEIVED;
 	}
 	spin_lock_irqsave(&dsp_obj.lock, flags);
 	/* append and register */
