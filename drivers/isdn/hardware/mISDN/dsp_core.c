@@ -855,19 +855,19 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	/* set dsp feture timer */
 	ndsp->feature_tl.function = (void *)dsp_feat;
 	ndsp->feature_tl.data = (long) ndsp;
-	ndsp->feature_state = FEAT_STATE_INIT;
 
 	if (dtmfthreshold < 20 || dtmfthreshold> 500) {
 		dtmfthreshold=200;
 	}
-#warning CHRISTIAN: my define was 200000, but your default is 200*10000=2000000. what shall we do? *1000 or dtmftreshold=20 ??
 	ndsp->dtmf.treshold=dtmfthreshold*10000;
 
 	spin_lock_init(&ndsp->feature_lock);
 	init_timer(&ndsp->feature_tl);
 	if (!(dsp_options & DSP_OPT_NOHARDWARE)) {
+		ndsp->feature_state = FEAT_STATE_INIT;
 		ndsp->feature_tl.expires = jiffies + (HZ / 100);
 		add_timer(&ndsp->feature_tl);
+	} else {
 		// we don't need features, because we disabled them, so we must
 		// set the state to *_RECEIVED
 		ndsp->feature_state = FEAT_STATE_RECEIVED;

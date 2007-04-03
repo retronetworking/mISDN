@@ -995,7 +995,7 @@ dsp_cmx_receive(dsp_t *dsp, struct sk_buff *skb)
 
 	/* show where to write */
 #ifdef CMX_DEBUG
-	printk( KERN_DEBUG "cmx_receive(dsp=%lx): rx_R(dsp) rx_W(dsp)=%05x len=%d %s\n", (u_long)dsp, dsp->rx_R, dsp->rx_W, len, dsp->inst.name);
+	printk( KERN_DEBUG "cmx_receive(dsp=%lx): rx_R(dsp)=%05x rx_W(dsp)=%05x len=%d %s\n", (u_long)dsp, dsp->rx_R, dsp->rx_W, len, dsp->inst.name);
 #endif
 
 	/* write data into rx_buffer */
