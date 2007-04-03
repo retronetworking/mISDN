@@ -194,6 +194,7 @@ typedef struct _dsp {
 	int		tx_mix;
 	tone_t		tone;
 	dtmf_t		dtmf;
+	int		queue_dtmf; /* flags enabled dtmf, prior feature reply */
 	int		tx_volume, rx_volume;
 
 	/* conference stuff */
@@ -202,7 +203,7 @@ typedef struct _dsp {
 	conf_member_t	*member;
 
 	/* while we're waiting for the hw */
-	u32		queue_conf_id;
+	u32		queue_conf_id; /* stores conf id prior feature reply */
 
 	/* buffer stuff */
 	int		rx_W; /* current write pos for data without timestamp */
@@ -239,7 +240,7 @@ typedef struct _dsp {
 	int		bf_sync;
 
 	/* echo cancellation stuff */
-	int 		queue_cancel[3];
+	int 		queue_cancel[3]; /* stores cancel values prior feature reply */
 	int		cancel_enable;
 	int             cancel_hardware; /*we are using hw echo canc*/
 	struct echo_can_state * ec;      /**< == NULL: echo cancellation disabled;

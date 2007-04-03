@@ -242,18 +242,27 @@ dsp_control_req(dsp_t *dsp, mISDN_head_t *hh, struct sk_buff *skb)
 #endif
 
 			dsp_dtmf_goertzel_init(dsp);
+			dsp->dtmf.software = 0;
+			dsp->dtmf.hardware = 0;
+
 			/* checking for hardware capability */
+			spin_lock(&dsp->feature_lock);
+			if (dsp->feature_state != FEAT_STATE_RECEIVED) {
+				dsp->queue_dtmf=1;	
+				spin_unlock(&dsp->feature_lock);
+				break;
+			}
+			spin_unlock(&dsp->feature_lock);
 			if (dsp->features.hfc_dtmf) {
 				dsp->dtmf.hardware = 1;
-				dsp->dtmf.software = 0;
 			} else {
-				dsp->dtmf.hardware = 0;
 				dsp->dtmf.software = 1;
 			}
 			break;
 		case DTMF_TONE_STOP: /* turn off DTMF */
 			if (dsp_debug & DEBUG_DSP_CORE)
 				printk(KERN_DEBUG "%s: stop dtmf\n", __FUNCTION__);
+			dsp->queue_dtmf=0;	
 			dsp->dtmf.hardware = 0;
 			dsp->dtmf.software = 0;
 			break;
@@ -452,44 +461,13 @@ dsp_from_up(mISDNinstance_t *inst, struct sk_buff *skb)
 			if (skb->len < 1)
 				return(-EINVAL);
 			
-			if (!dsp->conf_id) {
-				/* PROCESS TONES/TX-DATA ONLY */
-				if (dsp->tone.tone) {
-					/* -> copy tone */
-					dsp_tone_copy(dsp, skb->data, skb->len);
-				}
+			/* send data to tx-buffer (if no tone is played) */
+			spin_lock_irqsave(&dsp_obj.lock, flags);
+			if (!dsp->tone.tone)
+				dsp_cmx_transmit(dsp, skb);
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 
-				if (dsp->tx_volume)
-			                dsp_change_volume(skb, dsp->tx_volume);
-				/* cancel echo */
-				if (dsp->cancel_enable)
-					dsp_cancel_tx(dsp, skb->data, skb->len);
-				/* crypt */
-				if (dsp->bf_enable)
-					dsp_bf_encrypt(dsp, skb->data, skb->len);
-				/* send packet */
-				if (mISDN_queue_down(&dsp->inst, 0, skb)) {
-					dev_kfree_skb(skb);
-					printk(KERN_ERR "%s: failed to send tx-packet\n", __FUNCTION__);
-
-					return (-EIO);
-				}
-
-			} else {
-				if (dsp->features.pcm_id>=0) {
-					printk("Not sending Data to CMX -- > returning because of HW bridge\n");
-					dev_kfree_skb(skb);
-					break;
-				}
-				/* send data to tx-buffer (if no tone is played) */
-				spin_lock_irqsave(&dsp_obj.lock, flags);
-				if (!dsp->tone.tone) {
-					dsp_cmx_transmit(dsp, skb);
-				} 
-				spin_unlock_irqrestore(&dsp_obj.lock, flags);
-
-				dev_kfree_skb(skb);
-			}
+			dev_kfree_skb(skb);
 			break;
 		case PH_CONTROL | REQUEST:
 			
@@ -589,15 +567,13 @@ dsp_from_down(mISDNinstance_t *inst,  struct sk_buff *skb)
 			if (dsp->rx_volume)
 				dsp_change_volume(skb, dsp->rx_volume);
 
-			if (dsp->conf_id) {
-				/* we need to process receive data if software */
-				spin_lock_irqsave(&dsp_obj.lock, flags);
-				if (dsp->pcm_slot_tx<0 && dsp->pcm_slot_rx<0) {
-					/* process data from card at cmx */
-					dsp_cmx_receive(dsp, skb);
-				}
-				spin_unlock_irqrestore(&dsp_obj.lock, flags);
+			/* we need to process receive data if software */
+			spin_lock_irqsave(&dsp_obj.lock, flags);
+			if (dsp->pcm_slot_tx<0 && dsp->pcm_slot_rx<0) {
+				/* process data from card at cmx */
+				dsp_cmx_receive(dsp, skb);
 			}
+			spin_unlock_irqrestore(&dsp_obj.lock, flags);
 
 			if (dsp->rx_disabled) {
 				/* if receive is not allowed */
@@ -802,10 +778,21 @@ dsp_feat(void *arg)
 			spin_unlock(&dsp->feature_lock);
 
 			if (dsp->queue_conf_id) {
-				/*work on queued conf id*/
+				/* work on queued conf id*/
 				dsp_cmx_conf(dsp, dsp->queue_conf_id );
 				if (dsp_debug & DEBUG_DSP_CMX)
 					dsp_cmx_debug(dsp);
+			}
+
+			if (dsp->queue_dtmf) {
+				/* work on queued dtmf */
+				if (dsp->features.hfc_dtmf) {
+					dsp->dtmf.software = 0;
+					dsp->dtmf.hardware = 1;
+				} else {
+					dsp->dtmf.hardware = 0;
+					dsp->dtmf.software = 1;
+				}
 			}
 
 			if (dsp->queue_cancel[2]) {
@@ -873,6 +860,7 @@ new_dsp(mISDNstack_t *st, mISDN_pid_t *pid)
 	if (dtmfthreshold < 20 || dtmfthreshold> 500) {
 		dtmfthreshold=200;
 	}
+#warning CHRISTIAN: my define was 200000, but your default is 200*10000=2000000. what shall we do? *1000 or dtmftreshold=20 ??
 	ndsp->dtmf.treshold=dtmfthreshold*10000;
 
 	spin_lock_init(&ndsp->feature_lock);

@@ -1279,7 +1279,7 @@ void dsp_cmx_send(void *data)
 		}
 		
 		/* transmission required */
-		if (!mustmix && dsp->conf_id)
+		if (!mustmix)
 			dsp_cmx_send_member(dsp, dsp_poll, mixbuffer, members); // unused mixbuffer is given to prevent a potential null-pointer-bug
 	}
 	
@@ -1311,8 +1311,7 @@ void dsp_cmx_send(void *data)
 			/* process each member */
 			list_for_each_entry(member, &conf->mlist, list) {
 				/* transmission */
-				if (member->dsp->conf_id)
-					dsp_cmx_send_member(member->dsp, dsp_poll, mixbuffer, members);
+				dsp_cmx_send_member(member->dsp, dsp_poll, mixbuffer, members);
 			}
 		}
 	}
