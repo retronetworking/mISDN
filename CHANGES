@@ -3,3 +3,4 @@ mISDN-1-1-2:
 	  voice frames where transceived on both legs (like when you transfer a call from SIP 2 ISDN)
 	- jollys mail has changed
 	- minor tweaks to misdn-init and to the Kernel-Patch script
+	- fix in CMX: sending is required even during PCM bridge, because sending data overrides bridging temporarily (for sending info tones during bridge)

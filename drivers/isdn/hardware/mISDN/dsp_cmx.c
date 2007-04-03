@@ -1036,7 +1036,11 @@ dsp_cmx_send_member(dsp_t *dsp, int len, s32 *c, int members)
 	if (!dsp->b_active) /* if not active */
 		return;
 
-#if 1
+// NOTE: The following is not good, because we MUST send transmit data or
+//       software tones during pcm brige. (The condition above expresses this
+//       exactly. The card driver MUST disable bridging if data is in TX-
+//       fifo, to allow temporarily transmit tones until fifo is empty again.
+#if 0
 	/* If we have 2 members and we are connected to pcm_slot, it looks
 	   like we're bridged on the pcm, so why should we send anything ? 
 	   */
